@@ -1,0 +1,137 @@
+use std::cell::RefCell;
+
+use rand::{SeedableRng, rngs::StdRng, seq::IndexedRandom};
+
+use crate::{
+    core::{
+        PageId, Response,
+        game_state::{PageKey, PageMap},
+    },
+    view::{Object, View},
+};
+
+#[derive(Debug)]
+pub struct PageState<'a> {
+    view: View,
+    chapter_state: RefCell<&'a mut PageMap>, // to allow simultaneous method accesses, safe because chaptyer_state doesn't produce refs
+    seed: Option<u64>,
+    fresh: bool,
+}
+
+impl<'a> PageState<'a> {
+    pub fn new(name: PageId, chapter_state: &'a mut PageMap, fresh: bool) -> Self {
+        Self {
+            view: View::new(name),
+            chapter_state: RefCell::new(chapter_state),
+            seed: None,
+            fresh,
+        }
+    }
+}
+
+impl<'a> PageState<'a> {
+    pub fn push(&mut self, object: Object) {
+        self.view.push(object);
+    }
+
+    pub fn id(&self) -> PageId {
+        self.view.name.clone()
+    }
+
+    pub fn into_response(self) -> Response {
+        Response::View(self.view)
+    }
+
+    pub fn fresh(&self) -> bool {
+        self.fresh
+    }
+
+    // --------- Chapter state
+    // indexing takes owned for convenience (PageKey is copy)
+    pub fn get(&self, key: PageKey) -> Option<u64> {
+        self.chapter_state.borrow().get(&key).copied()
+    }
+
+    pub fn get_mask_indices(&self, key: PageKey) -> Vec<usize> {
+        let val = match self.chapter_state.borrow().get(&key).copied() {
+            Some(v) => v,
+            None => return Vec::new(),
+        };
+
+        let mut bits = Vec::new();
+        for i in 0..64 {
+            if (val & (1 << i)) != 0 {
+                bits.push(i);
+            }
+        }
+        bits
+    }
+
+    pub fn get_mask<const N: usize>(&self, key: PageKey) -> [bool; N] {
+        let val = match self.chapter_state.borrow().get(&key).copied() {
+            Some(v) => v,
+            None => return [false; N],
+        };
+
+        std::array::from_fn(|i| i < 64 && (val & (1 << i)) != 0)
+    }
+
+    pub fn get_mask_last(&self, key: PageKey) -> Option<u8> {
+        let val = match self.chapter_state.borrow().get(&key).copied() {
+            Some(v) => v,
+            None => return None,
+        };
+
+        if val == 0 {
+            None
+        } else {
+            Some(val.trailing_zeros() as u8)
+        }
+    }
+
+    pub fn remove_mask_last(&mut self, key: PageKey) -> Option<u8> {
+        let val = match self.chapter_state.borrow_mut().remove(&key) {
+            Some(v) => v,
+            None => return None,
+        };
+
+        if val == 0 {
+            None
+        } else {
+            Some(val.trailing_zeros() as u8)
+        }
+    }
+
+    pub fn rand(&self, range: usize, exclude: &[usize]) -> usize {
+        let excl: std::collections::HashSet<usize> = exclude.iter().copied().collect();
+
+        let pool: Vec<usize> = (0..range).filter(|i| !excl.contains(i)).collect();
+
+        if pool.is_empty() {
+            panic!("rand(): range exhausted by exclusion list");
+        }
+
+        if let Some(seed) = self.seed {
+            *pool.choose(&mut StdRng::seed_from_u64(seed)).unwrap()
+        } else {
+            *pool.choose(&mut rand::rng()).unwrap()
+        }
+    }
+
+    pub fn insert(&self, key: PageKey, value: u64) {
+        self.chapter_state.borrow_mut().insert(key, value);
+    }
+
+    pub fn remove(&self, key: PageKey) -> Option<u64> {
+        self.chapter_state.borrow_mut().remove(&key)
+    }
+}
+
+// ------------- BOILERPLATE
+use std::fmt;
+
+impl<'a> fmt::Display for PageState<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.view.name)
+    }
+}

@@ -1,0 +1,18 @@
+[package]
+name = "story"
+version = "0.0.1"
+authors = ["Squirreljetpack"]
+edition = "2024"
+include = ["LICENSE-APACHE", "LICENSE-MIT", "**/*.rs", "Cargo.toml"]
+
+[package.metadata.docs.rs]
+all-features = true
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { version = "1.0.219", features = ["derive"] }
+bitflags = "2.10.0"
+const-fnv1a-hash = "1.1.0"
+ifengine = { path = "../ifengine", features = ["macros"] }

@@ -1,0 +1,13 @@
+[package]
+name = "ifengine_macros"
+version = "0.0.1"
+authors = ["Squirreljetpack"]
+edition = "2024"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+syn = { version = "2", features = ["full"] }
+quote = "1"
+proc-macro2 = "1"
