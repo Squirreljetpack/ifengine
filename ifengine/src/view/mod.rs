@@ -1,14 +1,19 @@
 mod image;
 mod line;
+
 pub use image::*;
 pub use line::*;
 
 use crate::core::{PageId, game_state::PageKey};
 
+pub type RenderData = String;
+
 #[derive(Debug, Clone)]
 pub enum Object {
-    /// A single line, rendered with wrapping.
-    Text(Line),
+    /// A single line, rendered with wrapping, carrying optional data which can be used for customization by frontend.
+    /// i.e. Harmonia displays some sections of text as "pages" in blocks
+    /// Note that spans are allowed to carry newlines.
+    Text(Line, RenderData),
     /// Text with single-spaced y-margin
     Paragraph(Line),
     /// A list of selectable texts which stores the selected index on click
@@ -22,10 +27,10 @@ pub enum Object {
     Break,
     /// empty lines
     Empty(u8),
-    // Index into Span from Objects[View[Line]]
+    // (content, index). idx indexes into a Span from View[Line[Span]]
     Note(Line, (u8, u8)),
-    // Quote style + optional string for quote variants/data
-    Quote(Line, String),
+    // Quote style.
+    Quote(Line, RenderData),
 }
 
 /// The view returned by a [`crate::core::Page`].
@@ -34,19 +39,21 @@ pub enum Object {
 #[derive(Default, Debug)]
 pub struct View {
     pub inner: Vec<Object>,
-    pub name: PageId,
+    pub pageid: PageId,
+    pub tags: Vec<PageId>,
 }
 
 impl View {
     pub fn new(name: PageId) -> Self {
         Self {
             inner: vec![],
-            name,
+            pageid: name,
+            tags: vec![]
         }
     }
 
     pub fn name(&self) -> PageId {
-        self.name.clone()
+        self.pageid.clone()
     }
 }
 

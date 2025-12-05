@@ -1,11 +1,10 @@
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::{
-    Arm, Block, Error, Expr, ExprClosure, ItemFn, Result, Token,
-    parse::{Parse, ParseStream},
-    parse_macro_input,
-    punctuated::Punctuated,
+    Arm, Block, Error, Expr, ExprClosure, ItemFn, LitStr, Result, Token, parse::{Parse, ParseStream}, parse_macro_input, punctuated::Punctuated
 };
+mod nodes;
+use nodes::*;
 /// todo
 /// # Additional
 /// Also see [`ifengine::elements`]
@@ -45,11 +44,14 @@ pub fn ifview(_attr: TokenStream, item: TokenStream) -> TokenStream {
         {
             #[allow(unused_variables)]
             let #ctx_arg = &mut __ifengine_game.context;
+            let __ifengine_game_tags = &mut __ifengine_game.tags;
             let __ifengine_game = &mut __ifengine_game.inner;
             let mut __ifengine_page_state = ifengine::core::PageState::new(
                 format!("{}::{}", module_path!(), stringify!(#name)),
-                __ifengine_game.state.get_chapter_mut(&format!("{}::{}", module_path!(), stringify!(#name))),
-                __ifengine_game.fresh
+                __ifengine_game.state.get_page_mut(format!("{}::{}", module_path!(), stringify!(#name))),
+                __ifengine_game_tags,
+                __ifengine_game.fresh,
+                __ifengine_game.simulating
             );
 
             __ifengine_game.fresh = false;
@@ -63,44 +65,7 @@ pub fn ifview(_attr: TokenStream, item: TokenStream) -> TokenStream {
     expanded.into()
 }
 
-fn unique_id() -> u64 {
-    let span = proc_macro::Span::call_site();
-    let start = span.start();
-    ((start.line() as u64) << 32) | (start.column() as u64)
-}
-
 // ----------- CHOICES -------------------------
-
-enum MaybeKey {
-    Auto,
-    Key(Expr),
-}
-
-impl MaybeKey {
-    fn into_tokens(self) -> proc_macro2::TokenStream {
-        match self {
-            MaybeKey::Key(key_expr) => quote!(#key_expr),
-            MaybeKey::Auto => {
-                let uid = unique_id();
-                quote!(#uid)
-            }
-        }
-    }
-}
-
-impl Parse for MaybeKey {
-    fn parse(input: ParseStream) -> Result<Self> {
-        if input.peek(syn::token::Paren) {
-            let content;
-            syn::parenthesized!(content in input);
-            let key_expr: Expr = content.parse()?;
-            let _ = input.parse::<Token![,]>();
-            Ok(MaybeKey::Key(key_expr))
-        } else {
-            Ok(MaybeKey::Auto)
-        }
-    }
-}
 
 // Expr instead of Pattern
 struct LineArm {
@@ -344,7 +309,7 @@ pub fn mchoice(input: TokenStream) -> TokenStream {
 
 #[proc_macro]
 pub fn dchoices(input: TokenStream) -> TokenStream {
-    let KeyExprInput { maybe_key, expr } = syn::parse_macro_input!(input as KeyExprInput);
+    let KeyExpr { maybe_key, expr } = syn::parse_macro_input!(input as KeyExpr);
     let key_tokens = maybe_key.into_tokens();
 
     let expanded = quote! {
@@ -375,7 +340,7 @@ struct DChoicesInput {
 
 impl Parse for DChoicesInput {
     fn parse(input: ParseStream) -> Result<Self> {
-        let KeyExprInput { maybe_key, expr } = input.parse()?;
+        let KeyExpr { maybe_key, expr } = input.parse()?;
         input.parse::<Token![,]>()?;
 
         let mut arms = Vec::new();
@@ -432,7 +397,7 @@ pub fn ddchoices(input: TokenStream) -> TokenStream {
 /// Text line ends are trimmed
 #[proc_macro]
 pub fn dparagraph(input: TokenStream) -> TokenStream {
-    let KeyExprInput { maybe_key, expr } = syn::parse_macro_input!(input as KeyExprInput);
+    let KeyExpr { maybe_key, expr } = syn::parse_macro_input!(input as KeyExpr);
 
     let key = maybe_key.into_tokens();
 
@@ -456,24 +421,10 @@ pub fn dparagraph(input: TokenStream) -> TokenStream {
     expanded.into()
 }
 
-struct KeyExprInput {
-    pub maybe_key: MaybeKey,
-    pub expr: Expr,
-}
-
-impl Parse for KeyExprInput {
-    fn parse(input: ParseStream) -> Result<Self> {
-        let maybe_key = input.parse()?;
-        let expr: Expr = input.parse()?;
-
-        Ok(KeyExprInput { maybe_key, expr })
-    }
-}
-
 /// This creates a paragraph, and returns which of the clicked elements had been clicked.
 #[proc_macro]
 pub fn mparagraph(input: TokenStream) -> TokenStream {
-    let KeyExprInput { maybe_key, expr } = syn::parse_macro_input!(input as KeyExprInput);
+    let KeyExpr { maybe_key, expr } = syn::parse_macro_input!(input as KeyExpr);
 
     let key = maybe_key.into_tokens();
 
@@ -512,22 +463,56 @@ pub fn push(input: TokenStream) -> TokenStream {
     expanded.into()
 }
 
+struct LineArgs {
+    exprs: Vec<Expr>,
+    trailer: Option<LitStr>,
+}
+
+impl syn::parse::Parse for LineArgs {
+    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+        let mut exprs = Vec::new();
+        let mut trailer = None;
+
+        while !input.is_empty() {
+            if input.peek(Token![::]) {
+                let _coloncolon: Token![::] = input.parse()?;
+                let lit: LitStr = input.parse()?;
+                trailer = Some(lit);
+                break;
+            }
+
+            exprs.push(input.parse()?);
+
+            if input.peek(Token![,]) {
+                let _ = input.parse::<Token![,]>()?;
+            } else {
+                break;
+            }
+        }
+
+        Ok(LineArgs { exprs, trailer })
+    }
+}
+
 /// Pure text element.
-/// Beware that line already exists in std so make sure to import this version.
 #[proc_macro]
-pub fn line(input: TokenStream) -> TokenStream {
-    // Parse a comma-separated list of expressions
-    let exprs_parsed = parse_macro_input!(input with Punctuated<Expr, Token![,]>::parse_terminated);
-    let exprs: Vec<Expr> = exprs_parsed.into_iter().collect();
+pub fn text(input: TokenStream) -> TokenStream {
+    let LineArgs { exprs, trailer } = syn::parse_macro_input!(input as LineArgs);
+
+    let string_expr = match trailer {
+        Some(s) => quote!(#s),
+        None => quote!(""),
+    };
 
     let expanded = quote! {
-
         __ifengine_page_state.push(
             ifengine::view::Object::Text(
-                ifengine::view::Line::from_spans(vec![#(#exprs.into()),*])
+                ifengine::view::Line::from_spans(
+                    vec![#(#exprs.into()),*]
+                ),
+                #string_expr.to_string()
             )
         );
-
     };
 
     TokenStream::from(expanded)
@@ -583,12 +568,19 @@ pub fn img(input: TokenStream) -> TokenStream {
 
     // Parse comma-separated arguments
     let exprs_parsed = parse_macro_input!(input with Punctuated<Expr, Token![,]>::parse_terminated);
-    let exprs: Vec<Expr> = exprs_parsed.into_iter().collect();
+    let exprs: Vec<&Expr> = exprs_parsed.iter().collect();
 
     let (path_expr, size_expr) = match exprs.len() {
-        1 => (&exprs[0], None),
-        2 => (&exprs[0], Some(&exprs[1])),
-        _ => panic!("image! macro expects 1 or 2 arguments"),
+        1 => (exprs[0], None),
+        2 => (exprs[0], Some(exprs[1])),
+        _ => {
+            return syn::Error::new_spanned(
+                exprs_parsed,
+                "image! macro expects 1 or 2 arguments",
+            )
+            .to_compile_error()
+            .into()
+        }
     };
 
     let image_tokens = if let Expr::Lit(lit) = path_expr
@@ -626,14 +618,16 @@ pub fn img(input: TokenStream) -> TokenStream {
 #[proc_macro]
 pub fn h(input: TokenStream) -> TokenStream {
     let exprs_parsed = parse_macro_input!(input with Punctuated<Expr, Token![,]>::parse_terminated);
-    let exprs: Vec<Expr> = exprs_parsed.into_iter().collect();
+    let exprs: Vec<&Expr> = exprs_parsed.iter().collect();
 
     if exprs.len() != 2 {
-        panic!("macro expects exactly 2 arguments: text and level");
+        return syn::Error::new_spanned(exprs_parsed, "macro expects exactly 2 arguments: text and level")
+            .to_compile_error()
+            .into();
     }
 
-    let text = &exprs[0];
-    let level = &exprs[1];
+    let text = exprs[0];
+    let level = exprs[1];
 
     let expanded = quote! {
         __ifengine_page_state.push(
@@ -690,13 +684,13 @@ impl Parse for AltVariant {
     }
 }
 
-struct MacroInput {
+struct AltsInput {
     maybe_key: MaybeKey,
     list: Vec<Expr>,
     variant: Option<AltVariant>,
 }
 
-impl Parse for MacroInput {
+impl Parse for AltsInput {
     fn parse(input: ParseStream<'_>) -> syn::Result<Self> {
         let content;
         syn::bracketed!(content in input);
@@ -729,11 +723,11 @@ impl Parse for MacroInput {
 
 #[proc_macro]
 pub fn alts(input: TokenStream) -> TokenStream {
-    let MacroInput {
+    let AltsInput {
         maybe_key,
         list,
         variant,
-    } = parse_macro_input!(input as MacroInput);
+    } = parse_macro_input!(input as AltsInput);
 
     let key = maybe_key.into_tokens();
 
@@ -785,6 +779,7 @@ pub fn alts(input: TokenStream) -> TokenStream {
                     (__ifengine_page_state.id(), #key),
                     ((idx as u64) << 1) + 1
                 ))
+                .hide_if(__ifengine_page_state.simulating)
             }}
         }
 
@@ -797,11 +792,13 @@ pub fn alts(input: TokenStream) -> TokenStream {
                         alts[(idx as usize) % alts.len()]
                     )
                     .with_action(ifengine::Action::Inc((__ifengine_page_state.id(), #key)))
+                    .hide_if(__ifengine_page_state.simulating)
                 } else {
                     ifengine::view::Span::from(
                         alts[0]
                     )
                     .with_action(ifengine::Action::Inc((__ifengine_page_state.id(), #key)))
+                    .hide_if(__ifengine_page_state.simulating)
                 }
             }}
         }
@@ -821,7 +818,7 @@ struct CountInput {
 impl Parse for CountInput {
     fn parse(input: ParseStream) -> Result<Self> {
         let maybe_key = input.parse()?;
-        let closure: ExprClosure = input.parse()?;
+        let closure = input.parse()?;
 
         Ok(CountInput { maybe_key, closure })
     }
@@ -848,6 +845,7 @@ pub fn count(input: TokenStream) -> TokenStream {
             (#closure)(__ifengine_page_state.get(#key).unwrap_or_default())
         )
         .with_action(ifengine::Action::Inc((__ifengine_page_state.id(), #key)))
+        .hide_if(__ifengine_page_state.simulating)
     }};
 
     expanded.into()
@@ -911,6 +909,7 @@ pub fn click(input: TokenStream) -> TokenStream {
         )
         .with_action(ifengine::Action::Inc((__ifengine_page_state.id(), #key)))
         .as_link()
+        .hide_if(__ifengine_page_state.simulating)
     }};
 
     expanded.into()
@@ -936,25 +935,6 @@ pub fn once(input: TokenStream) -> TokenStream {
 }
 
 // ------------ KEY OPERATIONS -------------------
-struct KeyAndOptionalInput {
-    expr: syn::Expr,
-    n: Option<syn::Expr>,
-}
-
-impl syn::parse::Parse for KeyAndOptionalInput {
-    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
-        let expr: syn::Expr = input.parse()?;
-
-        let n = if input.peek(syn::Token![,]) {
-            input.parse::<syn::Token![,]>()?;
-            Some(input.parse()?)
-        } else {
-            None
-        };
-
-        Ok(Self { expr, n })
-    }
-}
 
 /// Elements push to the view in the order they are called.
 /// This can be used to query their state out of order.
@@ -971,12 +951,12 @@ pub fn read_key(input: TokenStream) -> TokenStream {
 
 #[proc_macro]
 pub fn read_key_mask(input: TokenStream) -> TokenStream {
-    let KeyAndOptionalInput { expr, n } = syn::parse_macro_input!(input as KeyAndOptionalInput);
+    let KeyAndOptional { key, n } = syn::parse_macro_input!(input as KeyAndOptional);
 
     let n = n.unwrap_or_else(|| syn::parse_quote!(64));
 
     quote! {
-        __ifengine_page_state.get_mask::<#n>(#expr)
+        __ifengine_page_state.get_mask::<#n>(#key)
     }
     .into()
 }
@@ -996,13 +976,21 @@ pub fn set_key(input: TokenStream) -> TokenStream {
 pub fn set_key_mask(input: TokenStream) -> TokenStream {
     use syn::{Expr, Token, parse::Parser, punctuated::Punctuated};
 
-    let parts = Punctuated::<Expr, Token![,]>::parse_terminated
-        .parse(input)
-        .expect("expected: key, bit...");
+    let parts = match Punctuated::<Expr, Token![,]>::parse_terminated
+        .parse(input) {
+            Ok(parts) => parts,
+            Err(e) => return e.to_compile_error().into(),
+        };
 
-    let mut iter = parts.into_iter();
-    let key = iter.next().expect("expected key");
-    let bits: Vec<Expr> = iter.collect();
+    let mut iter = parts.iter();
+    let key = if let Some(key) = iter.next() {
+        key
+    } else {
+        return syn::Error::new_spanned(parts, "expected key")
+            .to_compile_error()
+            .into();
+    };
+    let bits: Vec<&Expr> = iter.collect();
 
     // build const mask at macro-expansion time
     let mut mask = 0u64;
@@ -1012,10 +1000,18 @@ pub fn set_key_mask(input: TokenStream) -> TokenStream {
             ..
         }) = expr
         {
-            let bit = i.base10_parse::<usize>().unwrap();
-            mask |= 1u64 << bit;
+            match i.base10_parse::<usize>() {
+                Ok(bit) => mask |= 1u64 << bit,
+                Err(_) => {
+                    return syn::Error::new_spanned(i, "failed to parse bit position")
+                        .to_compile_error()
+                        .into()
+                }
+            }
         } else {
-            panic!("bit positions must be integer literals");
+            return syn::Error::new_spanned(expr, "bit positions must be integer literals")
+                .to_compile_error()
+                .into();
         }
     }
 
@@ -1033,13 +1029,21 @@ pub fn set_key_mask(input: TokenStream) -> TokenStream {
 pub fn unset_key_mask(input: TokenStream) -> TokenStream {
     use syn::{Expr, Token, parse::Parser, punctuated::Punctuated};
 
-    let parts = Punctuated::<Expr, Token![,]>::parse_terminated
-        .parse(input)
-        .expect("expected: key, bit...");
+    let parts = match Punctuated::<Expr, Token![,]>::parse_terminated
+        .parse(input) {
+            Ok(parts) => parts,
+            Err(e) => return e.to_compile_error().into(),
+        };
 
-    let mut iter = parts.into_iter();
-    let key = iter.next().expect("expected key");
-    let bits: Vec<Expr> = iter.collect();
+    let mut iter = parts.iter();
+    let key = if let Some(key) = iter.next() {
+        key
+    } else {
+        return syn::Error::new_spanned(parts, "expected key")
+            .to_compile_error()
+            .into();
+    };
+    let bits: Vec<&Expr> = iter.collect();
 
     let mut mask = 0u64;
     for expr in &bits {
@@ -1048,10 +1052,18 @@ pub fn unset_key_mask(input: TokenStream) -> TokenStream {
             ..
         }) = expr
         {
-            let bit = i.base10_parse::<usize>().unwrap();
-            mask |= 1u64 << bit;
+            match i.base10_parse::<usize>() {
+                Ok(bit) => mask |= 1u64 << bit,
+                Err(_) => {
+                    return syn::Error::new_spanned(i, "failed to parse bit position")
+                        .to_compile_error()
+                        .into()
+                }
+            }
         } else {
-            panic!("bit positions must be integer literals");
+            return syn::Error::new_spanned(expr, "bit positions must be integer literals")
+                .to_compile_error()
+                .into();
         }
     }
 
@@ -1086,6 +1098,77 @@ pub fn reset_key(input: TokenStream) -> TokenStream {
 
     let expanded = quote! {
         __ifengine_page_state.remove(#expr)
+    };
+
+    expanded.into()
+}
+
+// ------------ TAGS ------------------
+
+
+#[proc_macro]
+pub fn tag(input: TokenStream) -> TokenStream {
+    use syn::{parse_macro_input, Expr, Ident, Token};
+    use syn::parse::{Parse, ParseStream, Result};
+    use quote::quote;
+
+    struct TagInput {
+        expr: Expr,
+        mode: Option<Ident>,
+    }
+
+    impl Parse for TagInput {
+        fn parse(input: ParseStream) -> Result<Self> {
+            let expr: Expr = input.parse()?;
+            let mode: Option<Ident> = if input.peek(Token![,]) {
+                input.parse::<Token![,]>()?;
+                Some(input.parse()?)
+            } else if !input.is_empty() {
+                Some(input.parse()?)
+            } else {
+                None
+            };
+            Ok(TagInput { expr, mode })
+        }
+    }
+
+    let TagInput { expr, mode } = parse_macro_input!(input as TagInput);
+
+    let sticky = match mode {
+        Some(id) => match id.to_string().as_str() {
+            "Sticky" => true,
+            "Once" => false,
+            _ => {
+                return syn::Error::new_spanned(&id, "Expected `Sticky` or `Once`")
+                    .to_compile_error()
+                    .into()
+            }
+        },
+        None => false,
+    };
+
+    let expanded = quote! {
+        __ifengine_page_state.tag(#expr, #sticky)
+    };
+
+    expanded.into()
+}
+
+#[proc_macro]
+pub fn untag(input: TokenStream) -> TokenStream {
+    let expr = syn::parse_macro_input!(input as syn::Expr);
+
+    let expanded = quote! {
+        __ifengine_page_state.untag(#expr)
+    };
+
+    expanded.into()
+}
+
+#[proc_macro]
+pub fn in_sim(_: TokenStream) -> TokenStream {
+    let expanded = quote! {
+        __ifengine_page_state.simulate
     };
 
     expanded.into()

@@ -7,7 +7,7 @@ pub fn new() -> Game {
     ifengine::Game!(chap1::p1)
 }
 
-#[derive(Debug, Default, Serialize, Deserialize)]
+#[derive(Debug, Default, Serialize, Deserialize, Clone)]
 pub struct State {
     pub myname: String,
     pub c1: Companion,
@@ -17,7 +17,22 @@ pub struct State {
     pub miles: usize,
 }
 
-#[derive(Debug, Default, Serialize, Deserialize)]
+#[derive(Debug, Default, Serialize, Deserialize, Clone)]
 pub struct Companion {
     name: String,
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_sim() {
+        let game = new();
+        let sim = game.simulate(|s| {
+            s.depth > 6
+        });
+        dbg!(&sim);
+    }
 }

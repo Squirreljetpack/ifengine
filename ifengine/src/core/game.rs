@@ -1,18 +1,19 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
-use crate::GameError;
+use crate::{Action, GameError};
 use crate::core::game_state::{GameState, InternalKey};
-use crate::core::{Page, PageHandle, Response};
+use crate::core::{Page, PageHandle, PageId, Response};
 use crate::view::View;
 
 /// Used to manage custom state
 pub type StringMap = HashMap<String, String>;
+pub type GameTags = HashSet<PageId>; // just want the Arc<str>
 
-pub trait GameContext: Default + std::fmt::Debug + 'static {}
-impl<T> GameContext for T where T: Default + std::fmt::Debug + 'static {}
+pub trait GameContext: Default + Clone + std::fmt::Debug + 'static {}
+impl<T> GameContext for T where T: Default + Clone + std::fmt::Debug + 'static {}
 
 /// The core ifengine game object
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct GameInner {
     pub state: GameState,
@@ -20,30 +21,34 @@ pub struct GameInner {
     pub pages: PageStack,
     pub fresh: bool,
     pub iterations: usize, // todo
+    pub simulating: bool,
 }
 
 /// When processing for rendering, use game.inner instead
 /// The context is exposed to your pages allowing you to flexibly manage state however you want
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct Game<C: GameContext = StringMap> {
+pub struct Game<C = StringMap> {
     pub inner: GameInner,
     pub context: C,
+    pub tags: GameTags
 }
 
 impl<C: GameContext> Game<C> {
-    pub fn new_with_page(page_name: String, page: Page<C>) -> Self {
-        let widget = PageHandle::new(page_name, page);
+    pub fn new_with_page(page_name: impl Into<PageId>, page: Page<C>) -> Self {
+        let widget = PageHandle::new(page_name.into(), page);
 
         let inner = GameInner {
             state: GameState::new(),
             pages: PageStack::new_with_page(widget),
             fresh: true,
             iterations: 0,
+            simulating: false
         };
 
         Self {
             context: Default::default(),
+            tags: Default::default(),
             inner,
         }
     }
@@ -53,15 +58,15 @@ impl<C: GameContext> Game<C> {
             return Err(GameError::NoPage);
         };
 
-        if page.name.is_empty() {
-            self.pages.clear() // drop the initial page for the next rendered (possibly same) page. In particular, it will have the fully resolved name.
+        if page.id.is_empty() {
+            self.pages.pop(); // drop the initial page for the next rendered and (possibly same) page. In particular, it will have the fully resolved name, (while i.e. the pagehandles produced by link! in handle_action don't).
         }
 
         let view = loop {
             let r = page.call(self);
             match r {
                 Response::View(view) => {
-                    page.name = view.name.clone();
+                    page.id = view.pageid.clone(); // id the page by the fully resolved name
 
                     self.pages.push(page)?; // only rendered pages get added to history
                     break view;
@@ -85,6 +90,17 @@ impl<C: GameContext> Game<C> {
         };
 
         Ok(view)
+    }
+
+    pub fn id(&self) -> Option<PageId> {
+        let mut test = self.clone();
+
+
+        let Response::View(view) = self.pages.current()?.call(&mut test) else {
+            return None;
+        };
+
+        Some(view.pageid)
     }
 }
 
@@ -110,7 +126,7 @@ impl GameInner {
                 self.state.remove(&k);
             }
             Action::Next(mut page) => {
-                page.name = "".into(); // Only rendered pages go into history + this is not the full name
+                page.id = "".into(); // Only rendered pages go into history + this is not the full name
                 self.pages.push(page)?;
             }
             Action::Back(n) => {
@@ -118,7 +134,7 @@ impl GameInner {
             }
             Action::Tunnel(mut page) => {
                 self.pages.adv_stack();
-                page.name = "".into(); // Only rendered pages go into history + this is not the full name
+                page.id = "".into(); // Only rendered pages go into history + this is not the full name
                 self.pages.push(page)?;
             }
             Action::Exit => {
@@ -132,17 +148,17 @@ impl GameInner {
 #[macro_export]
 macro_rules! Game {
     ($f:path) => {
-        $crate::core::Game::new_with_page("".into(), $f)
+        $crate::core::Game::new_with_page("", $f)
     };
 }
 
 // -------------- Page Stack -----------------
 
-#[derive(Default, Debug)]
+#[derive(Default, Debug, Clone)]
 pub struct PageStack(Vec<Vec<PageHandle>>);
 
 impl PageStack {
-    fn new_with_page(page: PageHandle) -> Self {
+    pub fn new_with_page(page: PageHandle) -> Self {
         Self(vec![vec![page]])
     }
 
@@ -150,11 +166,15 @@ impl PageStack {
         self.0.last()?.last().cloned()
     }
 
+    pub fn current_mut(&mut self) -> Option<&mut PageHandle> {
+        self.0.last_mut()?.last_mut()
+    }
+
     pub fn push(&mut self, page: PageHandle) -> Result<(), GameError> {
         let stack = self.0.last_mut().ok_or(GameError::NoStack)?;
 
         let fresh = match stack.last() {
-            Some(last) => last.name != page.name,
+            Some(last) => last.id != page.id,
             None => true,
         };
 
@@ -190,7 +210,7 @@ impl PageStack {
     pub fn pop_n(&mut self, n: usize) -> Result<PageHandle, GameError> {
         let stack = self.0.last_mut().ok_or(GameError::NoStack)?;
 
-        if n <= stack.len() {
+        if n < stack.len() {
             stack.truncate(stack.len() - n);
             self.pop().ok_or(GameError::NoPage)
         } else {
@@ -211,21 +231,6 @@ impl PageStack {
     }
 }
 
-// -------------- Action --------------------
-#[derive(Debug, Clone)]
-#[non_exhaustive]
-pub enum Action {
-    None,
-    SetBit(InternalKey, u8),
-    Set(InternalKey, u64),
-    Inc(InternalKey),
-    Reset(InternalKey),
-    /// The name of the handle here is just for debug, and NOT guaranteed to be the actual id of the page, see [`crate::core::PageState`]
-    Next(PageHandle), // Arc for easy cloning,
-    Back(usize),
-    Tunnel(PageHandle),
-    Exit,
-}
 
 // ----------------------- BOILERPLATE ---------------------------------------------------
 // impl Game {
@@ -261,3 +266,4 @@ impl<C: GameContext> std::ops::DerefMut for Game<C> {
         &mut self.inner
     }
 }
+

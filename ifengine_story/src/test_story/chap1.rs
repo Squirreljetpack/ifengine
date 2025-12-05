@@ -1,8 +1,7 @@
-use ifengine::{elements::ddchoices, link};
 #[allow(unused_imports)]
 use ifengine::{
-    elements::{alts, choice, count, dchoices, line, mchoice, once, p, page_dbg},
-    ifview,
+    elements::{alts, choice, count, dchoices, ddchoices, text, mchoice, once, p, page_dbg},
+    ifview, link
 };
 
 #[derive(Clone)]
@@ -16,7 +15,7 @@ enum DChoices {
 pub fn rainy_day(_: &mut ()) {
     p!("text1", "text2");
 
-    line!(
+    text!(
         link!("next", sunny_day),
         alts!(["alt1", "alt2", "alt3"], Shuffle)
     );
@@ -85,7 +84,7 @@ pub fn rainy_day(_: &mut ()) {
 pub fn sunny_day(_: &mut ()) {
     p!("sunny");
 
-    line!(
+    text!(
         link!("next", rainy_day),
         "test",
         count!(|n: u64| n.to_string())

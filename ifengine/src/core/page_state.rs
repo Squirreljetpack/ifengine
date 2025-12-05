@@ -1,11 +1,9 @@
 use std::cell::RefCell;
-
 use rand::{SeedableRng, rngs::StdRng, seq::IndexedRandom};
 
 use crate::{
     core::{
-        PageId, Response,
-        game_state::{PageKey, PageMap},
+        GameTags, PageId, Response, game_state::{PageKey, PageMap}
     },
     view::{Object, View},
 };
@@ -13,18 +11,23 @@ use crate::{
 #[derive(Debug)]
 pub struct PageState<'a> {
     view: View,
-    chapter_state: RefCell<&'a mut PageMap>, // to allow simultaneous method accesses, safe because chaptyer_state doesn't produce refs
+    page_state: RefCell<&'a mut PageMap>, // to allow simultaneous method accesses, safe because chaptyer_state doesn't produce refs
     seed: Option<u64>,
     fresh: bool,
+    game_tags: &'a mut GameTags,
+    /// [`crate::Game::simulate`]
+    pub simulating: bool
 }
 
 impl<'a> PageState<'a> {
-    pub fn new(name: PageId, chapter_state: &'a mut PageMap, fresh: bool) -> Self {
+    pub fn new(name: impl Into<PageId>, page_state: &'a mut PageMap, game_tags: &'a mut GameTags, fresh: bool, simulating: bool) -> Self {
         Self {
-            view: View::new(name),
-            chapter_state: RefCell::new(chapter_state),
+            view: View::new(name.into()),
+            page_state: RefCell::new(page_state),
             seed: None,
             fresh,
+            game_tags,
+            simulating
         }
     }
 }
@@ -35,7 +38,7 @@ impl<'a> PageState<'a> {
     }
 
     pub fn id(&self) -> PageId {
-        self.view.name.clone()
+        self.view.pageid.clone()
     }
 
     pub fn into_response(self) -> Response {
@@ -49,11 +52,11 @@ impl<'a> PageState<'a> {
     // --------- Chapter state
     // indexing takes owned for convenience (PageKey is copy)
     pub fn get(&self, key: PageKey) -> Option<u64> {
-        self.chapter_state.borrow().get(&key).copied()
+        self.page_state.borrow().get(&key).copied()
     }
 
     pub fn get_mask_indices(&self, key: PageKey) -> Vec<usize> {
-        let val = match self.chapter_state.borrow().get(&key).copied() {
+        let val = match self.page_state.borrow().get(&key).copied() {
             Some(v) => v,
             None => return Vec::new(),
         };
@@ -68,7 +71,7 @@ impl<'a> PageState<'a> {
     }
 
     pub fn get_mask<const N: usize>(&self, key: PageKey) -> [bool; N] {
-        let val = match self.chapter_state.borrow().get(&key).copied() {
+        let val = match self.page_state.borrow().get(&key).copied() {
             Some(v) => v,
             None => return [false; N],
         };
@@ -77,7 +80,7 @@ impl<'a> PageState<'a> {
     }
 
     pub fn get_mask_last(&self, key: PageKey) -> Option<u8> {
-        let val = match self.chapter_state.borrow().get(&key).copied() {
+        let val = match self.page_state.borrow().get(&key).copied() {
             Some(v) => v,
             None => return None,
         };
@@ -90,7 +93,7 @@ impl<'a> PageState<'a> {
     }
 
     pub fn remove_mask_last(&mut self, key: PageKey) -> Option<u8> {
-        let val = match self.chapter_state.borrow_mut().remove(&key) {
+        let val = match self.page_state.borrow_mut().remove(&key) {
             Some(v) => v,
             None => return None,
         };
@@ -119,11 +122,21 @@ impl<'a> PageState<'a> {
     }
 
     pub fn insert(&self, key: PageKey, value: u64) {
-        self.chapter_state.borrow_mut().insert(key, value);
+        self.page_state.borrow_mut().insert(key, value);
     }
 
     pub fn remove(&self, key: PageKey) -> Option<u64> {
-        self.chapter_state.borrow_mut().remove(&key)
+        self.page_state.borrow_mut().remove(&key)
+    }
+
+    pub fn tag(&mut self, s: &str) -> bool {
+        let q: PageId = s.into();
+        self.view.tags.push(q.clone());
+        self.game_tags.insert(q)
+    }
+
+    pub fn untag(&mut self, s: &str) -> bool {
+        self.game_tags.remove(&s.into())
     }
 }
 
@@ -132,6 +145,6 @@ use std::fmt;
 
 impl<'a> fmt::Display for PageState<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.view.name)
+        write!(f, "{}", self.view.pageid)
     }
 }

@@ -22,6 +22,7 @@ thiserror = "2.0.17"
 
 regex = { version = "1", optional = true }
 num2words = { version = "1.2", optional = true }
+iddqd = "0.3.17"
 
 [features]
 default = ["macros", "text", "serde"]

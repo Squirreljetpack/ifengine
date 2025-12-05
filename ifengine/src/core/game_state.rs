@@ -9,7 +9,7 @@ use crate::core::PageId;
 /// It's methods should not be called directly in code
 /// During rendering, the ui should register hooks on Spans with actions,
 /// and call [`crate::Game::handle_action`] on click
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct GameState {
     inner: HashMap<PageId, PageMap>,
@@ -22,7 +22,7 @@ impl GameState {
         let (chapter_id, entry_key) = key;
         let chapter = self
             .inner
-            .entry(chapter_id.into())
+            .entry(chapter_id.clone())
             .or_insert_with(|| PageMap {
                 inner: HashMap::new(),
             });
@@ -70,20 +70,20 @@ impl GameState {
     }
 
     /// Get a reference to the chapter state for a given chapter ID.
-    pub fn get_chapter(&mut self, chapter_id: &PageId) -> &PageMap {
-        self.inner.entry(chapter_id.into()).or_default()
+    pub fn get_page(&mut self, pageid: impl Into<PageId>) -> &PageMap {
+        self.inner.entry(pageid.into()).or_default()
     }
 
     /// Get a mutable reference to the chapter state for a given chapter ID.
-    pub fn get_chapter_mut(&mut self, chapter_id: &PageId) -> &mut PageMap {
-        self.inner.entry(chapter_id.into()).or_default()
+    pub fn get_page_mut(&mut self, pageid: impl Into<PageId>) -> &mut PageMap {
+        self.inner.entry(pageid.into()).or_default()
     }
 }
 
 // --------------------------------------------------------
 
 /// Nothing more than a Hashmap
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct PageMap {
     inner: HashMap<PageKey, u64>,

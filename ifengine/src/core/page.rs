@@ -6,9 +6,10 @@ use crate::Game;
 use crate::core::GameContext;
 use crate::view::View;
 
+
 pub type Page<C> = fn(&mut Game<C>) -> Response;
 
-pub trait PageErased: Send + Sync {
+pub trait PageErased: Send + Sync + 'static {
     fn call(&self, game: &mut dyn Any) -> Response;
 }
 
@@ -18,8 +19,19 @@ impl<C: GameContext> PageErased for Page<C> {
         self(game)
     }
 }
+// todo: add struct impl
 
-pub type PageId = String;
+
+// newtype over alias just because arc doesn't have serialize, this is very annoying
+// On the plus side makes typing a bit stronger...
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
+pub struct PageId(pub Arc<str>);
+
+impl PageId {
+    pub fn clear(&mut self) {
+        self.0 = "".into()
+    }
+}
 
 pub enum Response {
     View(View),
@@ -33,14 +45,31 @@ pub enum Response {
 #[derive(Clone)]
 pub struct PageHandle {
     pub widget: Arc<dyn PageErased>,
-    pub name: PageId,
+    pub id: PageId,
+}
+
+impl iddqd::IdHashItem for PageHandle {
+    type Key<'a> = &'a PageId;
+
+    fn key(&self) -> Self::Key<'_> {
+        &self.id
+    }
+
+    iddqd::id_upcast!();
 }
 
 impl PageHandle {
-    pub fn new<C: GameContext>(name: PageId, widget: Page<C>) -> Self {
+    pub fn new<C: GameContext>(id: PageId, widget: Page<C>) -> Self {
         Self {
             widget: Arc::new(widget), // no closure needed
-            name,
+            id,
+        }
+    }
+
+    pub fn new_erased<T: PageErased>(id: PageId, widget: impl Into<T>) -> Self {
+        Self {
+            widget: Arc::new(widget.into()), // no closure needed
+            id,
         }
     }
 
@@ -53,6 +82,47 @@ impl PageHandle {
 
 impl fmt::Debug for PageHandle {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("Page").field("name", &self.name).finish()
+        f.debug_struct("Page").field("name", &self.id).finish()
+    }
+}
+
+impl<T: Into<Arc<str>>> From<T> for PageId {
+    fn from(s: T) -> Self {
+        PageId(s.into())
+    }
+}
+
+use serde::{Serialize, Serializer, Deserialize, Deserializer};
+
+impl Serialize for PageId {
+    fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>
+    where
+    S: Serializer,
+    {
+        s.serialize_str(&self.0)
+    }
+}
+
+impl<'de> Deserialize<'de> for PageId {
+    fn deserialize<D>(d: D) -> Result<Self, D::Error>
+    where
+    D: Deserializer<'de>,
+    {
+        let s: &str = Deserialize::deserialize(d)?;
+        Ok(PageId::from(s))
+    }
+}
+
+impl std::ops::Deref for PageId {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl fmt::Display for PageId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.0)
     }
 }
