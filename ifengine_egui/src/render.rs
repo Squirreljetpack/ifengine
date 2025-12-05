@@ -3,7 +3,7 @@ use egui::Ui;
 use ifengine::{
     Game, View,
     core::{GameContext, GameInner},
-    view::{Image, Object},
+    view::{Image, ImageVariant, Object},
 };
 
 use crate::{
@@ -22,7 +22,7 @@ pub fn render(view: View, ui: &mut Ui, game: &mut GameInner) {
                 line.ui(ui, game);
                 draw_empty(1, ui);
             }
-            Object::Text(line) => {
+            Object::Text(line, _) => {
                 let resp = line.ui(ui, game).interact(egui::Sense::click());
             }
             Object::Choice(key, choices) => {
@@ -35,26 +35,30 @@ pub fn render(view: View, ui: &mut Ui, game: &mut GameInner) {
                 draw_empty(1, ui);
             }
             Object::Image(img) => match img {
-                Image::Url(url, [w, h]) => {
-                    let img = egui::Image::from_uri(url);
+                Image { size: [w, h], variant, action, alt } => {
+                    let img = match variant {
+                        ImageVariant::Local(p) => { todo!() }, // this isn't really possible...
+                        ImageVariant::Url(p) => egui::Image::from_uri(p),
+                    };
 
-                    match (w, h) {
+                    let resp = match (w, h) {
                         (0, 0) => {
-                            ui.add(img);
+                            ui.add(img)
                         }
                         (0, h) => {
-                            ui.add(img.max_height(h as f32));
+                            ui.add(img.max_height(h as f32))
                         }
                         (w, 0) => {
-                            ui.add(img.max_width(w as f32));
+                            ui.add(img.max_width(w as f32))
                         }
                         (w, h) => {
-                            ui.add(img.fit_to_exact_size(egui::vec2(w as f32, h as f32)));
+                            ui.add(img.fit_to_exact_size(egui::vec2(w as f32, h as f32)))
                         }
+                    };
+                    if !alt.is_empty() {
+                        resp.on_hover_text(alt);
                     }
-                }
-                Image::Local(_, _size) => {
-                    todo!()
+
                 }
             },
             Object::Heading(line, level) => {

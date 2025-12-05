@@ -1,31 +1,52 @@
 use std::path::PathBuf;
 
+use crate::core::Action;
+
 #[derive(Debug, Clone)]
-pub enum Image {
-    Url(String, [usize; 2]),
-    Local(PathBuf, [usize; 2]), // unimplemented
+pub struct Image {
+    pub size: [usize; 2],
+    pub variant: ImageVariant,
+    pub action: Option<Action>,
+    pub alt: String, // caption and alt_text
+}
+
+
+
+#[derive(Debug, Clone)]
+pub enum ImageVariant {
+    Url(String),
+    Local(PathBuf), // unimplemented
 }
 
 impl Image {
     pub fn new_url(url: impl Into<String>) -> Self {
-        Image::Url(url.into(), [0, 0])
+        Image {
+            size: [0, 0],
+            variant: ImageVariant::Url(url.into()),
+            action: None,
+            alt: String::new()
+        }
     }
 
-    pub fn new_local(path: impl Into<PathBuf>) -> Self {
-        Image::Local(path.into(), [0, 0])
+    pub fn new_local(url: impl Into<PathBuf>) -> Self {
+        Image {
+            size: [0, 0],
+            variant: ImageVariant::Local(url.into()),
+            action: None,
+            alt: String::new()
+        }
     }
 
     pub fn width(&self) -> usize {
-        match self {
-            Image::Url(_, size) => size[0],
-            Image::Local(_, size) => size[0],
-        }
+        self.size[0]
     }
 
     pub fn height(&self) -> usize {
-        match self {
-            Image::Url(_, size) => size[1],
-            Image::Local(_, size) => size[1],
-        }
+        self.size[1]
+    }
+
+    pub fn with_alt(mut self, alt: String) -> Self {
+        self.alt = alt;
+        self
     }
 }

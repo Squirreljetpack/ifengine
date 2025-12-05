@@ -8,7 +8,7 @@ use crate::{
 }; // Added InternalKey
 
 /// Abstract span, guided by HTML element/egui TextFormat
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct Span {
     pub action: Option<Action>,
     pub content: String,
@@ -18,6 +18,7 @@ pub struct Span {
 
     // styling
     pub modifiers: Modifier,
+    // is it worth collapsing to single Vec<(String, String)> for efficiency?
     pub style: HashMap<String, String>,
     pub classes: Vec<String>,
 }
@@ -56,8 +57,8 @@ impl Span {
         self
     }
 
-    pub fn with_action(mut self, action: Action) -> Self {
-        self.action = Some(action);
+    pub fn with_action(mut self, action: impl Into<Action>) -> Self {
+        self.action = Some(action.into());
         self
     }
 
@@ -69,6 +70,16 @@ impl Span {
     pub fn with_text(mut self, text: String) -> Self {
         self.content = text;
         self
+    }
+
+    /// Used by element macros on likely cyclic actions to prune choices when running simulations
+    /// (todo) make it possible to append .hide_if(false) to ensure it never gets hidden
+    pub fn hide_if(self, hide: bool) -> Self {
+        if hide {
+            Self::default()
+        } else {
+            self
+        }
     }
 }
 
@@ -113,15 +124,15 @@ impl Line {
                 if MASK {
                     spans.push(
                         Span::from_lingual(part)
-                            .as_link()
-                            .with_action(Action::SetBit(key.clone(), i as u8 / 2)),
+                        .as_link()
+                        .with_action(Action::SetBit(key.clone(), i as u8 / 2)),
                     );
                 } else {
                     let h = fnv1a_hash_str_64(&part);
                     spans.push(
                         Span::from_lingual(part)
-                            .as_link()
-                            .with_action(Action::Set(key.clone(), h)),
+                        .as_link()
+                        .with_action(Action::Set(key.clone(), h)),
                     );
                 }
             } else {

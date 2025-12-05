@@ -128,3 +128,5 @@ pub fn p7(_: &mut State) {
         "Some of your time is taken up by organizing supplies, some by being warned. You've taken part in a few short expeditions, years ago: but not far from the edges of the city you lived in then, and none longer than a week. This is different. Some have tried, and failed, to reach the heart of the salt wrack. There is a very real chance that you too will never return. You have no doubt your companions are preparing in whatever ways they see fit."
     );
 }
+
+
