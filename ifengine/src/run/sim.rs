@@ -4,6 +4,7 @@ use std::{
 };
 
 use iddqd::{IdHashMap, id_hash_map::Entry};
+use serde::{Deserialize, Serialize};
 
 use crate::{
     Action, Game, GameError, SimEnd, View,
@@ -19,20 +20,20 @@ impl<C: GameContext> Game<C> {
     /// F:
     pub fn simulate<F>(&self, mut visitor: F) -> Simulation
     where
-        F: FnMut(&mut SimulationState<C>) -> bool,
+    F: FnMut(&mut SimulationState<C>) -> bool,
     {
         let mut ret = Simulation::new();
 
         // A tunnel categorized by the function which it enters into, which does not necessarily must respond with a view
         let tun_id = self
-            .pages
-            .current()
-            .unwrap()
-            .id
-            .rsplit("::")
-            .next()
-            .unwrap()
-            .into(); // all tunnels with the same basename are grouped the same. This is because the pagehandles contained by tunnel cannot be guaranteed to have the same import style. Although this too, is still very error_prone (i.e. renames) as well as runs the risk of collisions.
+        .pages
+        .current()
+        .unwrap()
+        .id
+        .rsplit("::")
+        .next()
+        .unwrap()
+        .into(); // all tunnels with the same basename are grouped the same. This is because the pagehandles contained by tunnel cannot be guaranteed to have the same import style. Although this too, is still very error_prone (i.e. renames) as well as runs the risk of collisions.
         let mut start = self.clone();
         start.simulating = true;
 
@@ -81,7 +82,7 @@ impl<C: GameContext> Game<C> {
         tunnels_queue: &mut Vec<(String, Self)>,
         visitor: &mut F,
     ) where
-        F: FnMut(&mut SimulationState<C>) -> bool,
+    F: FnMut(&mut SimulationState<C>) -> bool,
     {
         while let Some(mut s) = queue.pop() {
             // unimportant preflight
@@ -128,13 +129,13 @@ impl<C: GameContext> Game<C> {
 
             match v_res {
                 Ok(mut v) => {
-                    let curr = v.pageid.clone();
-                    records.insert_view(s.last.clone(), &mut v);
+                    let curr_id = v.pageid.clone();
+                    records.insert_view(&s, &mut v);
                     let mut to_queue = vec![];
 
                     for e in v.interactables_flat() {
-                        let mut next = s.next(curr.clone());
-                        match next.interact_sim(e, &curr) {
+                        let mut next = s.next(curr_id.clone());
+                        match next.interact_sim(e, &curr_id) {
                             Ok(()) => {
                                 to_queue.push(next);
                             }
@@ -142,7 +143,7 @@ impl<C: GameContext> Game<C> {
                                 if let SimEnd::Tunnel(fork_name) = &e {
                                     tunnels_queue.push((fork_name.clone(), next.game));
                                 }
-                                records.push_sim_end(&curr, e.into());
+                                records.push_sim_end(&curr_id, e.into());
                             }
                         }
                     }
@@ -164,7 +165,7 @@ impl<C: GameContext> Game<C> {
 #[derive(Debug, Clone)]
 pub struct Simulation {
     /// A history of runs, one for each starting point. Starts consist of tunnel entrances and the initial game start.
-    runs: HashMap<String, PageRecords>,
+    pub runs: HashMap<String, PageRecords>,
 }
 
 #[derive(Debug, Clone)]
@@ -191,17 +192,19 @@ impl<C: Clone> SimulationState<C> {
     }
 }
 
-#[derive(Debug, Clone)]
+// note: outgoing_tunnels not currently implemented
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PageRecord {
-    id: PageId,
-    ends: HashSet<SimEnd>,
-    tags: GameTags,
-    incoming: HashSet<PageId>,
-    outgoing_tunnels: HashSet<PageId>,
+    pub id: PageId,
+    pub ends: HashSet<SimEnd>,
+    pub tags: GameTags,
+    pub incoming: HashSet<PageId>,
+    pub min_depth: usize,
+    pub outgoing_tunnels: HashSet<PageId>,
 }
 
 #[derive(Debug, Clone)]
-pub struct PageRecords(IdHashMap<PageRecord>);
+pub struct PageRecords(pub IdHashMap<PageRecord>);
 
 impl PageRecord {
     pub fn new(id: PageId) -> Self {
@@ -210,15 +213,44 @@ impl PageRecord {
             ends: Default::default(),
             tags: Default::default(),
             incoming: Default::default(),
+            min_depth: usize::MAX,
             outgoing_tunnels: Default::default(),
         }
+    }
+
+    pub fn split(mut self) -> (Self, HashSet<PageId>) {
+        let incoming = std::mem::take(&mut self.incoming);
+        (self, incoming)
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.ends.is_empty() && self.tags.is_empty()
+    }
+
+    pub fn compute_display_width(&self) -> usize {
+        let mut max = 6;
+        for end in &self.ends {
+            let len = format!("{:?}", end).len();
+            if len > max {
+                max = len;
+            }
+        }
+        for tag in &self.tags {
+            let len = tag.len();
+            if len > max {
+                max = len;
+            }
+        }
+        max
     }
 }
 
 impl PageRecords {
     // Drains the seen tags into the record, and adds an incoming edge
-    pub fn insert_view(&mut self, prev: Option<PageId>, v: &mut View) {
+    pub fn insert_view<C>(&mut self, s: &SimulationState<C>, v: &mut View) {
         let pageid = v.pageid.clone();
+        let prev = s.last.clone();
+
 
         match self.entry(&pageid) {
             Entry::Occupied(mut occ) => {
@@ -228,6 +260,7 @@ impl PageRecords {
                 if let Some(prev) = prev {
                     record.incoming.insert(prev);
                 }
+                record.min_depth = record.min_depth.min(s.depth);
             }
 
             Entry::Vacant(vac) => {
@@ -237,6 +270,7 @@ impl PageRecords {
                 if let Some(prev) = prev {
                     record.incoming.insert(prev);
                 }
+                record.min_depth = record.min_depth.min(s.depth);
 
                 vac.insert(record);
             }
@@ -247,6 +281,15 @@ impl PageRecords {
         if let Some(mut record) = self.0.get_mut(pageid) {
             record.ends.insert(e.into());
         }
+    }
+
+    // this can be 0!
+    pub fn depth(&self) -> usize {
+        self.0
+            .iter()
+            .map(|r| r.min_depth)
+            .max()
+            .unwrap_or(0)
     }
 }
 

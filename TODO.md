@@ -6,3 +6,5 @@ text input element: PageMap should be (HashMap, StringMap)
 
 egui graph draw
 egui widget bar
+
+bring in local dependencies to enable github pages build

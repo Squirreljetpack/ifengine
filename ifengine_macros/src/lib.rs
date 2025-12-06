@@ -42,6 +42,7 @@ pub fn ifview(_attr: TokenStream, item: TokenStream) -> TokenStream {
         pub fn #name(__ifengine_game: &mut ifengine::Game<#ctx_type>)
         -> ifengine::core::Response
         {
+            let __ifengine_simulating = __ifengine_game.simulating();
             #[allow(unused_variables)]
             let #ctx_arg = &mut __ifengine_game.context;
             let __ifengine_game_tags = &mut __ifengine_game.tags;
@@ -51,7 +52,7 @@ pub fn ifview(_attr: TokenStream, item: TokenStream) -> TokenStream {
                 __ifengine_game.state.get_page_mut(format!("{}::{}", module_path!(), stringify!(#name))),
                 __ifengine_game_tags,
                 __ifengine_game.fresh,
-                __ifengine_game.simulating
+                __ifengine_simulating
             );
 
             __ifengine_game.fresh = false;
@@ -559,6 +560,7 @@ pub fn paragraphs(input: TokenStream) -> TokenStream {
     TokenStream::from(expanded)
 }
 
+// todo: add support for local with bytes
 /// Push a image from a string literal.
 #[proc_macro]
 pub fn img(input: TokenStream) -> TokenStream {
@@ -589,15 +591,15 @@ pub fn img(input: TokenStream) -> TokenStream {
         let path = s.value();
         if path.starts_with("http://") || path.starts_with("https://") {
             if let Some(size) = size_expr {
-                quote! { ifengine::view::Image::Url(#path.into(), #size) }
+                quote! { ifengine::view::Image::new_url(#path).with_size(#size) }
             } else {
                 quote! { ifengine::view::Image::new_url(#path) }
             }
         } else {
             if let Some(size) = size_expr {
-                quote! { ifengine::view::Image::Local(#path.into(), #size) }
+                quote! { ifengine::view::Image::new_local(#path, include_bytes!(#path)).with_size(#size) }
             } else {
-                quote! { ifengine::view::Image::new_local(#path) }
+                quote! { ifengine::view::Image::new_local(#path, include_bytes!(#path)) }
             }
         }
     } else {

@@ -21,7 +21,6 @@ pub struct GameInner {
     pub pages: PageStack,
     pub fresh: bool,
     pub iterations: usize, // todo
-    pub simulating: bool,
 }
 
 /// When processing for rendering, use game.inner instead
@@ -31,7 +30,8 @@ pub struct GameInner {
 pub struct Game<C = StringMap> {
     pub inner: GameInner,
     pub context: C,
-    pub tags: GameTags
+    pub tags: GameTags,
+    pub(crate) simulating: bool
 }
 
 impl<C: GameContext> Game<C> {
@@ -43,14 +43,18 @@ impl<C: GameContext> Game<C> {
             pages: PageStack::new_with_page(widget),
             fresh: true,
             iterations: 0,
-            simulating: false
         };
 
         Self {
             context: Default::default(),
             tags: Default::default(),
             inner,
+            simulating: false
         }
+    }
+
+    pub fn simulating(&self) -> bool {
+        self.simulating
     }
 
     pub fn view(&mut self) -> Result<View, GameError> {
