@@ -1,8 +1,8 @@
 use egui::Ui;
 
 use ifengine::{
-    Game, View,
-    core::{GameContext, GameInner},
+    View,
+    core::GameInner,
     view::{Image, ImageVariant, Object},
 };
 
@@ -22,7 +22,7 @@ pub fn render(view: View, ui: &mut Ui, game: &mut GameInner) {
                 ui.draw_empty(1);
             }
             Object::Text(line, _) => {
-                let resp = line.ui(ui, game).interact(egui::Sense::click());
+                let _ = line.ui(ui, game).interact(egui::Sense::click());
             }
             Object::Choice(key, choices) => {
                 ui.draw_empty(1);
@@ -42,7 +42,7 @@ pub fn render(view: View, ui: &mut Ui, game: &mut GameInner) {
                         ImageVariant::Url(p) => egui::Image::from_uri(p),
                     };
 
-                    let resp = match (w, h) {
+                    let mut resp = match (w, h) {
                         (0, 0) => {
                             ui.add(img)
                         }
@@ -56,8 +56,15 @@ pub fn render(view: View, ui: &mut Ui, game: &mut GameInner) {
                             ui.add(img.fit_to_exact_size(egui::vec2(w as f32, h as f32)))
                         }
                     };
-                    if !alt.is_empty() {
-                        resp.on_hover_text(alt);
+                    resp = if !alt.is_empty() {
+                        resp.on_hover_text(alt)
+                    } else {
+                        resp
+                    };
+                    if let Some(action) = action {
+                        if resp.clicked() {
+                            let _ = game.handle_action(action);
+                        }
                     }
 
                 }

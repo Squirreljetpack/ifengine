@@ -17,8 +17,6 @@ pub mod colors {
     include!(concat!(env!("OUT_DIR"), "/generated_colors.rs"));
 }
 
-use colors::*;
-
 pub fn global_theme() -> std::sync::RwLockReadGuard<'static, Theme> {
     THEME.read().unwrap()
 }
@@ -136,11 +134,13 @@ static THEME: LazyLock<std::sync::RwLock<Theme>> = LazyLock::new(|| Theme {
 
 // --------- IMPL -------------
 
+pub static TEXT_SMALL: f32 = 13.0;
+
 impl Theme {
     /// Change the current theme
     /// Returns: whether theme was set
     pub fn switch(&mut self, variant: &'static str, ctx: &egui::Context) -> bool {
-        let Some(colors) = self.colors.get(variant) else {
+        if !self.colors.contains_key(variant) {
             return false;
         };
 
@@ -188,6 +188,13 @@ impl Theme {
             visuals.window_stroke.color = *border;
         }
 
+        // hyperlinks
+        if let Some(muted) = colors.get("muted") {
+            visuals.hyperlink_color = *muted;
+        }
+
+        visuals.widgets.hovered.fg_stroke.width = 0.5;
+
         // todo: include this once we override rich text without style[hover] = true to not apply hover effect
         // if let Some(on_hover) = colors.get("muted2") {
         //     visuals.widgets.hovered.fg_stroke.color = *on_hover;
@@ -201,7 +208,7 @@ impl Theme {
     }
 
     pub fn variants(&self) -> Vec<&'static str> {
-        let mut keys: Vec<_> = self.colors.keys().cloned().collect();
+        let keys: Vec<_> = self.colors.keys().cloned().collect();
 
         let mut first = Vec::new();
         let mut rest = Vec::new();

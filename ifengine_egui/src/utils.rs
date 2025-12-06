@@ -1,9 +1,8 @@
-use eframe::Frame;
-use egui::{Area, Button, Color32, Context, Image, IntoAtoms, Label, Response, RichText, Stroke, TextStyle, Ui, containers::menu, include_image, vec2};
+use egui::{Area, Button, Color32, Context, Image, IntoAtoms, Label, Response, RichText, TextStyle, Ui, containers::menu, include_image};
 use egui_alignments::center_horizontal;
 use easy_ext::ext;
 
-use crate::{GUIState, theme::global_theme};
+use crate::theme::{TEXT_SMALL, global_theme};
 
 #[ext(UiExt)]
 impl Ui {
@@ -32,81 +31,112 @@ impl Ui {
         self.add_space(row_height * n as f32);
     }
 
-    pub fn horizontal_centered_labels<I, R>(&mut self, labels: Vec<I>, add_left: impl FnOnce(&mut Ui) -> R,
-) -> ()
-where
-I: Into<egui::RichText>,
-{
-    let n = labels.len();
-    if n == 0 {
-        return;
+    pub fn horizontal_centered_labels<I, R>(&mut self, labels: Vec<I>, add_left: impl FnOnce(&mut Ui) -> R) -> ()
+    where
+    I: Into<egui::RichText>,
+    {
+        let n = labels.len();
+        if n == 0 {
+            return;
+        }
+
+        // let margin = self.min_rect().min.x;
+        // let available_width = self.available_width() - 2.0 * margin;
+        // let column_width = available_width / n as f32;
+
+        self.horizontal(|ui| {
+            ui.spacing_mut().item_spacing = egui::vec2(0.0, 0.0);
+            ui.add_space(10.0); // push right
+            let _ = add_left(ui);
+            let available_width = ui.available_width();
+            let column_width = available_width / n as f32;
+
+            for l in labels {
+                ui.allocate_ui([column_width, 0.0].into(), |sub_ui| {
+                    sub_ui.set_width(column_width);
+                    center_horizontal(sub_ui, |ui| {
+                        ui.label(l.into().size(TEXT_SMALL));
+                    });
+                });
+            }
+        });
     }
 
-    // let margin = self.min_rect().min.x;
-    // let available_width = self.available_width() - 2.0 * margin;
-    // let column_width = available_width / n as f32;
+    pub fn add_menu<R>(
+        &mut self,
+        show: bool,
+        light_theme: bool,
+        add_contents: impl FnOnce(&mut Ui) -> R,
+    ) -> egui::InnerResponse<Option<R>> {
+        let img = Image::new(include_image!("../../assets/imgs/menu.png"))
+        .fit_to_exact_size(egui::vec2(14.0, 14.0));
 
-    self.horizontal(|ui| {
-        ui.spacing_mut().item_spacing = egui::vec2(0.0, 0.0);
-        ui.add_space(10.0); // push right
-        let resp = add_left(ui);
-        let available_width = ui.available_width();
-        let column_width = available_width / n as f32;
+        let img = if show {
+            if light_theme {
+                img.tint(Color32::from_black_alpha(70))
+            } else {
+                // dark theme: use override_text_color or default text color, but alpha = 90
+                let base = self.visuals().override_text_color.unwrap_or(self.visuals().text_color());
+                let alpha = 90u8;
+                img.tint(Color32::from_rgba_premultiplied(base.r(), base.g(), base.b(), alpha))
+            }
+        } else {
+            img.tint(Color32::from_white_alpha(0)) // invisible
+        };
 
-        for l in labels {
-            ui.allocate_ui([column_width, 0.0].into(), |sub_ui| {
-                sub_ui.set_width(column_width);
-                center_horizontal(sub_ui, |ui| {
-                    ui.label(l.into().size(13.0));
-                });
+        let btn = Button::image(img)
+        .frame(false);
+
+        let (response, inner) = menu::MenuButton::from_button(btn)
+        .ui(self, |ui| add_contents(ui));
+
+        egui::InnerResponse::new(inner.map(|i| i.inner), response)
+    }
+
+    pub fn add_submenu<'a, R>(
+        &mut self,
+        label: impl IntoAtoms<'a>,
+        add_contents: impl FnOnce(&mut Ui) -> R,
+    ) -> egui::InnerResponse<Option<R>> {
+        let (response, inner) = menu::SubMenuButton::from_button(
+            Button::new(label).right_text(">"), // haven't figured out how to render more glyphs, downloaded fonts mostly don't work
+        )
+        .ui(self, add_contents);
+
+        egui::InnerResponse::new(inner.map(|i| i.inner), response)
+    }
+
+    // open in bg
+    pub fn add_custom_link(&mut self, label: impl Into<RichText>, url: &str) -> Response {
+        let label = label.into();
+        let response = self.add(egui::Label::new(label));
+        if response.clicked() {
+            self.ctx().open_url(egui::OpenUrl {
+                url: url.to_owned(),
+                new_tab: true,
             });
         }
-    });
-}
 
-pub fn add_menu<R>(
-    &mut self,
-    show: bool,
-    light_theme: bool,
-    add_contents: impl FnOnce(&mut Ui) -> R,
-) -> egui::InnerResponse<Option<R>> {
-    let mut img = Image::new(include_image!("../../assets/imgs/menu.png"))
-    .fit_to_exact_size(egui::vec2(14.0, 14.0));
-
-    let img = if show {
-        if light_theme {
-            img.tint(Color32::from_black_alpha(70))
-        } else {
-            // dark theme: use override_text_color or default text color, but alpha = 90
-            let base = self.visuals().override_text_color.unwrap_or(self.visuals().text_color());
-            let alpha = 90u8;
-            img.tint(Color32::from_rgba_premultiplied(base.r(), base.g(), base.b(), alpha))
+        if response.hovered() {
+            let rect = response.rect;
+            let painter = self.painter();
+            let underline_y = rect.bottom() - 1.0; // 1 px above bottom
+            painter.line_segment(
+                [Pos2::new(rect.left(), underline_y), Pos2::new(rect.right(), underline_y)],
+                egui::Stroke::new(1.0, self.visuals().hyperlink_color),
+            );
+            self.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
         }
-    } else {
-        img.tint(Color32::from_white_alpha(0)) // invisible
-    };
 
-    let btn = Button::image(img)
-    .frame(false);
+        response
 
-    let (response, inner) = menu::MenuButton::from_button(btn)
-    .ui(self, |ui| add_contents(ui));
-
-    egui::InnerResponse::new(inner.map(|i| i.inner), response)
-}
-
-pub fn add_submenu<'a, R>(
-    &mut self,
-    label: impl IntoAtoms<'a>,
-    add_contents: impl FnOnce(&mut Ui) -> R,
-) -> egui::InnerResponse<Option<R>> {
-    let (response, inner) = menu::SubMenuButton::from_button(
-        Button::new(label).right_text(">"), // haven't figured out how to render more glyphs, downloaded fonts mostly don't work
-    )
-    .ui(self, add_contents);
-
-    egui::InnerResponse::new(inner.map(|i| i.inner), response)
-}
+        // ui.add(
+        //     Hyperlink::from_label_and_url(
+        //         RichText::new("Made with IfEngine").size(.0),
+        //         "https://github.com/Squirreljetpack/ifengine"
+        //     )
+        // );
+    }
 }
 
 //
@@ -184,3 +214,4 @@ Close: FnMut(),
         });
     });
 }
+

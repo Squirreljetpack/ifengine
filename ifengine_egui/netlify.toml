@@ -1,10 +1,10 @@
 # netlify.toml
 [build]
-  publish = "dist"          # folder to serve
-  command = "trunk build" # optional, only if you want Netlify to build automatically
+  publish = "dist"
+  command = "trunk build"
 
-# Redirect all URLs to index.html (SPA support)
-[[redirects]]
-  from = "/*"
-  to = "/index.html"
-  status = 200
+# for some reason this doesn't work
+# [[redirects]]
+#   from = "/*"
+#   to = "/index.html"
+#   status = 200
