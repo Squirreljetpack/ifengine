@@ -1,18 +1,16 @@
 use std::{
     collections::HashMap,
     fmt::Display,
-    sync::{LazyLock, Once},
 };
 
-use egui::{Color32, Ui};
+use egui::Ui;
 use egui_snarl::{
     InPin, InPinId, NodeId, OutPin, OutPinId, Snarl,
-    ui::{AnyPins, SnarlPin, SnarlViewer},
+    ui::{SnarlPin, SnarlViewer},
 };
-use ifengine::{
-    core::PageId,
-    run::{PageRecord, Simulation},
-};
+use ifengine::
+    run::PageRecord
+;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 use story::saltwrack::new;
@@ -145,6 +143,7 @@ pub struct GraphViewer {
     pub init_transform: Option<egui::emath::TSTransform>,
 }
 
+#[allow(unused)]
 impl SnarlViewer<Node> for GraphViewer {
     fn title(&mut self, node: &Node) -> String {
         let mut s = node.record.id[self.prefix_len..].to_string();

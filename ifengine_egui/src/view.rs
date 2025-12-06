@@ -1,7 +1,7 @@
 use crate::{theme::global_theme, utils::UiExt};
 
 use easy_ext::ext;
-use egui::{Color32, Label, Response, RichText, Sense, Stroke, Ui, text::LayoutJob};
+use egui::{Color32, Response, RichText, Ui};
 use ifengine::{
     core::GameInner,
     view::{Line, Modifier, Span, SpanVariant},

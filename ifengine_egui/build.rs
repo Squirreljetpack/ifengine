@@ -33,7 +33,7 @@ fn main() {
     for entry in fs::read_dir(&to_absolute(FONTS_PATH)).unwrap() {
         let entry = entry.unwrap();
         let path = entry.path();
-        if path.is_dir() {
+        if path.is_dir() && !path.file_name().and_then(|f| f.to_str()).and_then(|f| Some(f.starts_with('_'))).unwrap_or(true) {
             let family_name = path.file_name().unwrap().to_str().unwrap();
             add_fonts_from_dir(
                 &mut code,
