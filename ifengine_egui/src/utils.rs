@@ -1,57 +1,112 @@
-use egui::{Response, RichText, TextStyle, Ui};
+use eframe::Frame;
+use egui::{Area, Button, Color32, Context, Image, IntoAtoms, Label, Response, RichText, Stroke, TextStyle, Ui, containers::menu, include_image, vec2};
 use egui_alignments::center_horizontal;
+use easy_ext::ext;
 
-pub fn draw_heading(ui: &mut Ui, mut text: RichText, level: u8) -> Response {
-    let (size, margin) = match level {
-        1 => (80.0, 16.0),
-        2 => (48.0, 12.0),
-        3 => (32.0, 8.0),
-        4 => (24.0, 6.0),
-        _ => (18.0, 4.0),
-    };
+use crate::{GUIState, theme::global_theme};
 
-    text = text.size(size).strong();
+#[ext(UiExt)]
+impl Ui {
+    pub fn draw_heading(&mut self, mut text: RichText, level: u8) -> Response {
+        let (size, margin) = match level {
+            1 => (80.0, 16.0),
+            2 => (48.0, 12.0),
+            3 => (32.0, 8.0),
+            4 => (24.0, 6.0),
+            _ => (18.0, 4.0),
+        };
 
-    ui.add_space(margin);
-    let resp = ui.label(text);
-    ui.add_space(margin);
+        text = text.size(size).strong().color(global_theme().get_color("strong").unwrap_or(Color32::WHITE));
 
-    resp
-}
+        self.add_space(margin);
+        let resp = self.label(text);
+        self.add_space(margin);
 
-pub fn draw_empty(n: u8, ui: &mut Ui) {
-    let style = ui.ctx().style();
-    let body = style.text_styles.get(&TextStyle::Body);
-    let row_height = body.map_or(18.0, |f| f.size);
-    ui.add_space(row_height * n as f32);
-}
+        resp
+    }
 
-pub fn horizontal_centered_labels<I>(ui: &mut Ui, labels: Vec<I>)
+    pub fn draw_empty(&mut self, n: u8) {
+        let style = self.ctx().style();
+        let body = style.text_styles.get(&TextStyle::Body);
+        let row_height = body.map_or(18.0, |f| f.size);
+        self.add_space(row_height * n as f32);
+    }
+
+    pub fn horizontal_centered_labels<I, R>(&mut self, labels: Vec<I>, add_left: impl FnOnce(&mut Ui) -> R,
+) -> ()
 where
-    I: Into<egui::WidgetText>,
+I: Into<egui::RichText>,
 {
     let n = labels.len();
     if n == 0 {
         return;
     }
 
-    // ui.spacing_mut doesn't seem to store the frame inner margin, so we assume same and get from min
-    let margin = ui.min_rect().min.x;
+    // let margin = self.min_rect().min.x;
+    // let available_width = self.available_width() - 2.0 * margin;
+    // let column_width = available_width / n as f32;
 
-    let available_width = ui.available_width() - 2.0 * margin; // includes margin so set to 0
-    let column_width = available_width / n as f32;
-
-    ui.horizontal(|ui| {
+    self.horizontal(|ui| {
         ui.spacing_mut().item_spacing = egui::vec2(0.0, 0.0);
+        ui.add_space(10.0); // push right
+        let resp = add_left(ui);
+        let available_width = ui.available_width();
+        let column_width = available_width / n as f32;
+
         for l in labels {
             ui.allocate_ui([column_width, 0.0].into(), |sub_ui| {
                 sub_ui.set_width(column_width);
                 center_horizontal(sub_ui, |ui| {
-                    ui.label(l);
+                    ui.label(l.into().size(13.0));
                 });
             });
         }
     });
+}
+
+pub fn add_menu<R>(
+    &mut self,
+    show: bool,
+    light_theme: bool,
+    add_contents: impl FnOnce(&mut Ui) -> R,
+) -> egui::InnerResponse<Option<R>> {
+    let mut img = Image::new(include_image!("../../assets/imgs/menu.png"))
+    .fit_to_exact_size(egui::vec2(14.0, 14.0));
+
+    let img = if show {
+        if light_theme {
+            img.tint(Color32::from_black_alpha(70))
+        } else {
+            // dark theme: use override_text_color or default text color, but alpha = 90
+            let base = self.visuals().override_text_color.unwrap_or(self.visuals().text_color());
+            let alpha = 90u8;
+            img.tint(Color32::from_rgba_premultiplied(base.r(), base.g(), base.b(), alpha))
+        }
+    } else {
+        img.tint(Color32::from_white_alpha(0)) // invisible
+    };
+
+    let btn = Button::image(img)
+    .frame(false);
+
+    let (response, inner) = menu::MenuButton::from_button(btn)
+    .ui(self, |ui| add_contents(ui));
+
+    egui::InnerResponse::new(inner.map(|i| i.inner), response)
+}
+
+pub fn add_submenu<'a, R>(
+    &mut self,
+    label: impl IntoAtoms<'a>,
+    add_contents: impl FnOnce(&mut Ui) -> R,
+) -> egui::InnerResponse<Option<R>> {
+    let (response, inner) = menu::SubMenuButton::from_button(
+        Button::new(label).right_text(">"), // haven't figured out how to render more glyphs, downloaded fonts mostly don't work
+    )
+    .ui(self, add_contents);
+
+    egui::InnerResponse::new(inner.map(|i| i.inner), response)
+}
 }
 
 //
@@ -62,3 +117,70 @@ where
 //         "light"
 //     }
 // }
+
+use egui::{Id, LayerId, Order, Pos2, Rect, Sense, Vec2};
+
+pub fn show_overlay<Draw, Close>(ctx: &Context, mut draw: Draw, mut on_close: Close)
+where
+Draw: FnMut(&mut Ui),
+Close: FnMut(),
+{
+    let screen_rect = ctx.content_rect();
+    let screen_size = screen_rect.size();
+
+    // compute dialog size: 80% of screen, min 800x550
+    let mut size = screen_size * 0.8;
+    size.x = size.x.max(800.0);
+    size.y = size.y.max(550.0);
+
+    let dialog_rect = Rect::from_center_size(screen_rect.center(), size);
+
+    // full-screen semi-transparent background
+    let painter = ctx.layer_painter(LayerId::new(Order::Background, Id::new("overlay_bg")));
+    painter.rect_filled(screen_rect, 0.0, Color32::from_rgba_unmultiplied(0, 0, 0, 160));
+
+    // detect clicks outside dialog, put this before drawing the activation listener
+    if ctx.input(|i| i.pointer.any_click()) {
+        if let Some(pos) = ctx.input(|i| i.pointer.interact_pos()) {
+            if !dialog_rect.contains(pos) {
+                on_close();
+                return;
+            }
+        }
+    }
+
+    // draw overlay UI
+    Area::new(Id::new("overlay_area"))
+    .order(Order::Foreground)
+    .fixed_pos(dialog_rect.min)
+    .show(ctx, |ui| {
+        // constrain size
+        ui.set_max_size(size);
+
+        // frame with background color and rounding
+        egui::Frame {
+            fill: global_theme().get_color("bg_secondary").unwrap_or_default(),
+            inner_margin: egui::Margin::symmetric(10, 5),
+            ..Default::default()
+        }
+        .show(ui, |ui| {
+            // compute button size and position
+            let close_size = Vec2::new(10.0, 10.0);
+            let close_pos = Pos2::new(size.x - close_size.x, 2.0); // this controls the size of the ui apparently, use margin to space
+            let close_rect = Rect::from_min_size(dialog_rect.min + Vec2::new(close_pos.x, close_pos.y), close_size);
+
+            // draw button without default frame
+            let response = ui.put(close_rect, Label::new("×").sense(Sense::click() | Sense::hover()));
+
+            // handle click
+            if response.clicked() {
+                on_close();
+            }
+            if response.hovered() {
+                ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
+            }
+            // user content
+            draw(ui);
+        });
+    });
+}

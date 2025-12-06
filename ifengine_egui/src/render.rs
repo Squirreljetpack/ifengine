@@ -7,8 +7,7 @@ use ifengine::{
 };
 
 use crate::{
-    utils::draw_empty,
-    view::{ElementExt, LineExt},
+    utils::UiExt, view::{ElementExt, LineExt}
 };
 
 // i don't think theres a nice way to extract this to ifengine crate, so this logic ig is fine to require each project to reimplement
@@ -18,26 +17,28 @@ pub fn render(view: View, ui: &mut Ui, game: &mut GameInner) {
     for object in view {
         match object {
             Object::Paragraph(line) => {
-                draw_empty(1, ui);
+                ui.draw_empty(1);
                 line.ui(ui, game);
-                draw_empty(1, ui);
+                ui.draw_empty(1);
             }
             Object::Text(line, _) => {
                 let resp = line.ui(ui, game).interact(egui::Sense::click());
             }
             Object::Choice(key, choices) => {
-                draw_empty(1, ui);
+                ui.draw_empty(1);
                 for (i, line) in choices.into_iter() {
                     if line.ui_clicked(ui, game) {
                         game.handle_choice((name.clone(), key.clone()), i);
                     }
                 }
-                draw_empty(1, ui);
+                ui.draw_empty(1);
             }
             Object::Image(img) => match img {
                 Image { size: [w, h], variant, action, alt } => {
                     let img = match variant {
-                        ImageVariant::Local(p) => { todo!() }, // this isn't really possible...
+                        ImageVariant::Local(uri, bytes) => {
+                            egui::Image::from_bytes(uri, bytes)
+                        },
                         ImageVariant::Url(p) => egui::Image::from_uri(p),
                     };
 
@@ -68,7 +69,7 @@ pub fn render(view: View, ui: &mut Ui, game: &mut GameInner) {
                 ui.add(egui::Separator::default());
             }
             Object::Empty(n) => {
-                draw_empty(n, ui);
+                ui.draw_empty(n);
             }
             Object::Quote(_, _) => {
                 todo!()

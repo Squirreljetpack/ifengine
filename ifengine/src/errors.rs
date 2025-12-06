@@ -1,23 +1,24 @@
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-#[derive(Debug, Error, std::hash::Hash, PartialEq, Eq, Clone)]
+#[derive(Debug, Error, std::hash::Hash, PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub enum GameError {
-    #[error("no page stack available")]
+    #[error("NoStack")]
     NoStack,
-    #[error("no page available")]
+    #[error("NoPage")]
     NoPage,
-    #[error("Game end")]
+    #[error("GameEnd")]
     End,
 }
 
-#[derive(Debug, Error, std::hash::Hash, PartialEq, Eq, Clone)]
+#[derive(Debug, Error, std::hash::Hash, PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub enum SimEnd {
-    #[error("{0}")]
+    #[error("⟨{0}⟩")]
     GameError(#[from] GameError),
-    #[error("Tunnel Entrance")]
-    Tunnel(String),
-    #[error("Tunnel Exit")]
-    TunnelExit,
     #[error("{0}")]
+    Tunnel(String),
+    #[error("⟨Exit⟩")]
+    TunnelExit,
+    #[error("⟨{0}⟩")]
     Custom(String)
 }

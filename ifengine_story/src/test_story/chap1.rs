@@ -1,3 +1,4 @@
+use ifengine::elements::img;
 #[allow(unused_imports)]
 use ifengine::{
     elements::{alts, choice, count, dchoices, ddchoices, text, mchoice, once, p, page_dbg},
@@ -54,6 +55,8 @@ pub fn rainy_day(_: &mut ()) {
         }
     };
 
+    img!("https://upload.wikimedia.org/wikipedia/commons/thumb/b/b6/SIPI_Jelly_Beans_4.1.07.tiff/lossy-page1-256px-SIPI_Jelly_Beans_4.1.07.tiff.jpg",);
+
     ddchoices!(
         choices,
         DChoices::A => {
@@ -76,6 +79,8 @@ pub fn rainy_day(_: &mut ()) {
             // eprintln!("2 clicked")
         },
     };
+
+
 
     // .insert("hi".into(), "bye".into());
 }

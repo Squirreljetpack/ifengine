@@ -1,4 +1,4 @@
-use crate::{theme::THEME, utils::draw_heading};
+use crate::{theme::global_theme, utils::UiExt};
 
 use easy_ext::ext;
 use egui::{Color32, Label, Response, RichText, Sense, Stroke, Ui, text::LayoutJob};
@@ -49,13 +49,13 @@ impl Span {
 
         // ---- style map ------
         if let Some(fg) = self.style.get("color") {
-            if let Some(col) = THEME.get_color(fg) {
+            if let Some(col) = global_theme().get_color(fg) {
                 txt = txt.color(col);
             }
         }
 
         if let Some(bg) = self.style.get("background") {
-            if let Some(col) = THEME.get_color(bg) {
+            if let Some(col) = global_theme().get_color(bg) {
                 txt = txt.background_color(col);
             }
         }
@@ -80,7 +80,7 @@ impl Span {
     }
 
     pub fn add_as_heading(&self, ui: &mut Ui, level: u8) -> Response {
-        draw_heading(ui, self.as_rich_text(), level)
+        ui.draw_heading(self.as_rich_text(), level)
     }
 
     // Supported style keys:

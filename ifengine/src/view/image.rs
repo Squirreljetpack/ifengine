@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::borrow::Cow;
 
 use crate::core::Action;
 
@@ -15,7 +15,7 @@ pub struct Image {
 #[derive(Debug, Clone)]
 pub enum ImageVariant {
     Url(String),
-    Local(PathBuf), // unimplemented
+    Local(Cow<'static, str>, &'static [u8]), // unimplemented
 }
 
 impl Image {
@@ -28,10 +28,10 @@ impl Image {
         }
     }
 
-    pub fn new_local(url: impl Into<PathBuf>) -> Self {
+    pub fn new_local(path: impl Into<Cow<'static, str>>, bytes: &'static [u8]) -> Self {
         Image {
             size: [0, 0],
-            variant: ImageVariant::Local(url.into()),
+            variant: ImageVariant::Local(path.into(), bytes),
             action: None,
             alt: String::new()
         }
@@ -43,6 +43,11 @@ impl Image {
 
     pub fn height(&self) -> usize {
         self.size[1]
+    }
+
+    pub fn with_size(mut self, size: [usize; 2]) -> Self {
+        self.size = size;
+        self
     }
 
     pub fn with_alt(mut self, alt: String) -> Self {
