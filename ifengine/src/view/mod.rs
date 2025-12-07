@@ -8,6 +8,8 @@ use crate::core::{PageId, game_state::PageKey};
 
 pub type RenderData = String;
 
+/// An object within a view.
+// Many variants don't include RenderData in order to encourage a more unified ui experience
 #[derive(Debug, Clone)]
 pub enum Object {
     /// A single line, rendered with wrapping, carrying optional data which can be used for customization by frontend.
@@ -27,9 +29,11 @@ pub enum Object {
     Break,
     /// empty lines
     Empty(u8),
-    // (content, index). idx indexes into a Span from View[Line[Span]]
+    /// Inputs:
+    /// Line: The content to display
+    /// (indices): Indexes into a Span from View[Line[Span]], like annotations.
     Note(Line, (u8, u8)),
-    // Quote style.
+    /// Quote style.
     Quote(Line, RenderData),
 }
 

@@ -212,6 +212,7 @@ impl From<Span> for Line {
     }
 }
 
+// note: as part of ! becoming a type, !; doesn't evaluate to ()
 // impl From<!> for Line {
 //     fn from(item: !) -> Self {
 //         unreachable!()

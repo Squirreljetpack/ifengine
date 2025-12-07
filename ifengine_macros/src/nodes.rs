@@ -1,7 +1,7 @@
 use quote::quote;
 use syn::{
     Expr, Result, Token,
-    parse::{Parse, ParseStream},
+    parse::{Parse, ParseStream}, punctuated::Punctuated,
 };
 
 fn unique_id() -> u64 {
@@ -52,6 +52,22 @@ impl Parse for KeyExpr {
         let expr: Expr = input.parse()?;
 
         Ok(KeyExpr { maybe_key, expr })
+    }
+}
+
+pub struct KeyExprs {
+    pub maybe_key: MaybeKey,
+    pub exprs: Vec<Expr>,
+}
+
+impl Parse for KeyExprs {
+    fn parse(input: ParseStream) -> Result<Self> {
+        let maybe_key = input.parse()?;
+        let exprs: Punctuated<Expr, Token![,]> = Punctuated::parse_terminated(input)?;
+        Ok(KeyExprs {
+            maybe_key,
+            exprs: exprs.into_iter().collect(),
+        })
     }
 }
 

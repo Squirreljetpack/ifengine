@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 pub mod chap1;
 
 pub type Game = ifengine::Game<State>;
@@ -14,14 +16,21 @@ pub struct State {
     pub days: usize,
     pub rations: usize,
     pub miles: usize,
+
+    pub part1: Part1
 }
 
 #[derive(Debug, Default, Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Companion {
-    name: String,
+    name: &'static str,
 }
 
+#[derive(Debug, Default, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct Part1 {
+    seen: HashSet<&'static str>
+}
 
 #[cfg(test)]
 mod tests {
@@ -30,9 +39,9 @@ mod tests {
     #[test]
     fn test_sim() {
         let game = new();
-        let sim = game.simulate(|s| {
+        let _sim = game.simulate(|s| {
             s.depth > 6
         });
-        dbg!(&sim);
+        // dbg!(&sim);
     }
 }

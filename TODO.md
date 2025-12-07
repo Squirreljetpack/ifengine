@@ -9,6 +9,7 @@ egui widget bar
 
 bring in local dependencies to enable github pages build
 
+
 # EGUI
 reduce binary size (currently 15mb)
 - maybe cofnigrue trunk: wasm-pack build -t web --release \
@@ -19,3 +20,8 @@ maybe other frameworks will allow lazy loading
 somehow the footer underline doesn't get applied in trunk build despite ok in in trunk serve
 
 - `/#graph` should show graph
+
+derive aliases could be cool
+
+# Note
+tracking box dyn any can pass data between pages more conveniently but its probably a bad idea
