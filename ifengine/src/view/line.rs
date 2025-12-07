@@ -4,9 +4,9 @@ use std::collections::HashMap;
 use crate::{
     core::{Action, game_state::InternalKey},
     utils::linguate,
-}; // Added InternalKey
+};
 
-/// Abstract span, guided by HTML element/egui TextFormat
+/// Abstract span. Similar in principle to an HTML element/egui TextFormat.
 #[derive(Debug, Clone, Default)]
 pub struct Span {
     pub action: Option<Action>,
@@ -22,7 +22,7 @@ pub struct Span {
     pub classes: Vec<String>,
 }
 
-/// Applies a style preset
+/// Applies a style preset.
 #[derive(Debug, Default, Clone)]
 pub enum SpanVariant {
     #[default]
@@ -76,8 +76,10 @@ impl Span {
         self
     }
 
-    /// Used by element macros on likely cyclic actions to prune choices when running simulations
-    /// (todo) make it possible to append .hide_if(false) to ensure it never gets hidden
+    /// Hides the span during simulation.
+    ///
+    /// Element macros with actions likely to be cyclic specify this by default to prune choices when running simulations.
+    /// That can be overridden by manually setting this to false.
     pub fn hide_if(self, hide: bool) -> Self {
         if hide {
             Self::default()
@@ -87,7 +89,7 @@ impl Span {
     }
 }
 
-/// A collection of [`Span`]'s, rendered in a wrapped line, joined without spacing
+/// A collection of [`Span`]'s, rendered in a wrapped line, joined without spacing.
 #[derive(Debug, Clone)]
 pub struct Line {
     pub spans: Vec<Span>,
@@ -169,7 +171,8 @@ impl Line {
 bitflags! {
     // #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 
-    /// Applies a set of styles to [`Span`]
+    /// Applies a set of styles to [`Span`].
+    ///
     /// The effect of these styles (if any) depends on the frontend implementation
     #[derive(Debug, Default, Clone, Copy, Eq, PartialEq, Hash)]
     pub struct Modifier: u16 {

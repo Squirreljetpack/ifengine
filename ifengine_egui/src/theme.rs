@@ -16,15 +16,6 @@ pub struct Theme {
 pub mod colors {
     include!(concat!(env!("OUT_DIR"), "/generated_colors.rs"));
 }
-
-pub fn global_theme() -> std::sync::RwLockReadGuard<'static, Theme> {
-    THEME.read().unwrap()
-}
-
-pub fn global_theme_mut() -> std::sync::RwLockWriteGuard<'static, Theme> {
-    THEME.write().unwrap()
-}
-
 // note: strong (heading) and primary are often the same - not sure if they should be
 static COLORS: ColorMaps = phf_map! {
     "dark" => &colors::monokai_original::COLORS_MAP,
@@ -52,10 +43,9 @@ static COLORS: ColorMaps = phf_map! {
             "strong" => STRONG
         }
     },
-    "ayu_light" => &colors::ayu_light::COLORS_MAP,
     "gruvbox_hard" => &colors::gruvbox_hard::COLORS_MAP,
     "gruvbox_soft" => &colors::gruvbox_soft::COLORS_MAP,
-    "ayu_mirage_dark" => &colors::ayu_mirage_dark::COLORS_MAP,
+    // "ayu_mirage_dark" => &colors::ayu_mirage_dark::COLORS_MAP,
     "laserwave" => &colors::laserwave::COLORS_MAP,
     "md_dark" => &colors::md_dark::COLORS_MAP,
     "nord" => &colors::nord::COLORS_MAP,
@@ -64,30 +54,9 @@ static COLORS: ColorMaps = phf_map! {
     "dark_dim" => &colors::dark_dim::COLORS_MAP,
     "dark_cool" => &colors::dark_cool::COLORS_MAP,
     "monochrome_light_strong" => &colors::monochrome_light_strong::COLORS_MAP,
-    "monocrome_dark" => {
-        use colors::monochrome_dark::*;
-        &phf_map! {
-            "red" => RED,
-            "yellow" => YELLOW,
-            "green" => GRAY,
-            "blue" => BLUE,
-            "purple" => PURPLE,
-            "black" => BLACK,
-            "white" => WHITE,
-            "gray" => GRAY,
-            "dark_gray" => GRAY,
-            "light_gray" => GRAY,
-            "primary" => PRIMARY,
-            "secondary" => GRAY,
-            "bg" => BG,
-            "bg_secondary" => GRAY,
-            "selection_fg" => SELECTION_FG,
-            "selection_bg" => SELECTION_BG,
-            "muted2" => GRAY,
-            "muted" => MUTED,
-            "strong" => STRONG
-        }
-    },
+    // "monocrome_dark" => {
+    // todo
+    // },
 };
 
 static THEME: LazyLock<std::sync::RwLock<Theme>> = LazyLock::new(|| Theme {
@@ -133,9 +102,6 @@ static THEME: LazyLock<std::sync::RwLock<Theme>> = LazyLock::new(|| Theme {
 
 
 // --------- IMPL -------------
-
-pub static TEXT_SMALL: f32 = 13.0;
-
 impl Theme {
     /// Change the current theme
     /// Returns: whether theme was set
@@ -150,7 +116,7 @@ impl Theme {
     }
 
     pub fn is_light(&self) -> bool {
-        ["light"].contains(&self.current)
+        self.current.contains("light")
     }
 
     /// Convert a into an `egui::Visuals` instance
@@ -246,6 +212,14 @@ impl Theme {
         // Fallback to parsing as hex
         egui::Color32::from_hex(name_or_hex).ok()
     }
+}
+
+pub fn global_theme() -> std::sync::RwLockReadGuard<'static, Theme> {
+    THEME.read().unwrap()
+}
+
+pub fn global_theme_mut() -> std::sync::RwLockWriteGuard<'static, Theme> {
+    THEME.write().unwrap()
 }
 
 // ----------

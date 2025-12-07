@@ -1,4 +1,4 @@
-//! The core types and logic
+//! Core types and logic.
 
 // Page
 mod page;

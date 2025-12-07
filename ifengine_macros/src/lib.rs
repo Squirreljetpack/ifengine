@@ -1,5 +1,4 @@
-/// # Additional
-/// Also see [`ifengine::elements`]
+//! See [`ifengine::elements`]
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::{
@@ -11,8 +10,23 @@ use nodes::*;
 
 /// Decorate your function with this.
 ///
-/// The function take your game state as a parameter, and return nothing.
+/// The function must take your game state as a parameter, and return `()`.
 /// This macro will rewrite your function to receive a &mut [`ifengine::Game`] and return a [`ifengine::core::Response`], as well as enabling usage of [`ifengine::elements`] to produce that response (which in most cases will be a [`ifengine::View`]).
+///
+/// # Examples
+///```rust
+/// #[ifview]
+/// pub fn p1(s: &mut State) {
+///     h!("SALTWRACK", 3); // heading level 3
+///     p!(link!("BEGIN", p2)); // Link to the next page
+/// }
+///
+/// // ----- mod.rs -----
+/// pub type Game = ifengine::Game<State>;
+/// pub fn new() -> Game {
+///    ifengine::Game!(chap1::p1)
+/// }
+///```
 #[proc_macro_attribute]
 pub fn ifview(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let input = parse_macro_input!(item as ItemFn);
@@ -1160,7 +1174,7 @@ pub fn back(input: TokenStream) -> TokenStream {
     TokenStream::from(expanded)
 }
 
-/// Immediately yield a [`Response`] with the current [`View`].
+/// Immediately yield a [`Response::View`] with the current [`View`].
 ///
 /// This returns `!`, exiting the current function.
 #[proc_macro]

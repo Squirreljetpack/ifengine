@@ -134,7 +134,7 @@ mod macros_enabled {
         };
     }
 
-    /// Immediately return a `End` [`Response`].
+    /// Immediately return a [`Response::End`].
     ///
     /// This returns `!`, exiting the current function.
     #[macro_export]

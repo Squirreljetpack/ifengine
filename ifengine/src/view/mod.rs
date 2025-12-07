@@ -1,10 +1,13 @@
+//! The [`View`] and its constituents.
+
 mod image;
 mod line;
 
 pub use image::*;
 pub use line::*;
 
-use crate::core::{PageId, game_state::PageKey};
+#[allow(unused)]
+use crate::core::{PageId, game_state::PageKey, Page};
 
 /// Some [`Object`] variants may want additional data to specify custom styles for the frontend.
 /// That can be specified here.
@@ -49,7 +52,8 @@ pub enum Object {
     Custom(RenderData),
 }
 
-/// The view returned by a [`crate::core::Page`].
+/// The view returned by a [`Page`].
+///
 /// The job of the ui library is to process its objects (i.e. by rendering).
 ///
 /// # Additional

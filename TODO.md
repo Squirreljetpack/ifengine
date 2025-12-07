@@ -10,6 +10,7 @@ egui graph
  - etc
 Full render, doc and macro support for all object types
 
+- change hide_if to hide_in_sim
 - derive aliases may be cool
 
 # EGUI
