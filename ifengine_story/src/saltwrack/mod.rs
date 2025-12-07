@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::{borrow::Cow, collections::HashSet};
 
 pub mod chap1;
 pub mod chap1d;
@@ -21,16 +21,18 @@ pub struct State {
     pub part1: Part1
 }
 
+// Note: all the Into's on str assignment are annoying, maybe derive setters?
+
 #[derive(Debug, Default, Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Companion {
-    name: &'static str,
+    name: Cow<'static, str>,
 }
 
 #[derive(Debug, Default, Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Part1 {
-    seen: HashSet<&'static str>
+    seen: HashSet<String>
 }
 
 #[cfg(test)]

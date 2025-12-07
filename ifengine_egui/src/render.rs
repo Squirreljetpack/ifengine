@@ -84,6 +84,9 @@ pub fn render(view: View, ui: &mut Ui, game: &mut GameInner) {
             Object::Note(_, _) => {
                 todo!()
             }
+            Object::Custom(_) => {
+                unimplemented!()
+            }
         }
     }
 }

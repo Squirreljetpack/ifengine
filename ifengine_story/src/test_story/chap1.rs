@@ -1,7 +1,7 @@
 use ifengine::elements::img;
 #[allow(unused_imports)]
 use ifengine::{
-    elements::{alts, choice, count, dchoices, ddchoices, text, mchoice, once, p, page_dbg},
+    elements::{alts, choice, count, dchoice, dynamic_choice, text, mchoice, fresh, p, page_dbg},
     ifview, link
 };
 
@@ -31,7 +31,7 @@ pub fn rainy_day(_: &mut ()) {
 
     // next!(sunny_day);
 
-    once!(|| {
+    fresh!(|| {
         dbg!("hello");
     });
 
@@ -41,7 +41,7 @@ pub fn rainy_day(_: &mut ()) {
         (DChoices::C, "C"),
     ];
 
-    if let Some(x) = dchoices!(choices.clone()) {
+    if let Some(x) = dynamic_choice!(choices.clone()) {
         match x {
             DChoices::A => {
                 dbg!("A handled");
@@ -57,7 +57,7 @@ pub fn rainy_day(_: &mut ()) {
 
     img!("https://upload.wikimedia.org/wikipedia/commons/thumb/b/b6/SIPI_Jelly_Beans_4.1.07.tiff/lossy-page1-256px-SIPI_Jelly_Beans_4.1.07.tiff.jpg",);
 
-    ddchoices!(
+    dchoice!(
         choices,
         DChoices::A => {
             dbg!("A handled");

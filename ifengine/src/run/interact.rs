@@ -70,7 +70,7 @@ impl View {
                     }
                 }
 
-                Object::Image(_) | Object::Break | Object::Empty(_) => {
+                Object::Image(_) | Object::Break | Object::Empty(_) | Object::Custom(_) => {
                     // no interactables
                 }
             }

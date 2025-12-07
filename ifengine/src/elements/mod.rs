@@ -1,11 +1,23 @@
-/// Module containing macros that simplify creating interactive text elements and responses.
-///
-/// Enabled only if the `"macros"` feature is active. Provides declarative macros to create
-/// spans, links, navigation actions, and tunnel/response handling conveniently.
+//! Module containing macros that simplify creating interactive text elements and [responses](crate::core::Response). Provides declarative macros to create spans, links, navigation actions and responses.
+//! Provides procedural macros for choices, paragraphs, and other clickable elements.
+//!
+//! # Additional
+//! Requires the `"macros"` feature (included with default).
+
 #[cfg(feature = "macros")]
 mod macros_enabled {
-    #[allow(unused)] // doc imports
-    use crate::view::Span;
+    #[allow(unused)] // doc imports, don't work on proc macros
+    use crate::{
+        elements,
+        view::{Line, Span, Object, RenderData},
+        Action,
+        View,
+        core::{GameContext, GameTags, PageState, Response},
+        run::Simulation,
+        elements::ChoiceVariant
+    };
+
+
     // Note: these are (counter-intuitively) exported at crate root
     // todo: lowpri: we should probably rewrite more proc macros into declarative macros if we can, only using proc macro to omit passing in the local state
     // i.e. this doesn't work
@@ -18,7 +30,7 @@ mod macros_enabled {
 
     // --------------------------------------- Spans -----------------------------
 
-    /// Creates a [`Span`] from the given expression.
+    /// Create a [`Span`] from the given expression.
     ///
     /// # Examples
     ///
@@ -32,7 +44,7 @@ mod macros_enabled {
         };
     }
 
-    /// Creates a clickable link [`Span`].
+    /// Create a clickable link [`Span`].
     ///
     /// - `$e`: The text to display.
     /// - `$f`: Optional path to a page or function for the link action.
@@ -58,10 +70,7 @@ mod macros_enabled {
         };
     }
 
-
-
-
-    /// Creates a tunnel or exit link [`Span`].
+    /// Create a tunnel or exit link [`Span`].
     ///
     /// - `$e`: Display text.
     /// - `$f`: Optional target page to tunnel to.
@@ -85,14 +94,15 @@ mod macros_enabled {
 
     // ----- Response ---------
 
-    /// Immediately return a transition-type `Response`.
-    /// This returns !, exiting the current function.
+    /// Immediately return a transition-type [`Response`].
+    ///
+    /// This returns `!`, exiting the current function.
     ///
     /// - `$f:path`: Switch to the given page.
     /// - `$n:expr`: Go back `$n` steps.
     /// - No arguments: go back 1 step.
     #[macro_export]
-    macro_rules! switch {
+    macro_rules! GO {
         ($f:path) => {
             return $crate::core::Response::Switch($crate::core::PageHandle::new(
                 stringify!($f).into(),
@@ -106,13 +116,14 @@ mod macros_enabled {
             return $crate::core::Response::Back(1);
         };
     }
-    /// Immediately return a transition-type `Response`.
-    /// This returns !, exiting the current function.
+    /// Immediately return a tunnel-type [`Response`].
+    ///
+    /// This returns `!`, exiting the current function.
     ///
     /// - `$f:path`: Enter a tunnel to the specified page.
     /// - No arguments: exit current tunnel.
     #[macro_export]
-    macro_rules! enter {
+    macro_rules! ENTER {
         ($f:path) => {
             return $crate::core::Response::EnterTunnel(
                 $crate::core::PageHandle::new(stringify!($f).into(), $f),
@@ -123,7 +134,9 @@ mod macros_enabled {
         };
     }
 
-    /// Returns an `End` response.
+    /// Immediately return a `End` [`Response`].
+    ///
+    /// This returns `!`, exiting the current function.
     #[macro_export]
     macro_rules! END {
         () => {
@@ -132,13 +145,27 @@ mod macros_enabled {
     }
 
     // ----- Re-exports for ergonomic access -----
+    /// Alias for [`dparagraph`].
     pub use ifengine_macros::dparagraph as dp;
+
+    /// Alias for [`mchoice`].
     pub use ifengine_macros::mchoice as choices;
+
+    /// Alias for [`mparagraph`].
     pub use ifengine_macros::mparagraph as mp;
+
+    /// Alias for [`paragraph`].
     pub use ifengine_macros::paragraph as p;
+
+    /// Alias for [`paragraphs`].
     pub use ifengine_macros::paragraphs as ps;
+
+    /// Alias for [`text`].
     pub use ifengine_macros::text as l;
+
+    /// Alias for [`texts`].
     pub use ifengine_macros::texts as ls;
+
     pub use ifengine_macros::*;
 }
 
@@ -147,18 +174,20 @@ mod macros_enabled {
 pub use macros_enabled::*;
 use crate::view::Line;
 
-/// The variants accepted by the [`choices`] macro on the LHS.
-/// This allows you to dynamically adapt the set of shown choices through your rust code.
-/// You may find it convenient to import ChoiceVariant::*;
+/// The variants accepted by the [`choices`] macro on the left-hand side.
 ///
-/// - `Once(Line)`: Hide after being clicked.
-/// - `Hidden`: Not shown.
-/// - `Always(Line)`: Always shown.
-
+/// This allows you to dynamically adapt the set of shown choices through your rust code.
+///
+/// # Additional
+/// You may find it convenient to `import ChoiceVariant::*`;
+///
 #[derive(Debug)]
 pub enum ChoiceVariant {
+    /// Hide after being clicked
     Once(Line),
+    /// Not shown
     Hidden,
+    /// Always shown
     Always(Line),
 }
 

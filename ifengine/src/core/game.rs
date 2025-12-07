@@ -7,6 +7,7 @@ use crate::view::View;
 
 /// Used to manage custom state
 pub type StringMap = HashMap<String, String>;
+/// Stores tags (See [`crate::core::PageState`])
 pub type GameTags = HashSet<PageId>; // just want the Arc<str>
 
 pub trait GameContext: Default + Clone + std::fmt::Debug + 'static {}
@@ -23,8 +24,30 @@ pub struct GameInner {
     pub iterations: usize, // todo
 }
 
-/// When processing for rendering, use game.inner instead
-/// The context is exposed to your pages allowing you to flexibly manage state however you want
+/// Wraps [`GameInner`] with customizable a context used to represent the game-specific state.
+///
+/// The context is exposed to your [pages](crate::core::Page), allowing you to interact with your game state within them.
+///
+/// # Example
+/// ```rust
+/// use ifengine::{GameError, View};
+/// use story::chap1;
+///
+/// let game = ifengine::Game!(chap1::p1);
+///
+/// let view = match game.view() {
+///    Ok(view: View) => view,
+///    Err(e: GameError) => {
+///        panic!("Unhandled err: {e}");
+///    }
+/// };
+///
+/// ui.render(view, &mut game);
+///
+/// ```
+///
+/// # Additional
+/// When processing for rendering, you can use the inner field directly.
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Game<C = StringMap> {
@@ -57,6 +80,7 @@ impl<C: GameContext> Game<C> {
         self.simulating
     }
 
+    /// Calls the active [page](PageHandle) in a loop, until a [`View`] is produced.
     pub fn view(&mut self) -> Result<View, GameError> {
         let Some(mut page) = self.pages.current() else {
             return Err(GameError::NoPage);
@@ -149,6 +173,17 @@ impl GameInner {
     }
 }
 
+/// Instantiate a [`Game`] from a function decorated with [`crate::ifview`].
+///
+/// # Example
+/// ```rust
+/// use story::chap1;
+///
+/// pub type Game = ifengine::Game<State>;
+/// pub fn new() -> Game {
+///     ifengine::Game!(chap1::p1)
+/// }
+/// ```
 #[macro_export]
 macro_rules! Game {
     ($f:path) => {
@@ -158,6 +193,8 @@ macro_rules! Game {
 
 // -------------- Page Stack -----------------
 
+/// The struct representing game history.
+/// Each tunnel is a seperate stack.
 #[derive(Default, Debug, Clone)]
 pub struct PageStack(Vec<Vec<PageHandle>>);
 

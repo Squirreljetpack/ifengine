@@ -10,6 +10,13 @@ fn unique_id() -> u64 {
     ((start.line() as u64) << 32) | (start.column() as u64)
 }
 
+/// Optional u64 key specified in the first position, surrounded in brackets.
+/// The internal data describing an element is stored under this key in the page state and can be retrieved for full fine-grained control.
+/// # Syntax
+/// ```rust
+/// let span_count = read_key!(6); // Can be called before
+/// let span = count!((6), |val| "span");
+/// ```
 pub enum MaybeKey {
     Auto,
     Key(Expr),

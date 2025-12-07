@@ -1,8 +1,7 @@
 #[allow(unused_imports)]
 use ifengine::elements::{ChoiceVariant::*, click, dp, p, ps};
-use ifengine::{END, elements::{back, choice, h, ls, mchoice}, ifview, link, utils::MaskExt
+use ifengine::{END, GO, tun, elements::{back, choice, h, ls, mchoice}, ifview, link, utils::MaskExt
 };
-use ifengine::{switch, tun};
 
 use crate::{chap1d::*, saltwrack::State};
 
@@ -34,7 +33,7 @@ pub fn p3(s: &mut State) {
     [["Interpreter."]]  The title of your position, an honorific conveying pride in your skills."#)
     {
         s.myname = o.into();
-        switch!(p4)
+        GO!(p4)
     }
 }
 
@@ -73,7 +72,7 @@ pub fn p5(s: &mut State) {
         s.c2.name.is_empty().then_some(link!("the second saltwalker", _walker_2)),
         (!s.part1.seen.contains("interpreter_2")).then_some(link!("the second interpreter", _interpreter_2))
     }.all() {
-        switch!(p6)
+        GO!(p6)
     }
 }
 
@@ -88,8 +87,8 @@ pub fn _oracle_1(s: &mut State) {
     // ls! is serving as a choice with no effects and no retained state here
     ls! {
         click!("select the first oracle", {
-            s.c1.name = "Danil";
-            switch!();
+            s.c1.name = "Danil".into();
+            GO!();
         }),
         back!("consider otherwise")
     };
@@ -103,8 +102,8 @@ pub fn _oracle_2(s: &mut State) {
 
     ls! {
         click!("select the second oracle", {
-            s.c1.name = "Aron";
-            switch!();
+            s.c1.name = "Aron".into();
+            GO!();
         }),
         back!("consider otherwise")
     };
@@ -118,8 +117,8 @@ pub fn _walker_1(s: &mut State) {
 
     ls! {
         click!("select the first walker", {
-            s.c2.name = "Ego";
-            switch!();
+            s.c2.name = "Ego".into();
+            GO!();
         }),
         back!("consider otherwise")
     };
@@ -133,8 +132,8 @@ pub fn _walker_2(s: &mut State) {
 
     ls! {
         click!("select the second walker", {
-            s.c2.name = "Naim";
-            switch!();
+            s.c2.name = "Naim".into();
+            GO!();
         }),
         back!("consider otherwise")
     };
@@ -149,8 +148,8 @@ He barely glances at you; he’s preoccupied with turning over some glass model,
 
 The clerk seems weary rather than angered as she begins: “Interpreter, you are aware that given the nature of the salt wrack, the Society’s subcouncil has determined—“ “Spare me.” He gives you a sympathetic grimace as he [[leaves.]]"#).is_some()
     {
-        s.part1.seen.insert("interpreter_2");
-        switch!()
+        s.part1.seen.insert("interpreter_2".into());
+        GO!()
     }
 }
 
@@ -172,11 +171,11 @@ pub fn p7(s: &mut State) {
     choice! {
         click!("40 days", {
             s.rations = 400;
-            switch!(p8);
+            GO!(p8);
         }),
         click!("50 days", {
             s.rations = 500;
-            switch!(p8);
+            GO!(p8);
         }),
     };
 }
@@ -190,7 +189,7 @@ You pore over maps and revisit the Observational Society’s collections, examin
 
 When at last you three meet again, it is in a high-raftered warehouse whose vast doors open northward. The walls are stained with salt and stranger compounds. You clamber into your [[vehicle]], accompanied by your companions."
     ).is_some() {
-        switch!(p9)
+        GO!(p9)
     }
 }
 
@@ -201,7 +200,7 @@ pub fn p9(s: &mut State) {
         "This machine, too, is experimental. The latest innovation from Hearth’s engineers. A great metal beast, you think. Quadrupedal, with claws to hook into uneven ground. Wheels wouldn’t be of use in the salt wrack. The legs support a rectangular chamber with seats and room for cargo, piled with various supplies, open to the air but shielded in front. Despite the facelessness of the mechanism, it’s undeniably designed like an animal; the impression is only heightened when you set off, and it begins to walk with a [[steady prowling stride]]."
     ).is_some() {
         s.miles = 40;
-        switch!(p10)
+        GO!(p10)
     }
 }
 
@@ -230,7 +229,7 @@ pub fn p11(s: &mut State) {
             link!("“How far have you travelled?”"),
             link!("don’t bother her with questions")
         ).any() {
-            switch!(p12)
+            GO!(p12)
         }
     }
 

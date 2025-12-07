@@ -168,6 +168,9 @@ impl Line {
 
 bitflags! {
     // #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+
+    /// Applies a set of styles to [`Span`]
+    /// The effect of these styles (if any) depends on the frontend implementation
     #[derive(Debug, Default, Clone, Copy, Eq, PartialEq, Hash)]
     pub struct Modifier: u16 {
         const BOLD              = 0b0000_0000_0001;
