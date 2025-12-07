@@ -158,7 +158,6 @@ impl Line {
                 for mut element in self.spans {
                     if let Some(action) = element.action.take() {
                         if element.add(ui, true).clicked() {
-                            dbg!(&action);
                             let _ = game.handle_action(action);
                         };
                     } else {

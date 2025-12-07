@@ -12,6 +12,7 @@ use crate::{
 
 impl eframe::App for App {
     /// Called by the framework to save state before shutdown.
+    #[cfg(feature = "serde")]
     fn save(&mut self, storage: &mut dyn eframe::Storage) {
         eframe::set_value(storage, eframe::APP_KEY, self);
     }
@@ -37,7 +38,7 @@ impl eframe::App for App {
 
                     let (snarl, viewer) = self.graph_viewer.get_or_insert_with(|| {
                         let (snarl, prefix_len) =
-                            crate::graph::new_snarl(ui.available_width(), ui.available_height());
+                        crate::graph::new_snarl(ui.available_width(), ui.available_height());
                         (
                             snarl,
                             GraphViewer {
@@ -48,9 +49,9 @@ impl eframe::App for App {
                     });
 
                     SnarlWidget::new()
-                        .id(egui::Id::new("snarl-demo"))
-                        .style(global_theme().snarl)
-                        .show(snarl, viewer, ui);
+                    .id(egui::Id::new("snarl-demo"))
+                    .style(global_theme().snarl)
+                    .show(snarl, viewer, ui);
                 },
                 || {
                     show_graph = false;
@@ -59,36 +60,36 @@ impl eframe::App for App {
         }
         self.show_graph = show_graph;
         egui::TopBottomPanel::top("top_panel")
-            .frame(egui::Frame {
-                fill: ctx.style().visuals.window_fill, // normal panel background
-                // stroke: Stroke::NONE,
-                inner_margin: egui::Margin::same(10), // optional padding
-                ..Default::default()
-            })
-            .show_separator_line(false)
-            .show(ctx, |ui| {
-                let hovered = ui
-                    .ctx()
-                    .input(|i| i.pointer.interact_pos())
-                    .map(|pos| ui.response().rect.contains(pos))
-                    .unwrap_or(false);
-                ui.add_space(10.0);
-                ui.horizontal_centered_labels(self.header(), |ui| {
-                    ui.add_menu(hovered, light, |ui| {
-                        if ui.button("Graph").clicked() {
-                            self.show_graph = true;
-                        }
-                        ui.add_submenu("Themes", |ui| {
-                            let variants = global_theme().variants();
-                            for variant in variants {
-                                if ui.button(variant).clicked() {
-                                    global_theme_mut().switch(variant, ui.ctx());
-                                }
+        .frame(egui::Frame {
+            fill: ctx.style().visuals.window_fill, // normal panel background
+            // stroke: Stroke::NONE,
+            inner_margin: egui::Margin::same(10), // optional padding
+            ..Default::default()
+        })
+        .show_separator_line(false)
+        .show(ctx, |ui| {
+            let hovered = ui
+            .ctx()
+            .input(|i| i.pointer.interact_pos())
+            .map(|pos| ui.response().rect.contains(pos))
+            .unwrap_or(false);
+            ui.add_space(10.0);
+            ui.horizontal_centered_labels(self.header(), |ui| {
+                ui.add_menu(hovered, light, |ui| {
+                    if ui.button("Graph").clicked() {
+                        self.show_graph = true;
+                    }
+                    ui.add_submenu("Themes", |ui| {
+                        let variants = global_theme().variants();
+                        for variant in variants {
+                            if ui.button(variant).clicked() {
+                                global_theme_mut().switch(variant, ui.ctx());
                             }
-                        })
-                    });
+                        }
+                    })
                 });
             });
+        });
 
         let Ok(resp) = self.game.view() else { todo!() };
 
@@ -108,24 +109,24 @@ impl eframe::App for App {
         });
 
         egui::TopBottomPanel::bottom("bottom_panel")
-            // .frame(egui::Frame {
-            //     inner_margin: egui::Margin {
-            //         left: 0,
-            //         right: 2,
-            //         top: 0,
-            //         bottom: 2,
-            //     },
-            //     ..Default::default()
-            // })
-            .show_separator_line(false)
-            .show(ctx, |ui| {
-                ui.with_layout(egui::Layout::right_to_left(egui::Align::Min), |ui| {
-                    ui.add_custom_link(
-                        RichText::new("Made with IfEngine").size(10.0),
-                        "https://github.com/Squirreljetpack/ifengine",
-                    )
-                });
+        // .frame(egui::Frame {
+        //     inner_margin: egui::Margin {
+        //         left: 0,
+        //         right: 2,
+        //         top: 0,
+        //         bottom: 2,
+        //     },
+        //     ..Default::default()
+        // })
+        .show_separator_line(false)
+        .show(ctx, |ui| {
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Min), |ui| {
+                ui.add_custom_link(
+                    RichText::new("Made with IfEngine").size(10.0),
+                    "https://github.com/Squirreljetpack/ifengine",
+                )
             });
+        });
     }
 }
 

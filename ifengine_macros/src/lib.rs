@@ -28,14 +28,14 @@ pub fn ifview(_attr: TokenStream, item: TokenStream) -> TokenStream {
 
     let ctx_arg = input.sig.inputs.first().unwrap();
     let ctx_type = if let syn::FnArg::Typed(pat_type) = ctx_arg
-        && let syn::Type::Reference(ty_ref) = &*pat_type.ty
-        && ty_ref.mutability.is_some()
+    && let syn::Type::Reference(ty_ref) = &*pat_type.ty
+    && ty_ref.mutability.is_some()
     {
         &*ty_ref.elem
     } else {
         return Error::new_spanned(ctx_arg, "Expected a &mut C type")
-            .to_compile_error()
-            .into();
+        .to_compile_error()
+        .into();
     };
 
     let expanded = quote! {
@@ -217,29 +217,29 @@ pub fn mchoice(input: TokenStream) -> TokenStream {
     let key = maybe_key.into_tokens();
 
     let arm_blocks: Vec<_> = arms
-        .iter()
-        .enumerate()
-        .map(|(i, LineArm { line, block })| {
-            let i = i as u8;
+    .iter()
+    .enumerate()
+    .map(|(i, LineArm { line, block })| {
+        let i = i as u8;
 
-            let block_tokens = match block {
-                Some(b) => quote! { #b },
-                None => quote! {},
-            };
+        let block_tokens = match block {
+            Some(b) => quote! { #b },
+            None => quote! {},
+        };
 
-            quote! {
-                if (__ifengine_tmp_mask & (1u64 << #i)) != 0 {
-                    #block_tokens
-                }
-                if let Some(l) = ifengine::elements::ChoiceVariant::from(#line)
-                .as_line((__ifengine_tmp_mask & (1u64 << #i)) != 0)
-                {
-                    __ifengine_tmp_lines.push((#i, l));
-                    __ifengine_visible_mask[#i as usize] = true;
-                }
+        quote! {
+            if (__ifengine_tmp_mask & (1u64 << #i)) != 0 {
+                #block_tokens
             }
-        })
-        .collect::<Vec<_>>();
+            if let Some(l) = ifengine::elements::ChoiceVariant::from(#line)
+            .as_line((__ifengine_tmp_mask & (1u64 << #i)) != 0)
+            {
+                __ifengine_tmp_lines.push((#i, l));
+                __ifengine_visible_mask[#i as usize] = true;
+            }
+        }
+    })
+    .collect::<Vec<_>>();
 
     let n = arms.len();
 
@@ -405,7 +405,11 @@ pub fn dparagraph(input: TokenStream) -> TokenStream {
     let expanded = quote! {{
         let mut __ifengine_tmp_strings =
         ifengine::utils::split_braced(&ifengine::utils::trim_lines(&#expr));
-        let ret = __ifengine_page_state.remove(#key).and_then(|k| ifengine::utils::find_hash_match(&__ifengine_tmp_strings, k)).map(|i| __ifengine_tmp_strings[i].clone());
+        let ret = __ifengine_page_state
+        .remove(#key)
+        .and_then(|k| {
+            ifengine::utils::find_hash_match(__ifengine_tmp_strings.iter().step_by(2), k).cloned()
+        });
 
         __ifengine_page_state.push(
             ifengine::view::Object::Paragraph(
@@ -586,7 +590,7 @@ pub fn img(input: TokenStream) -> TokenStream {
     };
 
     let image_tokens = if let Expr::Lit(lit) = path_expr
-        && let Lit::Str(s) = &lit.lit
+    && let Lit::Str(s) = &lit.lit
     {
         let path = s.value();
         if path.starts_with("http://") || path.starts_with("https://") {
@@ -604,8 +608,8 @@ pub fn img(input: TokenStream) -> TokenStream {
         }
     } else {
         return syn::Error::new_spanned(path_expr, "expected string literal")
-            .to_compile_error()
-            .into();
+        .to_compile_error()
+        .into();
     };
 
     let expanded = quote! {
@@ -624,8 +628,8 @@ pub fn h(input: TokenStream) -> TokenStream {
 
     if exprs.len() != 2 {
         return syn::Error::new_spanned(exprs_parsed, "macro expects exactly 2 arguments: text and level")
-            .to_compile_error()
-            .into();
+        .to_compile_error()
+        .into();
     }
 
     let text = exprs[0];
@@ -979,18 +983,18 @@ pub fn set_key_mask(input: TokenStream) -> TokenStream {
     use syn::{Expr, Token, parse::Parser, punctuated::Punctuated};
 
     let parts = match Punctuated::<Expr, Token![,]>::parse_terminated
-        .parse(input) {
-            Ok(parts) => parts,
-            Err(e) => return e.to_compile_error().into(),
-        };
+    .parse(input) {
+        Ok(parts) => parts,
+        Err(e) => return e.to_compile_error().into(),
+    };
 
     let mut iter = parts.iter();
     let key = if let Some(key) = iter.next() {
         key
     } else {
         return syn::Error::new_spanned(parts, "expected key")
-            .to_compile_error()
-            .into();
+        .to_compile_error()
+        .into();
     };
     let bits: Vec<&Expr> = iter.collect();
 
@@ -1006,14 +1010,14 @@ pub fn set_key_mask(input: TokenStream) -> TokenStream {
                 Ok(bit) => mask |= 1u64 << bit,
                 Err(_) => {
                     return syn::Error::new_spanned(i, "failed to parse bit position")
-                        .to_compile_error()
-                        .into()
+                    .to_compile_error()
+                    .into()
                 }
             }
         } else {
             return syn::Error::new_spanned(expr, "bit positions must be integer literals")
-                .to_compile_error()
-                .into();
+            .to_compile_error()
+            .into();
         }
     }
 
@@ -1032,18 +1036,18 @@ pub fn unset_key_mask(input: TokenStream) -> TokenStream {
     use syn::{Expr, Token, parse::Parser, punctuated::Punctuated};
 
     let parts = match Punctuated::<Expr, Token![,]>::parse_terminated
-        .parse(input) {
-            Ok(parts) => parts,
-            Err(e) => return e.to_compile_error().into(),
-        };
+    .parse(input) {
+        Ok(parts) => parts,
+        Err(e) => return e.to_compile_error().into(),
+    };
 
     let mut iter = parts.iter();
     let key = if let Some(key) = iter.next() {
         key
     } else {
         return syn::Error::new_spanned(parts, "expected key")
-            .to_compile_error()
-            .into();
+        .to_compile_error()
+        .into();
     };
     let bits: Vec<&Expr> = iter.collect();
 
@@ -1058,14 +1062,14 @@ pub fn unset_key_mask(input: TokenStream) -> TokenStream {
                 Ok(bit) => mask |= 1u64 << bit,
                 Err(_) => {
                     return syn::Error::new_spanned(i, "failed to parse bit position")
-                        .to_compile_error()
-                        .into()
+                    .to_compile_error()
+                    .into()
                 }
             }
         } else {
             return syn::Error::new_spanned(expr, "bit positions must be integer literals")
-                .to_compile_error()
-                .into();
+            .to_compile_error()
+            .into();
         }
     }
 
@@ -1142,8 +1146,8 @@ pub fn tag(input: TokenStream) -> TokenStream {
             "Once" => false,
             _ => {
                 return syn::Error::new_spanned(&id, "Expected `Sticky` or `Once`")
-                    .to_compile_error()
-                    .into()
+                .to_compile_error()
+                .into()
             }
         },
         None => false,

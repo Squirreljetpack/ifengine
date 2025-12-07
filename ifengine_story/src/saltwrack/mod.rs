@@ -1,5 +1,3 @@
-use serde::{Deserialize, Serialize};
-
 pub mod chap1;
 
 pub type Game = ifengine::Game<State>;
@@ -7,7 +5,8 @@ pub fn new() -> Game {
     ifengine::Game!(chap1::p1)
 }
 
-#[derive(Debug, Default, Serialize, Deserialize, Clone)]
+#[derive(Debug, Default, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct State {
     pub myname: String,
     pub c1: Companion,
@@ -17,7 +16,8 @@ pub struct State {
     pub miles: usize,
 }
 
-#[derive(Debug, Default, Serialize, Deserialize, Clone)]
+#[derive(Debug, Default, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Companion {
     name: String,
 }

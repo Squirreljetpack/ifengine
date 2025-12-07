@@ -1,5 +1,4 @@
 use bitflags::bitflags;
-use const_fnv1a_hash::fnv1a_hash_str_64;
 use std::collections::HashMap;
 
 use crate::{
@@ -128,7 +127,17 @@ impl Line {
                         .with_action(Action::SetBit(key.clone(), i as u8 / 2)),
                     );
                 } else {
-                    let h = fnv1a_hash_str_64(&part);
+                    let h: u64;
+
+                    #[cfg(feature = "rand")]
+                    {
+                        h = const_fnv1a_hash::fnv1a_hash_str_64(&part);
+                    }
+                    #[cfg(not(feature = "rand"))]
+                    {
+                        h = (i / 2) as u64;
+                    }
+
                     spans.push(
                         Span::from_lingual(part)
                         .as_link()
