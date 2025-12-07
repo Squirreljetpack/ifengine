@@ -17,7 +17,7 @@ impl<T> GameContext for T where T: Default + Clone + std::fmt::Debug + 'static {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct GameInner {
     pub state: GameState,
-    #[serde(skip)]
+    #[cfg_attr(feature = "serde", serde(skip))]
     pub pages: PageStack,
     pub fresh: bool,
     pub iterations: usize, // todo

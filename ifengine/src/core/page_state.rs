@@ -1,5 +1,4 @@
 use std::cell::RefCell;
-use rand::{SeedableRng, rngs::StdRng, seq::IndexedRandom};
 
 use crate::{
     core::{
@@ -12,7 +11,8 @@ use crate::{
 pub struct PageState<'a> {
     view: View,
     page_state: RefCell<&'a mut PageMap>, // to allow simultaneous method accesses, safe because chaptyer_state doesn't produce refs
-    seed: Option<u64>,
+    #[cfg(feature = "rand")]
+    pub seed: Option<u64>,
     fresh: bool,
     game_tags: &'a mut GameTags,
     /// [`crate::Game::simulate`]
@@ -24,6 +24,7 @@ impl<'a> PageState<'a> {
         Self {
             view: View::new(name.into()),
             page_state: RefCell::new(page_state),
+            #[cfg(feature = "rand")]
             seed: None,
             fresh,
             game_tags,
@@ -105,7 +106,10 @@ impl<'a> PageState<'a> {
         }
     }
 
+    #[cfg(feature = "rand")]
     pub fn rand(&self, range: usize, exclude: &[usize]) -> usize {
+        use rand::{SeedableRng, rngs::StdRng, seq::IndexedRandom};
+
         let excl: std::collections::HashSet<usize> = exclude.iter().copied().collect();
 
         let pool: Vec<usize> = (0..range).filter(|i| !excl.contains(i)).collect();

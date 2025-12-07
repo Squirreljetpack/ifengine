@@ -1,10 +1,9 @@
-use story::saltwrack::{new, Game};
+pub use story::{new, Game};
 use egui_snarl::Snarl;
-use serde::{Deserialize, Serialize};
 
 use crate::graph::Node;
 
-#[derive(Serialize, Deserialize)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct App {
     pub game: Game,
     pub state: GUIState,
@@ -28,7 +27,8 @@ impl App {
 }
 
 // -----------------
-#[derive(Debug, Default, Serialize, Deserialize)]
+#[derive(Debug, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct GUIState {
     pub show_menu_button: bool,
     pub show_menu: bool,
@@ -51,15 +51,5 @@ impl std::ops::Deref for App {
 impl std::ops::DerefMut for App {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.state
-    }
-}
-
-//This is to make App debuggable, as Snarl is not debuggable
-impl std::fmt::Debug for App {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("App")
-        .field("game", &self.game)
-        .field("state", &self.state)
-        .finish()
     }
 }

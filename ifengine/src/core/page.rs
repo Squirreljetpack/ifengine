@@ -92,27 +92,30 @@ impl<T: Into<Arc<str>>> From<T> for PageId {
     }
 }
 
-use serde::{Serialize, Serializer, Deserialize, Deserializer};
+#[cfg(feature = "serde")]
+mod serde_impl {
+    use super::*;
+    use serde::{Serialize, Serializer, Deserialize, Deserializer};
 
-impl Serialize for PageId {
-    fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>
-    where
-    S: Serializer,
-    {
-        s.serialize_str(&self.0)
+    impl Serialize for PageId {
+        fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+        {
+            s.serialize_str(&self.0)
+        }
+    }
+
+    impl<'de> Deserialize<'de> for PageId {
+        fn deserialize<D>(d: D) -> Result<Self, D::Error>
+        where
+            D: Deserializer<'de>,
+        {
+            let s: &str = Deserialize::deserialize(d)?;
+            Ok(PageId::from(s))
+        }
     }
 }
-
-impl<'de> Deserialize<'de> for PageId {
-    fn deserialize<D>(d: D) -> Result<Self, D::Error>
-    where
-    D: Deserializer<'de>,
-    {
-        let s: &str = Deserialize::deserialize(d)?;
-        Ok(PageId::from(s))
-    }
-}
-
 impl std::ops::Deref for PageId {
     type Target = str;
 

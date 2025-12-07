@@ -12,10 +12,10 @@ use ifengine::
     run::PageRecord
 ;
 use rand::Rng;
-use serde::{Deserialize, Serialize};
-use story::saltwrack::new;
+use super::app::new;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Node {
     run: String,
     record: PageRecord,
@@ -137,7 +137,8 @@ fn random_pos(p_x: f32, _p_y: f32, width: f32, height: f32, margin: egui::Margin
     egui::pos2(x * SCALING, y * SCALING)
 }
 
-#[derive(Default, Debug, Serialize, Deserialize)]
+#[derive(Default, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct GraphViewer {
     pub prefix_len: usize,
     pub init_transform: Option<egui::emath::TSTransform>,

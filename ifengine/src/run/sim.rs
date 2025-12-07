@@ -4,7 +4,6 @@ use std::{
 };
 
 use iddqd::{IdHashMap, id_hash_map::Entry};
-use serde::{Deserialize, Serialize};
 
 use crate::{
     Action, Game, GameError, SimEnd, View,
@@ -193,7 +192,8 @@ impl<C: Clone> SimulationState<C> {
 }
 
 // note: outgoing_tunnels not currently implemented
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct PageRecord {
     pub id: PageId,
     pub ends: HashSet<SimEnd>,

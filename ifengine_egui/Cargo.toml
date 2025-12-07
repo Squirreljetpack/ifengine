@@ -10,31 +10,35 @@ all-features = true
 targets = ["x86_64-unknown-linux-gnu", "wasm32-unknown-unknown"]
 
 [dependencies]
-ifengine = { path = "../ifengine", features = ["macros"]}
-story = { path = "../ifengine_story" }
-
 egui = { version = "0.33.0", features = ["color-hex"] }
 eframe = { version = "0.33.0", default-features = false, features = [
     "accesskit",     # Make egui compatible with screen readers. NOTE: adds a lot of dependencies.
-    "default_fonts", # Embed the default egui fonts.
+    # "default_fonts", # Embed the default egui fonts.
     "glow",          # Use the glow rendering backend. Alternative: "wgpu".
-    "persistence",   # Enable restoring app state when restarting the app.
     "wayland",       # To support Linux (and CI)
     "x11",           # To support older Linux distributions (restores one of the default features)
 ] }
 log = "0.4.27"
 
 # You only need serde if you want app persistence:
-serde = { version = "1.0.219", features = ["derive"] }
-bitflags = "2.10.0"
-egui_router = "0.6.0"
-egui_extras = { version = "0.33", features = ["file", "http", "image", "svg"] }
-image = { version = "0.25", features = ["default-formats"] }
-easy-ext = "1.0.2"
+serde = { version = "1.0", features = ["derive"], optional = true }
+
+# images
+egui_extras = { version = "0.33", default-features = false, features = ["image"] }
+image = { version = "0.25", default-features = false, features = ["png"] }
+
+# egui exts
 egui_alignments = { version = "0.3.6", path = "/home/archr/gh/TEMP/egui_alignments/crates/egui_alignments" }
-phf = { version = "0.13.1", features = ["macros"] }
-egui-snarl = { version = "0.9.0", features = ["serde"] }
+egui-snarl = { version = "0.9.0" }
+
+# utils
+easy-ext = "1.0.2"
 rand = "0.9.2"
+phf = { version = "0.13.1", features = ["macros"] }
+
+# ifengine
+ifengine = { path = "../ifengine"}
+story = { path = "../ifengine_story", features = ["saltwrack"]}
 
 # native:
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
@@ -43,7 +47,12 @@ env_logger = "0.11.8"
 # web:
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen-futures = "0.4.50"
-web-sys = "0.3.70"              # to access the DOM (to hide the loading text)
+web-sys = { version = "0.3.70", default-features = false, features = [
+    "Window",
+    "Document",
+    "Element",
+    # "console",
+] }            # to access the DOM (to hide the loading text)
 getrandom = { version = "0.3", features = ["wasm_js"] }
 
 # ----------------------------------------------------------------------------------------
@@ -55,3 +64,6 @@ workspace = true
 [build-dependencies]
 serde = { version = "1.0", features = ["derive"] }
 serde-hjson = "1.1.0"
+
+[features]
+serde = ["serde/derive", "egui-snarl/serde", "ifengine/serde", "story/serde", "eframe/persistence"]

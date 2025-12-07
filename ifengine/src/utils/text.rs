@@ -1,5 +1,3 @@
-use const_fnv1a_hash::fnv1a_hash_str_64;
-
 /// - Replaces {digit} with words
 /// - Converts straight quotes to curly quotes
 /// - Converts -- to em-dash (—)
@@ -91,6 +89,20 @@ pub fn split_braced(s: &str) -> Vec<String> {
     result
 }
 
-pub fn find_hash_match(strings: &[String], target: u64) -> Option<usize> {
-    strings.iter().position(|s| fnv1a_hash_str_64(s) == target)
+#[cfg(feature = "rand")]
+pub fn find_hash_match<'a, I>(strings: I, target: u64) -> Option<&'a String>
+where
+    I: IntoIterator<Item = &'a String>,
+{
+    strings
+        .into_iter()
+        .find(|s| const_fnv1a_hash::fnv1a_hash_str_64(s) == target)
+}
+
+#[cfg(not(feature = "rand"))]
+pub fn find_hash_match<'a, I>(strings: I, target: u64) -> Option<&'a String>
+where
+    I: IntoIterator<Item = &'a String>,
+{
+    strings.into_iter().nth(target as usize)
 }

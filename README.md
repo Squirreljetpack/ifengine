@@ -74,7 +74,7 @@ trunk serve
 # Example
 https://ifengine.netlify.app/
 
-story credit: https://antemaion.itch.io/saltwrack (Sorry I haven't asked permission yet project is just experimental!)
+story credit: https://antemaion.itch.io/saltwrack (Sorry I haven't asked permission yet this project is still just experimental!)
 
 # Features
 - Story analysis: Generate a [graph](https://ifengine.netlify.app/#graph) of your story!
