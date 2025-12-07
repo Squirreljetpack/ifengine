@@ -43,6 +43,7 @@ pub fn linguate(text: &str) -> String {
     final_text
 }
 
+/// trim start and end of each line, and empty lines around
 pub fn trim_lines(s: &str) -> String {
     let lines: Vec<&str> = s
         .lines()

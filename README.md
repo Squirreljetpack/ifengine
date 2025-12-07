@@ -26,7 +26,7 @@ Currently, your options are: [egui](./ifengine_egui) .. and nothing else.
 2. **Create your library**
 
 ```shell
-cargo init wigobtm
+cargo init woke_story
 cargo add ifengine
 ```
 
@@ -34,7 +34,7 @@ cargo add ifengine
 
 
 ```rust
-// ----------- wigobtm/src/lib.rs -----------
+// ----------- woke_story/src/lib.rs -----------
 
 pub mod chap1;
 
@@ -51,7 +51,7 @@ pub struct State {
 ```
 
 ```rust
-// ----------- wigobtm/src/chap1.rs -----------
+// ----------- woke_story/src/chap1.rs -----------
 #[ifview]
 pub fn p1(s: &mut State) {
     h!("WHY I GOT OUT OF BED THIS MORNING", 3);
@@ -74,7 +74,7 @@ trunk serve
 # Example
 https://ifengine.netlify.app/
 
-story credit: https://antemaion.itch.io/saltwrack (Sorry I haven't asked permission yet this project is still just experimental!)
+story credit: https://antemaion.itch.io/saltwrack (Sorry I haven't asked permission yet as im just using it for testing this project is still just experimental!)
 
 # Features
 - Story analysis: Generate a [graph](https://ifengine.netlify.app/#graph) of your story!

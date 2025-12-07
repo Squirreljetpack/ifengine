@@ -206,9 +206,11 @@ pub fn choice(input: TokenStream) -> TokenStream {
 /// corresponding expression (the RHS) is executed (executions occur in order), regardless of whether
 /// the choice's key (the LHS) is currently visible.
 ///
-/// The visibility of each LHS key is controlled by [`ifengine::elements::ChoiceVariant`].
+/// Each LHS key is a [`ifengine::elements::ChoiceVariant`], dictating its visibility.
+/// Any type that implements `Into<Line>` will coerce to `Choice::Once`.
+/// Any `Option<Into<Line>>` will coerce to `Choice::None` or `Choice::Always`.
 ///
-/// Any type that implements `Into<Line>` can be used in place of `Choice::Once`.
+/// The return type is a [bool ;n] representing which of the options were hidden (NOT displayed).
 
 #[proc_macro]
 pub fn mchoice(input: TokenStream) -> TokenStream {
@@ -235,7 +237,7 @@ pub fn mchoice(input: TokenStream) -> TokenStream {
             .as_line((__ifengine_tmp_mask & (1u64 << #i)) != 0)
             {
                 __ifengine_tmp_lines.push((#i, l));
-                __ifengine_visible_mask[#i as usize] = true;
+                __ifengine_visible_mask[#i as usize] = false;
             }
         }
     })
@@ -247,7 +249,7 @@ pub fn mchoice(input: TokenStream) -> TokenStream {
         {
             let __ifengine_tmp_mask = __ifengine_page_state.get(#key).unwrap_or(0u64);
             let mut __ifengine_tmp_lines = Vec::new();
-            let mut __ifengine_visible_mask = [false; #n];
+            let mut __ifengine_visible_mask = [true; #n];
 
             #(#arm_blocks)*
 
@@ -393,38 +395,54 @@ pub fn ddchoices(input: TokenStream) -> TokenStream {
 
     expanded.into()
 }
-
 /// This creates a paragraph
-/// Text line ends are trimmed
+/// Interactive text sections are automatically added from text delimited by [[ and ]].
+/// The return type is the value of whichever text token that was clicked
+///
+/// # Syntax
+/// ```text
+/// dparagraph!(maybe_key, expr1, expr2, ..., exprN)
+///
+/// # Additional
+/// Text is trimmed
+/// Multiple inputs are accepted, and produce multiple paragraphs
 #[proc_macro]
 pub fn dparagraph(input: TokenStream) -> TokenStream {
-    let KeyExpr { maybe_key, expr } = syn::parse_macro_input!(input as KeyExpr);
+    let KeyExprs { maybe_key, exprs } = syn::parse_macro_input!(input as KeyExprs);
 
     let key = maybe_key.into_tokens();
 
     let expanded = quote! {{
-        let mut __ifengine_tmp_strings =
-        ifengine::utils::split_braced(&ifengine::utils::trim_lines(&#expr));
-        let ret = __ifengine_page_state
-        .remove(#key)
-        .and_then(|k| {
-            ifengine::utils::find_hash_match(__ifengine_tmp_strings.iter().step_by(2), k).cloned()
-        });
+        let mut ret = None;
 
-        __ifengine_page_state.push(
-            ifengine::view::Object::Paragraph(
-                ifengine::view::Line::from_interleaved_actions::<false>(
-                    (__ifengine_page_state.id(), #key),
-                    __ifengine_tmp_strings
+        #(
+            let mut __ifengine_tmp_strings =
+                ifengine::utils::split_braced(&ifengine::utils::trim_lines(&#exprs));
+
+            if let Some(__ifengine_tmp_val) = __ifengine_page_state
+                .remove(#key)
+                .and_then(|k| {
+                    ifengine::utils::find_hash_match(__ifengine_tmp_strings.iter().step_by(2), k).cloned()
+                }) {
+                ret = Some(__ifengine_tmp_val);
+            }
+
+            __ifengine_page_state.push(
+                ifengine::view::Object::Paragraph(
+                    ifengine::view::Line::from_interleaved_actions::<false>(
+                        (__ifengine_page_state.id(), #key),
+                        __ifengine_tmp_strings
+                    )
                 )
-            )
-        );
+            );
+        )*
 
         ret
     }};
 
     expanded.into()
 }
+
 
 /// This creates a paragraph, and returns which of the clicked elements had been clicked.
 #[proc_macro]

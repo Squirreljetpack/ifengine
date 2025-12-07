@@ -18,11 +18,16 @@ impl App {
     }
 
     pub fn header(&self) -> Vec<String> {
-        vec![
-        format!("Day: {}", self.game.context.days),
-        format!("Miles travelled: {}", self.game.context.miles),
-        format!("Rations: {}", self.game.context.rations),
-        ]
+        if self.game.context.miles != 0 {
+            vec![
+            format!("Day: {}", self.game.context.days),
+            format!("Miles travelled: {}", self.game.context.miles),
+            format!("Rations: {}", self.game.context.rations),
+            ]
+        } else {
+            vec![]
+        }
+
     }
 }
 
