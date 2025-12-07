@@ -6,7 +6,8 @@
 mod saltwrack;
 #[cfg(feature = "saltwrack")]
 pub use crate::saltwrack::*;
-#[cfg(feature = "test-story")]
+
+#[cfg(not(feature = "saltwrack"))]
 mod test_story;
-#[cfg(feature = "test-story")]
+#[cfg(not(feature = "saltwrack"))]
 pub use crate::test_story::*;

@@ -1,3 +1,5 @@
+/// # Additional
+/// Also see [`ifengine::elements`]
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::{
@@ -5,11 +7,12 @@ use syn::{
 };
 mod nodes;
 use nodes::*;
-/// todo
-/// # Additional
-/// Also see [`ifengine::elements`]
 
-/// Decorate your pages with this.
+
+/// Decorate your function with this.
+///
+/// The function take your game state as a parameter, and return nothing.
+/// This macro will rewrite your function to receive a &mut [`ifengine::Game`] and return a [`ifengine::core::Response`], as well as enabling usage of [`ifengine::elements`] to produce that response (which in most cases will be a [`ifengine::View`]).
 #[proc_macro_attribute]
 pub fn ifview(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let input = parse_macro_input!(item as ItemFn);
@@ -126,12 +129,13 @@ impl Parse for ChoiceInput {
     }
 }
 
-/// Conditionally displays one of several choices based on user selection.
+/// Conditionally display one of several choices based on user selection.
+///
 /// Returns true if it has resolved, otherwise false.
 ///
 /// # Description
 /// The `choice!` macro takes a list of arms in the form `LHS => RHS`, where both
-/// sides implement `Into<Line>`. It works as follows:
+/// sides implement `Into<`[`Line`](ifengine::view::Line)`>`. It works as follows:
 ///
 /// - If no arm is selected, the LHS values are displayed as a list of lines.
 /// - Once a choice is selcted, subsequent renders execute the corresponding RHS expression and
@@ -139,7 +143,7 @@ impl Parse for ChoiceInput {
 ///
 /// # Additional
 /// A [`MaybeKey`] can be specified as the first argument
-///   When a choice is clicked, it sets the value of its key to (the u8 value of) its id in [`ifengine::core::PageState`].
+///   When a choice is clicked, it sets the value of its key to (the u8 value of) its id in [`PageState`].
 ///   It is discouraged to specify this: by default, it will be automatically generated.
 /// Multiple LHS values can be specified for the same RHS using `|`
 ///
@@ -204,14 +208,14 @@ pub fn choice(input: TokenStream) -> TokenStream {
     expanded.into()
 }
 
-/// Executes a set of conditional expressions based on user-selected choices.
+/// Execute a set of conditional expressions based on user-selected choices.
 ///
 /// Each arm has the form `Choice => Expr`. If a choice was selected, its
 /// corresponding expression (the RHS) is executed (executions occur in order), regardless of whether
 /// the choice's key (the LHS) is currently visible.
 ///
 /// Each LHS key is a [`ifengine::elements::ChoiceVariant`], dictating its visibility.
-/// Any type that implements `Into<Line>` will coerce to `Choice::Once`.
+/// Any type that implements `Into<`[`Line`](ifengine::view::Line)`>` will coerce to `Choice::Once`.
 /// Any `Option<Into<Line>>` will coerce to `Choice::None` or `Choice::Always`.
 ///
 /// The return type is a [bool ;n] representing which of the options were hidden (NOT displayed).
@@ -270,7 +274,7 @@ pub fn mchoice(input: TokenStream) -> TokenStream {
     expanded.into()
 }
 
-/// Executes code for a set of selectable choices.
+/// Executes code for a set of selectable choices. Prefer to use [`dchoice`] for brevity.
 ///
 /// # Overview
 /// This macro displays list of choices, and registers a corresponding handler
@@ -290,7 +294,7 @@ pub fn mchoice(input: TokenStream) -> TokenStream {
 ///
 /// # Additional
 /// A [`MaybeKey`] can be specified in the first argument:
-///   When a choice is clicked, it sets the value of its key to its id (cast as a u8) in [`ifengine::core::PageState`].
+///   When a choice is clicked, it sets the value of its key to its id (cast as a u8) in [`PageState`].
 ///   When the page is next rendered, this value is removed, and the corresponding match arm is run.
 ///   It is discouraged to specify this: by default, it will be automatically generated.
 ///
@@ -305,7 +309,7 @@ pub fn mchoice(input: TokenStream) -> TokenStream {
 ///     (DChoices::C, line!("C")),
 /// ];
 ///
-/// if let Some(x) = dchoices!(choices) {
+/// if let Some(x) = dynamic_choice!(choices) {
 ///     match x {
 ///         DChoices::A => "A clicked",
 ///         DChoices::B => "B clicked",
@@ -315,7 +319,7 @@ pub fn mchoice(input: TokenStream) -> TokenStream {
 /// ```
 
 #[proc_macro]
-pub fn dchoices(input: TokenStream) -> TokenStream {
+pub fn dynamic_choice(input: TokenStream) -> TokenStream {
     let KeyExpr { maybe_key, expr } = syn::parse_macro_input!(input as KeyExpr);
     let key_tokens = maybe_key.into_tokens();
 
@@ -364,9 +368,26 @@ impl Parse for DChoicesInput {
     }
 }
 
-/// A shorter version
+/// A version of [`dynamic_choice`] with slightly abbreviated syntax.
+///
+/// # Example
+/// ```rust
+/// #[derive(Clone, Copy)]
+/// enum DChoices { A, B, C }
+///
+/// let choices = vec![
+///     (DChoices::A, line!("A")),
+///     (DChoices::B, line!("B")),
+///     (DChoices::C, line!("C")),
+/// ];
+/// dchoice!{ choices,
+///     DChoices::A => "A clicked",
+///     DChoices::B => "B clicked",
+///     DChoices::C => "C clicked",
+/// }
+/// ```
 #[proc_macro]
-pub fn ddchoices(input: TokenStream) -> TokenStream {
+pub fn dchoice(input: TokenStream) -> TokenStream {
     let DChoicesInput {
         maybe_key,
         expr,
@@ -399,9 +420,10 @@ pub fn ddchoices(input: TokenStream) -> TokenStream {
 
     expanded.into()
 }
-/// This creates a paragraph
-/// Interactive text sections are automatically added from text delimited by [[ and ]].
-/// The return type is the value of whichever text token that was clicked
+/// Create a paragraph with interactive elements from a string.
+///
+/// Interactive text sections are automatically added from text delimited by [[ and ]] (Also see: [`mparagraph`]).
+/// The return type is the value of whichever text token that was clicked.
 ///
 /// # Syntax
 /// ```text
@@ -410,6 +432,7 @@ pub fn ddchoices(input: TokenStream) -> TokenStream {
 /// # Additional
 /// Text is trimmed
 /// Multiple inputs are accepted, and produce multiple paragraphs
+/// The interactive elements must not change between renders.
 #[proc_macro]
 pub fn dparagraph(input: TokenStream) -> TokenStream {
     let KeyExprs { maybe_key, exprs } = syn::parse_macro_input!(input as KeyExprs);
@@ -448,7 +471,14 @@ pub fn dparagraph(input: TokenStream) -> TokenStream {
 }
 
 
-/// This creates a paragraph, and returns which of the clicked elements had been clicked.
+/// Create a paragraph with interactive elements from a string.
+///
+/// Interactive text sections are automatically added from text delimited by [[ and ]] (Also see: [`dparagraph`]).
+/// This macro tracks and returns which of the interactive elements had been clicked since page load as a `Vec<bool>`.
+///
+/// # Note
+/// The interactive elements must not change between renders.
+
 #[proc_macro]
 pub fn mparagraph(input: TokenStream) -> TokenStream {
     let KeyExpr { maybe_key, expr } = syn::parse_macro_input!(input as KeyExpr);
@@ -477,6 +507,7 @@ pub fn mparagraph(input: TokenStream) -> TokenStream {
 
 // ----------------- ELEMENTS -------------------
 
+/// Push a (Object)[ifengine::view::Object] to the current (View)[ifengine::View]
 #[proc_macro]
 pub fn push(input: TokenStream) -> TokenStream {
     let expr = parse_macro_input!(input as Expr);
@@ -521,7 +552,16 @@ impl syn::parse::Parse for LineArgs {
     }
 }
 
-/// Pure text element.
+/// Pure text element, constructed from a sequence of spans.
+///
+/// # Additional
+/// A trailing [`ifengine::view::RenderData`] can be specified following `::`.
+///
+/// # Example
+/// ```rust
+/// text!("Hello, world!");
+/// text!("Hello, ", "world!" :: "my_render_data");
+/// ```
 #[proc_macro]
 pub fn text(input: TokenStream) -> TokenStream {
     let LineArgs { exprs, trailer } = syn::parse_macro_input!(input as LineArgs);
@@ -537,7 +577,7 @@ pub fn text(input: TokenStream) -> TokenStream {
                 ifengine::view::Line::from_spans(
                     vec![#(#exprs.into()),*]
                 ),
-                #string_expr.to_string()
+                #string_expr
             )
         );
     };
@@ -545,6 +585,15 @@ pub fn text(input: TokenStream) -> TokenStream {
     TokenStream::from(expanded)
 }
 
+/// A sequence of text elements. See [`text`].
+///
+/// # Additional
+/// A trailing [`ifengine::view::RenderData`] can be specified following `::`.
+///
+/// # Example
+/// ```rust
+/// texts!("Line 1", "Line 2");
+/// ```
 #[proc_macro]
 pub fn texts(input: TokenStream) -> TokenStream {
     let LineArgs { exprs, trailer } = syn::parse_macro_input!(input as LineArgs);
@@ -568,10 +617,14 @@ pub fn texts(input: TokenStream) -> TokenStream {
     TokenStream::from(expanded)
 }
 
-
+/// Create a paragraph from a sequence of spans.
+///
+/// # Example
+/// ```rust
+/// paragraph!(span1, span2, span3);
+/// ```
 #[proc_macro]
 pub fn paragraph(input: TokenStream) -> TokenStream {
-    // Parse a comma-separated list of expressions
     let exprs_parsed = parse_macro_input!(input with Punctuated<Expr, Token![,]>::parse_terminated);
     let exprs: Vec<Expr> = exprs_parsed.into_iter().collect();
 
@@ -586,8 +639,15 @@ pub fn paragraph(input: TokenStream) -> TokenStream {
     TokenStream::from(expanded)
 }
 
-
-/// Shorthand for creating multiple paragraphs from a sequence of Into<Line>'s.
+/// Shorthand for creating multiple paragraphs from a sequence of [`crate::view::Line`]'s.
+///
+/// # Example
+/// ```rust
+/// paragraphs!(line1, line2, line3);
+/// ```
+///
+/// # Additional
+/// Any type implementing `Into<Line>` is accepted.
 #[proc_macro]
 pub fn paragraphs(input: TokenStream) -> TokenStream {
     use quote::quote;
@@ -610,17 +670,19 @@ pub fn paragraphs(input: TokenStream) -> TokenStream {
     TokenStream::from(expanded)
 }
 
-
-
-// todo: add support for local with bytes
-/// Push a image from a string literal.
+/// Push an image from a string literal.
+///
+/// # Example
+/// ```rust
+/// img!("assets/logo.png");
+/// img!("https://example.com/logo.png", (100, 50));
+/// ```
 #[proc_macro]
 pub fn img(input: TokenStream) -> TokenStream {
     use quote::quote;
     use syn::punctuated::Punctuated;
     use syn::{Expr, Lit, Token, parse_macro_input};
 
-    // Parse comma-separated arguments
     let exprs_parsed = parse_macro_input!(input with Punctuated<Expr, Token![,]>::parse_terminated);
     let exprs: Vec<&Expr> = exprs_parsed.iter().collect();
 
@@ -668,7 +730,11 @@ pub fn img(input: TokenStream) -> TokenStream {
 }
 
 /// Markdown heading.
-/// Usage: heading!("Title", 2).
+///
+/// # Example
+/// ```rust
+/// h!("Title", 2)
+/// ```
 #[proc_macro]
 pub fn h(input: TokenStream) -> TokenStream {
     let exprs_parsed = parse_macro_input!(input with Punctuated<Expr, Token![,]>::parse_terminated);
@@ -692,13 +758,12 @@ pub fn h(input: TokenStream) -> TokenStream {
     TokenStream::from(expanded)
 }
 
-// todo
-// #[proc_macro]
-// pub fn title(input: TokenStream) -> TokenStream {
-//     todo!()
-// }
-
-/// Horizontal rule (<hr/>).
+/// Horizontal rule (`<hr/>`).
+///
+/// # Example
+/// ```rust
+/// hr!()
+/// ```
 #[proc_macro]
 pub fn hr(_input: TokenStream) -> TokenStream {
     let expanded = quote! {
@@ -775,6 +840,75 @@ impl Parse for AltsInput {
     }
 }
 
+/// Cycle between multiple alternative spans on click.
+///
+/// ## Behavior
+///
+/// - The first span is shown when no prior state exists.
+/// - The active index is stored in page state under the provided key.
+///
+/// ## Variants
+///
+/// ### `stop` (default)
+/// Advances until the last span, then stops:
+///
+/// ```text
+/// A → B → C (stops)
+/// ```
+///
+/// ### `cycle`
+/// Advances to the next span on activation, wrapping around:
+///
+/// ```text
+/// A → B → C → A → …
+/// ```
+///
+/// ### `shuffle`
+/// Chooses a random span each time, avoiding immediate repetition.
+/// The internal state uses the low bit as a regeneration flag.
+///
+/// ## Syntax
+///
+/// ```ignore
+/// alts!(key?, variant?, [expr, expr, ...])
+/// ```
+///
+/// - `key` (optional): Explicit state key
+/// - `variant` (optional): `cycle`, `stop`, or `shuffle`
+/// - `expr`: Any value convertible into a `Span`
+///
+/// ## Examples
+///
+/// Basic cycling:
+///
+/// ```ignore
+/// alts!([
+///     "Look around",
+///     "Open the door",
+///     "Wait",
+/// ])
+/// ```
+///
+/// With an explicit key and variant:
+///
+/// ```ignore
+/// alts!(
+///     (5),
+///     shuffle,
+///     [
+///         "Attack",
+///         "Defend",
+///         "Flee",
+///     ]
+/// )
+/// ```
+///
+/// ## Notes
+///
+/// - State is updated via [`ifengine::Action::Inc`] or [`ifengine::Action::Set`].
+/// - Random selection uses the page state's RNG.
+/// - The macro expands to an expression producing a `Span`.
+/// - Shuffle and Cycle are hidden during simulation.
 #[proc_macro]
 pub fn alts(input: TokenStream) -> TokenStream {
     let AltsInput {
@@ -934,6 +1068,7 @@ impl Parse for ClickInput {
 }
 
 /// Run code on click.
+///
 /// # Syntax
 /// ```rust
 /// p!(click!(span, { block } ))
@@ -996,7 +1131,7 @@ pub fn fresh(input: TokenStream) -> TokenStream {
 
 // -------------- SPANS -------------------------
 
-/// Creates a link [`Span`] that navigates backward.
+/// Create a link [`Span`] that navigates backward.
 ///
 /// - `$e`: Display text.
 /// - `$n`: Optional number of steps to go back (defaults to 1).
@@ -1025,10 +1160,30 @@ pub fn back(input: TokenStream) -> TokenStream {
     TokenStream::from(expanded)
 }
 
-// ------------ KEY OPERATIONS -------------------
+/// Immediately yield a [`Response`] with the current [`View`].
+///
+/// This returns `!`, exiting the current function.
+#[proc_macro]
+#[allow(non_snake_case)]
+pub fn r#YIELD(_input: TokenStream) -> TokenStream {
+    let expanded = quote! {
+        return __ifengine_page_state.into_response()
+    };
+    expanded.into()
+}
 
+// ------------ KEY OPERATIONS -------------------
+/// Read the value of a key of the internal [`PageState`]
+///
 /// Elements push to the view in the order they are called.
 /// This can be used to query their state out of order.
+///
+/// Beware that the implementation details of the internal page state that these keys index is internal and should not be relied on!
+///
+/// # Example
+/// ```rust
+/// let value = read_key!(my_key);
+/// ```
 #[proc_macro]
 pub fn read_key(input: TokenStream) -> TokenStream {
     let expr = syn::parse_macro_input!(input as syn::Expr);
@@ -1040,6 +1195,13 @@ pub fn read_key(input: TokenStream) -> TokenStream {
     expanded.into()
 }
 
+/// Read a key as a bitmask. See [`read_key`].
+///
+/// # Example
+/// ```rust
+/// let mask = read_key_mask!(my_key); // [bool; 64]
+/// let mask = read_key_mask!(my_key, 5); // [bool; 5]
+/// ```
 #[proc_macro]
 pub fn read_key_mask(input: TokenStream) -> TokenStream {
     let ExprAndOptional { expr: key, n } = syn::parse_macro_input!(input as ExprAndOptional);
@@ -1052,6 +1214,12 @@ pub fn read_key_mask(input: TokenStream) -> TokenStream {
     .into()
 }
 
+/// Set a key to a value. See [`read_key`].
+///
+/// # Example
+/// ```rust
+/// set_key!(my_key, 42);
+/// ```
 #[proc_macro]
 pub fn set_key(input: TokenStream) -> TokenStream {
     let expr = syn::parse_macro_input!(input as syn::Expr);
@@ -1063,6 +1231,12 @@ pub fn set_key(input: TokenStream) -> TokenStream {
     expanded.into()
 }
 
+/// Set individual bits of a key to true. See [`read_key_mask`].
+///
+/// # Example
+/// ```rust
+/// set_key_mask!(my_key, 0, 2, 4);
+/// ```
 #[proc_macro]
 pub fn set_key_mask(input: TokenStream) -> TokenStream {
     use syn::{Expr, Token, parse::Parser, punctuated::Punctuated};
@@ -1083,7 +1257,6 @@ pub fn set_key_mask(input: TokenStream) -> TokenStream {
     };
     let bits: Vec<&Expr> = iter.collect();
 
-    // build const mask at macro-expansion time
     let mut mask = 0u64;
     for expr in &bits {
         if let Expr::Lit(syn::ExprLit {
@@ -1116,6 +1289,12 @@ pub fn set_key_mask(input: TokenStream) -> TokenStream {
     expanded.into()
 }
 
+/// Clear individual bits of a key. See [`read_key_mask`].
+///
+/// # Example
+/// ```rust
+/// unset_key_mask!(my_key, 1, 3);
+/// ```
 #[proc_macro]
 pub fn unset_key_mask(input: TokenStream) -> TokenStream {
     use syn::{Expr, Token, parse::Parser, punctuated::Punctuated};
@@ -1168,6 +1347,12 @@ pub fn unset_key_mask(input: TokenStream) -> TokenStream {
     expanded.into()
 }
 
+/// Increment the value of a key. See [`read_key`].
+///
+/// # Example
+/// ```rust
+/// inc_key!(my_key);
+/// ```
 #[proc_macro]
 pub fn inc_key(input: TokenStream) -> TokenStream {
     let expr = syn::parse_macro_input!(input as syn::Expr);
@@ -1183,6 +1368,12 @@ pub fn inc_key(input: TokenStream) -> TokenStream {
     expanded.into()
 }
 
+/// Reset (remove) a key from state. See [`read_key`].
+///
+/// # Example
+/// ```rust
+/// reset_key!(my_key);
+/// ```
 #[proc_macro]
 pub fn reset_key(input: TokenStream) -> TokenStream {
     let expr = syn::parse_macro_input!(input as syn::Expr);
@@ -1196,7 +1387,18 @@ pub fn reset_key(input: TokenStream) -> TokenStream {
 
 // ------------ TAGS ------------------
 
-
+// note: this doesn't work
+/// [Tags](crate::core::GameTags) the current page.
+///
+/// Pass `Sticky` to persist the tag between pages.
+///
+/// # Examples
+///
+/// ```rust
+/// tag!(my_value);          // non-sticky tag
+/// tag!(my_value, Sticky);  // sticky tag
+/// tag!(my_value, Once);    // apply only once
+/// ```
 #[proc_macro]
 pub fn tag(input: TokenStream) -> TokenStream {
     use syn::{parse_macro_input, Expr, Ident, Token};
@@ -1245,6 +1447,7 @@ pub fn tag(input: TokenStream) -> TokenStream {
     expanded.into()
 }
 
+/// Removes a [tag](`crate::core::GameTags`)
 #[proc_macro]
 pub fn untag(input: TokenStream) -> TokenStream {
     let expr = syn::parse_macro_input!(input as syn::Expr);
@@ -1256,6 +1459,7 @@ pub fn untag(input: TokenStream) -> TokenStream {
     expanded.into()
 }
 
+/// Returns whether the current function is running in a [`crate::run::Simulation`].
 #[proc_macro]
 pub fn in_sim(_: TokenStream) -> TokenStream {
     let expanded = quote! {
@@ -1265,8 +1469,10 @@ pub fn in_sim(_: TokenStream) -> TokenStream {
     expanded.into()
 }
 
+
 // ------------ UTILS ------------------
 
+/// Debug display the current [`PageState`]
 #[proc_macro]
 pub fn page_dbg(_input: TokenStream) -> TokenStream {
     let expanded = quote! {
@@ -1276,6 +1482,7 @@ pub fn page_dbg(_input: TokenStream) -> TokenStream {
     expanded.into()
 }
 
+/// Debug display the current view
 #[proc_macro]
 pub fn view_dbg(_input: TokenStream) -> TokenStream {
     let expanded = quote! {

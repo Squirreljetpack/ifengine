@@ -7,10 +7,12 @@ use crate::{
     view::{Object, View},
 };
 
+/// The [`crate::ifview`] decorator instantiates this from a reference to [`struct@crate::Game`], using it to add [elements](crate::elements) which read and write to [`crate::core::game_state::GameState`].
+/// Will produce a [`View`] if the decorated function doesn't exit early.
 #[derive(Debug)]
 pub struct PageState<'a> {
     view: View,
-    page_state: RefCell<&'a mut PageMap>, // to allow simultaneous method accesses, safe because chaptyer_state doesn't produce refs
+    page_state: RefCell<&'a mut PageMap>, // to allow simultaneous method accesses, safe because chapter_state doesn't produce refs
     #[cfg(feature = "rand")]
     pub seed: Option<u64>,
     fresh: bool,

@@ -1,3 +1,5 @@
+//! The core types and logic
+
 // Page
 mod page;
 mod page_state;

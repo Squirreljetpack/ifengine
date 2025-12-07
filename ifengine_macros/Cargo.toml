@@ -1,6 +1,6 @@
 [package]
 name = "ifengine_macros"
-version = "0.0.1"
+version = "0.0.4"
 authors = ["Squirreljetpack"]
 edition = "2024"
 description = "Procedural macros for ifengine"
@@ -16,3 +16,7 @@ proc-macro = true
 syn = { version = "2", features = ["full"] }
 quote = "1"
 proc-macro2 = "1"
+
+# splitting a third crate would resolve this cyclic dependency
+# [target.'cfg(doc)'.dependencies]
+# ifengine = { version = "0.*", path = "../ifengine" }

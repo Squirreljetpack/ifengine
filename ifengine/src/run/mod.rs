@@ -1,3 +1,5 @@
+//! Simulate, interact with, and analyze a [`struct@crate::Game`].
+
 #![allow(unused)]
 
 mod interact;

@@ -6,12 +6,16 @@ use crate::Game;
 use crate::core::GameContext;
 use crate::view::View;
 
-
+/// Static functions. These implement [`PageErased`]
+/// You can create one by annotating a bare fn(&mut C) with (`[#ifview]`)[crate::ifview]
 pub type Page<C> = fn(&mut Game<C>) -> Response;
 
+/// The trait which defines a page
+/// Capable of (eventually) producing a [`View`] when (repeatedly) called by [`Game::view`]
 pub trait PageErased: Send + Sync + 'static {
     fn call(&self, game: &mut dyn Any) -> Response;
 }
+
 
 impl<C: GameContext> PageErased for Page<C> {
     fn call(&self, game: &mut dyn Any) -> Response {
@@ -24,7 +28,10 @@ impl<C: GameContext> PageErased for Page<C> {
 
 // newtype over alias just because arc doesn't have serialize, this is very annoying
 // On the plus side makes typing a bit stronger...
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
+/// Identifies a [`Page`]
+/// Pairs with a [`PageErased`] to form a [`PageHandle`]
 pub struct PageId(pub Arc<str>);
 
 impl PageId {
@@ -33,6 +40,8 @@ impl PageId {
     }
 }
 
+/// The type returned by a [`PageErased`]
+/// [`Game::view`] will repeatedly call the active [page](PageHandle), until a [`View`] is produced.
 pub enum Response {
     View(View),
     Switch(PageHandle),
@@ -42,6 +51,7 @@ pub enum Response {
     End, // thread?
 }
 
+/// Capable of (eventually) producing a [`View`]
 #[derive(Clone)]
 pub struct PageHandle {
     pub widget: Arc<dyn PageErased>,

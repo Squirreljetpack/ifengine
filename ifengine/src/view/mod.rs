@@ -6,40 +6,54 @@ pub use line::*;
 
 use crate::core::{PageId, game_state::PageKey};
 
+/// Some [`Object`] variants may want additional data to specify custom styles for the frontend.
+/// That can be specified here.
+///
+/// Most variants don't include this in order to encourage a more unified ui experience.
 pub type RenderData = &'static str;
 
-/// An object within a view.
-// Many variants don't include RenderData in order to encourage a more unified ui experience
+/// An object within a [`View`].
+///
+/// The frontend is responsible for the display of each variant, but should adhere to their description in doing so.
 #[derive(Debug, Clone)]
 pub enum Object {
-    /// A single line, rendered with wrapping, carrying optional data which can be used for customization by frontend.
-    /// i.e. Harmonia displays some sections of text as "pages" in blocks
-    /// Note that spans are allowed to carry newlines.
+    /// A single line, rendered with wrapping, carrying optional data which can be used for customization by the frontend.
+    ///
+    /// N.B. spans are allowed to carry newlines.
     Text(Line, RenderData),
-    /// Text with single-spaced y-margin
+    /// Text with a single-spaced y-margin.
     Paragraph(Line),
-    /// A list of selectable texts which stores the selected index on click
-    /// Like paragraph, this includes a single-spaced y-margin
+    /// A list of selectable texts which stores the selected index on click.
+    ///
+    /// Like the paragraph variant, this includes a single-spaced y-margin
     Choice(PageKey, Vec<(u8, Line)>),
     /// See [`Image`]
     Image(Image),
     /// Markdown heading
     Heading(Span, u8),
-    /// <hr/>
+    /// Horizontal line
+    /// `<hr/>`
     Break,
-    /// empty lines
+    /// empty lines.
     Empty(u8),
+    /// Represents different types of notes.
+    ///
     /// Inputs:
-    /// Line: The content to display
-    /// (indices): Indexes into a Span from View[Line[Span]], like annotations.
+    ///   - `Line`: The content to display.
+    ///   - `(u8, u8)`: Indices into a `Span` from `View[Line[Span]]`, e.g., for annotations.
     Note(Line, (u8, u8)),
     /// Quote style.
     Quote(Line, RenderData),
+    /// Custom marker.
+    /// For example, can be used signal to the frontend to play music when this object enters the screen.
+    Custom(RenderData),
 }
 
 /// The view returned by a [`crate::core::Page`].
-/// Get it by calling [`crate::Game::view`]
-/// The job of the ui library is to render this into a suitable format.
+/// The job of the ui library is to process its objects (i.e. by rendering).
+///
+/// # Additional
+/// Produced [`crate::Game::view`].
 #[derive(Default, Debug)]
 pub struct View {
     pub inner: Vec<Object>,

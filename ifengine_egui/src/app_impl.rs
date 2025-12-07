@@ -159,10 +159,10 @@ pub fn new_app(cc: &eframe::CreationContext<'_>) -> App {
         for (text_style, font_id) in style.text_styles.iter_mut() {
             *font_id = match text_style {
                 TextStyle::Heading => FontId::new(48.0, FontFamily::Proportional), // default proportional
-                TextStyle::Body => FontId::new(22.0, FontFamily::Proportional),
-                TextStyle::Monospace => FontId::new(22.0, FontFamily::Monospace),
-                TextStyle::Button => FontId::new(20.0, FontFamily::Proportional),
-                TextStyle::Small => FontId::new(18.0, FontFamily::Name("quote".into())),
+                TextStyle::Body => FontId::new(20.0, FontFamily::Proportional),
+                TextStyle::Monospace => FontId::new(20.0, FontFamily::Monospace),
+                TextStyle::Button => FontId::new(18.0, FontFamily::Proportional),
+                TextStyle::Small => FontId::new(16.0, FontFamily::Name("quote".into())),
                 _ => FontId::new(16.0, FontFamily::Proportional),
             };
         }
@@ -187,4 +187,4 @@ pub fn new_app(cc: &eframe::CreationContext<'_>) -> App {
     App::new()
 }
 
-pub static MENU_SPACING: egui::Vec2 = egui::vec2(0.0, 10.0);
+pub static MENU_SPACING: egui::Vec2 = egui::vec2(0.0, 12.0);

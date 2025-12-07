@@ -16,6 +16,6 @@ serde = { version = "1.0", features = ["derive"], optional = true}
 ifengine = { path = "../ifengine", features = ["macros"] }
 
 [features]
+default = ["saltwrack"]
 saltwrack = []
-test-story = []
 serde = ["serde/derive"]

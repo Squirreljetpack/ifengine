@@ -8,7 +8,7 @@ use crate::core::PageId;
 /// Used by ifengine to track component states
 /// It's methods should not be called directly in code
 /// During rendering, the ui should register hooks on Spans with actions,
-/// and call [`crate::Game::handle_action`] on click
+/// and call [`crate::core::GameInner::handle_action`] on click
 #[derive(Debug, Default, Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct GameState {
