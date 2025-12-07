@@ -1,11 +1,10 @@
 #[allow(unused_imports)]
 use ifengine::elements::{ChoiceVariant::*, click, dp, p, ps};
-use ifengine::{
-    back, elements::{choice, h, mchoice}, ifview, link, utils::MaskExt
+use ifengine::{END, elements::{back, choice, h, ls, mchoice}, ifview, link, utils::MaskExt
 };
 use ifengine::{switch, tun};
 
-use crate::saltwrack::State;
+use crate::{chap1d::*, saltwrack::State};
 
 #[ifview]
 pub fn p1(s: &mut State) {
@@ -78,29 +77,7 @@ pub fn p5(s: &mut State) {
     }
 }
 
-#[ifview]
-pub fn _walker(s: &mut State) {
-    p!(
-        "The proper term of address for a saltwalker is Sel. Without them, no trade would be possible; no transregional communication; no travel. They were the first to breach the wrack, the first to learn its ways. Saltwalker culture may seem superstitious or crude to outsiders. It developed out of necessity, during the apocalypse."
-    );
-
-    p!(
-        "The first salt snow, an inexplicable deathly miracle, occurred 239 years ago. Its effects were catastrophic: groundwater leaching, dead briny seas, the end of entire ecosystems. The earth's albedo raised, and its carbon diminished as though it were being siphoned. A swift ice age settled. By the time salt no longer sifted from the sky, six harrowed and desperate city-states remained in this corner of the world, isolated by a stretch of hostile white wasteland. Hearth, Clay, Noble, Wick, Firmament, and Rye. ",
-        tun!("You recall their names even now in the format of a children's song.")
-    );
-}
-
-#[ifview]
-pub fn _interpreter(s: &mut State) {
-    p!(
-        "This is your profession, so you ought to know what a good one is. Where a walker interprets the land and an oracle interprets dreams, they interpret the structures of life itself. With scalpel and microscope, scientists like you unravel the biologies of the wrack, facing the mystery of this harsh and frozen world."
-    );
-
-    p!(
-        "It was said, long ago, that the companions of some creator-deity were interpreters: they named the myriad creatures, dissected newly-made organ systems, tended carefully to the gardens of the heavens. Most people don't believe in gods anymore. ",
-        tun!("Most people don't believe in gods anymore.")
-    );
-}
+// todo: maybe add a lp macro specifically for the following pattern of list of links without spacing returning Option<int>. Is too many return types for "dynamic" class paragraphs too confusing?)
 
 #[ifview]
 pub fn _oracle_1(s: &mut State) {
@@ -108,13 +85,12 @@ pub fn _oracle_1(s: &mut State) {
         "They are a slight figure, watching you from behind round silver spectacles without meeting your gaze. Their features are angular and delicate. They have icily pale eyes, and their hair is an odd shade of dark grey; perhaps they come from Firmament. Their clothing is drab, neat, and unassuming save for a single drop of dried blood on their collar."
     );
 
-    // until ! becomes a type, we need this last element
-    choice! {
-        link!("select the first oracle") => {
+    // ls! is serving as a choice with no effects and no retained state here
+    ls! {
+        click!("select the first oracle", {
             s.c1.name = "Danil";
             switch!();
-            ""
-        },
+        }),
         back!("consider otherwise")
     };
 }
@@ -125,12 +101,11 @@ pub fn _oracle_2(s: &mut State) {
         "They are tall, brown-skinned, clad in layers of faded floral-patterned fabric; the overall impression is of striking elegance, despite their dishevelment. Their long hair is tied back in a thick braid. The skin of their arms is inked with spiralling, oddly precise sigils, like blueprints for an unknown mechanism. They gaze off into some dreamy distance, eyes wide and dark and utterly calm."
     );
 
-    choice! {
-        link!("select the second oracle") => {
+    ls! {
+        click!("select the second oracle", {
             s.c1.name = "Aron";
             switch!();
-            ""
-        },
+        }),
         back!("consider otherwise")
     };
 }
@@ -141,12 +116,11 @@ pub fn _walker_1(s: &mut State) {
         "He seems every bit a man of Hearth, with his warm dark skin and tightly coiled hair. He must be the oldest person in the room; there are deep wrinkles around his eyes, and his wiry beard is mostly grey. He looks almost skittish. You notice little glinting pendants wired onto his clothing: the saltwalker waysign sigils, you think. You can’t tell what they mean."
     );
 
-    choice! {
-        link!("select the first walker") => {
+    ls! {
+        click!("select the first walker", {
             s.c2.name = "Ego";
             switch!();
-            ""
-        },
+        }),
         back!("consider otherwise")
     };
 }
@@ -157,12 +131,11 @@ pub fn _walker_2(s: &mut State) {
         "She is plumply muscular, short-haired, with moles scattered over her pale skin. Her hands are cut by the crossing marks of scars. She wears a selection of knives openly. Her eyes are concealed by a glassy black helm whose purpose is arcane to you, but her body language seems friendly and energetic."
     );
 
-    choice! {
-        link!("select the second walker") => {
+    ls! {
+        click!("select the second walker", {
             s.c2.name = "Naim";
             switch!();
-            ""
-        },
+        }),
         back!("consider otherwise")
     };
 }

@@ -49,11 +49,8 @@ impl<C: GameContext> Game<C> {
 
     fn interact_sim(&mut self, e: Interactable<'_>, pageid: &PageId) -> Result<(), SimEnd> {
         match e {
-            Interactable::Choice(obj, index) => {
-                let &Object::Choice(key, _) = obj else {
-                    unreachable!()
-                };
-                self.handle_choice((pageid.clone(), key), index);
+            Interactable::Choice(key, _, index) => {
+                self.handle_choice((pageid.clone(), *key), index);
                 Ok(())
             }
             Interactable::Span(_, s) => {

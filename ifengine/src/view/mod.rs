@@ -6,7 +6,7 @@ pub use line::*;
 
 use crate::core::{PageId, game_state::PageKey};
 
-pub type RenderData = String;
+pub type RenderData = &'static str;
 
 /// An object within a view.
 // Many variants don't include RenderData in order to encourage a more unified ui experience

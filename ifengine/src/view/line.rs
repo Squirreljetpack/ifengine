@@ -51,6 +51,11 @@ impl Span {
         v.into().lingual()
     }
 
+    pub fn as_variant(mut self, variant: SpanVariant) -> Self {
+        self.variant = variant;
+        self
+    }
+
     pub fn as_link(mut self) -> Self {
         self.variant = SpanVariant::Link;
         self
@@ -91,6 +96,14 @@ pub struct Line {
 impl Line {
     pub fn new() -> Self {
         Self { spans: Vec::new() }
+    }
+
+    pub fn content(&self) -> String {
+        let mut s = String::new();
+        for span in &self.spans {
+            s.push_str(&span.content)
+        }
+        s
     }
 
     pub fn from_lingual(v: impl Into<Self>) -> Self {

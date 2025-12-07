@@ -216,7 +216,7 @@ impl PageStack {
 
         if n < stack.len() {
             stack.truncate(stack.len() - n);
-            self.pop().ok_or(GameError::NoPage)
+            stack.last().cloned().ok_or(GameError::NoPage)
         } else {
             Err(GameError::NoPage)
         }

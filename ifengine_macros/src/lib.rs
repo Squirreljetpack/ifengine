@@ -59,6 +59,7 @@ pub fn ifview(_attr: TokenStream, item: TokenStream) -> TokenStream {
 
             #original_block
 
+            #[allow(unreachable_code)]
             __ifengine_page_state.into_response()
         }
     };
@@ -126,6 +127,7 @@ impl Parse for ChoiceInput {
 }
 
 /// Conditionally displays one of several choices based on user selection.
+/// Returns true if it has resolved, otherwise false.
 ///
 /// # Description
 /// The `choice!` macro takes a list of arms in the form `LHS => RHS`, where both
@@ -185,6 +187,7 @@ pub fn choice(input: TokenStream) -> TokenStream {
                     }
                 )
             );
+            true
         } else {
             __ifengine_page_state.push(
                 ifengine::view::Object::Choice(
@@ -194,6 +197,7 @@ pub fn choice(input: TokenStream) -> TokenStream {
                     ]
                 )
             );
+            false
         }
     };
 
@@ -417,13 +421,13 @@ pub fn dparagraph(input: TokenStream) -> TokenStream {
 
         #(
             let mut __ifengine_tmp_strings =
-                ifengine::utils::split_braced(&ifengine::utils::trim_lines(&#exprs));
+            ifengine::utils::split_braced(&ifengine::utils::trim_lines(&#exprs));
 
             if let Some(__ifengine_tmp_val) = __ifengine_page_state
-                .remove(#key)
-                .and_then(|k| {
-                    ifengine::utils::find_hash_match(__ifengine_tmp_strings.iter().step_by(2), k).cloned()
-                }) {
+            .remove(#key)
+            .and_then(|k| {
+                ifengine::utils::find_hash_match(__ifengine_tmp_strings.iter().step_by(2), k).cloned()
+            }) {
                 ret = Some(__ifengine_tmp_val);
             }
 
@@ -541,7 +545,30 @@ pub fn text(input: TokenStream) -> TokenStream {
     TokenStream::from(expanded)
 }
 
-/// Paragraph element.
+#[proc_macro]
+pub fn texts(input: TokenStream) -> TokenStream {
+    let LineArgs { exprs, trailer } = syn::parse_macro_input!(input as LineArgs);
+
+    let string_expr = match trailer {
+        Some(s) => quote!(#s),
+        None => quote!(""),
+    };
+
+    let expanded = quote! {
+        #(
+            __ifengine_page_state.push(
+                ifengine::view::Object::Text(
+                    ifengine::view::Line::from(#exprs),
+                    #string_expr
+                )
+            );
+        )*
+    };
+
+    TokenStream::from(expanded)
+}
+
+
 #[proc_macro]
 pub fn paragraph(input: TokenStream) -> TokenStream {
     // Parse a comma-separated list of expressions
@@ -558,6 +585,7 @@ pub fn paragraph(input: TokenStream) -> TokenStream {
 
     TokenStream::from(expanded)
 }
+
 
 /// Shorthand for creating multiple paragraphs from a sequence of Into<Line>'s.
 #[proc_macro]
@@ -581,6 +609,8 @@ pub fn paragraphs(input: TokenStream) -> TokenStream {
 
     TokenStream::from(expanded)
 }
+
+
 
 // todo: add support for local with bytes
 /// Push a image from a string literal.
@@ -926,14 +956,20 @@ pub fn click(input: TokenStream) -> TokenStream {
     let expanded = quote! {{
         if __ifengine_page_state.remove(#key).is_some() {
             #(#stmts)*
+            #[allow(unreachable_code)]
+            ifengine::view::Span::from(
+                #expr
+            )
+            .with_action(ifengine::Action::Inc((__ifengine_page_state.id(), #key)))
+            .as_link()
+            .hide_if(__ifengine_page_state.simulating)
+        } else {
+            ifengine::view::Span::from(
+                #expr
+            )
+            .with_action(ifengine::Action::Inc((__ifengine_page_state.id(), #key)))
+            .as_link()
         }
-
-        ifengine::view::Span::from(
-            #expr
-        )
-        .with_action(ifengine::Action::Inc((__ifengine_page_state.id(), #key)))
-        .as_link()
-        .hide_if(__ifengine_page_state.simulating)
     }};
 
     expanded.into()
@@ -943,19 +979,50 @@ pub fn click(input: TokenStream) -> TokenStream {
 ///
 /// # Syntax
 /// ```rust
-/// once!(|| { /* code */ })
+/// fresh!(|| { /* code */ })
 /// ```
 #[proc_macro]
-pub fn once(input: TokenStream) -> TokenStream {
+pub fn fresh(input: TokenStream) -> TokenStream {
     let closure = parse_macro_input!(input as ExprClosure);
 
     let expanded = quote! {{
         if __ifengine_page_state.fresh() {
-            (#closure)()
+            (#closure)();
         }
     }};
 
     expanded.into()
+}
+
+// -------------- SPANS -------------------------
+
+/// Creates a link [`Span`] that navigates backward.
+///
+/// - `$e`: Display text.
+/// - `$n`: Optional number of steps to go back (defaults to 1).
+///
+/// # Additional
+/// This option will be hidden during simulation if no number is specified
+#[proc_macro]
+pub fn back(input: TokenStream) -> TokenStream {
+    let ExprAndOptional { expr, n } = parse_macro_input!(input as ExprAndOptional);
+
+    let expanded = if let Some(n_expr) = n {
+        quote! {
+            ifengine::view::Span::from(#expr)
+            .as_link()
+            .with_action(ifengine::Action::Back(#n_expr))
+        }
+    } else {
+        quote! {
+            ifengine::view::Span::from(#expr)
+            .as_link()
+            .with_action(ifengine::Action::Back(1))
+            .hide_if(__ifengine_page_state.simulating)
+        }
+    };
+
+    TokenStream::from(expanded)
 }
 
 // ------------ KEY OPERATIONS -------------------
@@ -975,7 +1042,7 @@ pub fn read_key(input: TokenStream) -> TokenStream {
 
 #[proc_macro]
 pub fn read_key_mask(input: TokenStream) -> TokenStream {
-    let KeyAndOptional { key, n } = syn::parse_macro_input!(input as KeyAndOptional);
+    let ExprAndOptional { expr: key, n } = syn::parse_macro_input!(input as ExprAndOptional);
 
     let n = n.unwrap_or_else(|| syn::parse_quote!(64));
 
@@ -1192,7 +1259,7 @@ pub fn untag(input: TokenStream) -> TokenStream {
 #[proc_macro]
 pub fn in_sim(_: TokenStream) -> TokenStream {
     let expanded = quote! {
-        __ifengine_page_state.simulate
+        __ifengine_page_state.simulating
     };
 
     expanded.into()

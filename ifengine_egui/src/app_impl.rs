@@ -1,4 +1,4 @@
-use egui::{FontFamily, FontId, RichText, TextStyle};
+use egui::{FontFamily, FontId, Margin, RichText, TextStyle};
 use egui_alignments::center_vertical;
 use egui_snarl::ui::SnarlWidget;
 
@@ -76,10 +76,13 @@ impl eframe::App for App {
             ui.add_space(10.0);
             ui.horizontal_centered_labels(self.header(), |ui| {
                 ui.add_menu(hovered, light, |ui| {
+                    ui.style_mut().spacing.item_spacing = MENU_SPACING;
                     if ui.button("Graph").clicked() {
                         self.show_graph = true;
                     }
                     ui.add_submenu("Themes", |ui| {
+                        ui.style_mut().spacing.item_spacing = MENU_SPACING;
+
                         let variants = global_theme().variants();
                         for variant in variants {
                             if ui.button(variant).clicked() {
@@ -91,7 +94,14 @@ impl eframe::App for App {
             });
         });
 
-        let Ok(resp) = self.game.view() else { todo!() };
+
+        let resp = match self.game.view() {
+            Ok(view) => view,
+            Err(e) => {
+                dbg!(e);
+                todo!()
+            }
+        };
 
         egui::CentralPanel::default().show(ctx, |ui| {
             center_vertical(ui, |ui| {
@@ -148,10 +158,10 @@ pub fn new_app(cc: &eframe::CreationContext<'_>) -> App {
     cc.egui_ctx.all_styles_mut(|style| {
         for (text_style, font_id) in style.text_styles.iter_mut() {
             *font_id = match text_style {
-                TextStyle::Heading => FontId::new(32.0, FontFamily::Proportional), // default proportional
-                TextStyle::Body => FontId::new(18.0, FontFamily::Proportional),
-                TextStyle::Monospace => FontId::new(16.0, FontFamily::Monospace),
-                TextStyle::Button => FontId::new(10.0, FontFamily::Proportional),
+                TextStyle::Heading => FontId::new(48.0, FontFamily::Proportional), // default proportional
+                TextStyle::Body => FontId::new(22.0, FontFamily::Proportional),
+                TextStyle::Monospace => FontId::new(22.0, FontFamily::Monospace),
+                TextStyle::Button => FontId::new(20.0, FontFamily::Proportional),
                 TextStyle::Small => FontId::new(18.0, FontFamily::Name("quote".into())),
                 _ => FontId::new(16.0, FontFamily::Proportional),
             };
@@ -160,8 +170,7 @@ pub fn new_app(cc: &eframe::CreationContext<'_>) -> App {
             TextStyle::Name("title".into()),
             FontId::new(80.0, FontFamily::Name("title".into())),
         );
-
-        // style.spacing.menu_margin.top += 20;
+        style.spacing.menu_margin = Margin::symmetric(10, 10)
     });
     // cc.egui_ctx.set_zoom_factor(1.0);
 
@@ -177,3 +186,5 @@ pub fn new_app(cc: &eframe::CreationContext<'_>) -> App {
     // }
     App::new()
 }
+
+pub static MENU_SPACING: egui::Vec2 = egui::vec2(0.0, 10.0);

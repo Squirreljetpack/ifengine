@@ -3,6 +3,11 @@ name = "ifengine_macros"
 version = "0.0.1"
 authors = ["Squirreljetpack"]
 edition = "2024"
+description = "Procedural macros for ifengine"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/yourusername/ifengine_macros"
+readme = "README.md"
+keywords = ["proc-macro", "ifengine"]
 
 [lib]
 proc-macro = true

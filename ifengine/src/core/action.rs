@@ -1,5 +1,7 @@
 use crate::core::{PageHandle, game_state::InternalKey};
 
+/// Adds an effect to a [`crate::view::Span`]
+/// Spans with an action occlude their containing object (i.e. [`crate::view::Object::Choice`])
 #[derive(Debug, Default, Clone)]
 pub enum Action {
     #[default]
