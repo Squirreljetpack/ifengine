@@ -58,23 +58,8 @@ mod macros_enabled {
         };
     }
 
-    /// Creates a link [`Span`] that navigates backward.
-    ///
-    /// - `$e`: Display text.
-    /// - `$n`: Optional number of steps to go back (defaults to 1).
-    #[macro_export]
-    macro_rules! back {
-        ($e:expr, $n:expr) => {
-            $crate::view::Span::from($e)
-            .as_link()
-            .with_action($crate::Action::Back($n))
-        };
-        ($e:expr) => {
-            $crate::view::Span::from($e)
-            .as_link()
-            .with_action($crate::Action::Back(1))
-        };
-    }
+
+
 
     /// Creates a tunnel or exit link [`Span`].
     ///
@@ -140,7 +125,7 @@ mod macros_enabled {
 
     /// Returns an `End` response.
     #[macro_export]
-    macro_rules! end {
+    macro_rules! END {
         () => {
             return $crate::core::Response::End;
         };
@@ -152,6 +137,8 @@ mod macros_enabled {
     pub use ifengine_macros::mparagraph as mp;
     pub use ifengine_macros::paragraph as p;
     pub use ifengine_macros::paragraphs as ps;
+    pub use ifengine_macros::text as l;
+    pub use ifengine_macros::texts as ls;
     pub use ifengine_macros::*;
 }
 

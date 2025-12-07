@@ -1,14 +1,14 @@
 inkle threading: show!(widget1, widget2...) {
-	follow each with a game clone until a view is reached, store the widget_idx, choice_idx, choice_value
+	follow each with a game clone until a view is reached, store the widget_idx, action_idx (using get_interactables?), choice_value
 }
 text input element: PageMap should be (HashMap, StringMap)
 
 
-egui graph draw
-egui widget bar
-
-bring in local dependencies to enable github pages build
-
+egui graph
+ - layout
+ - single edge for backlinks
+ - etc
+Full render, doc and macro support for all object types
 
 # EGUI
 reduce binary size (currently 15mb)
@@ -20,8 +20,11 @@ maybe other frameworks will allow lazy loading
 somehow the footer underline doesn't get applied in trunk build despite ok in in trunk serve
 
 - `/#graph` should show graph
-
+- flickering?
 derive aliases could be cool
-
+- An actual handcrafted theme for default
 # Note
 tracking box dyn any can pass data between pages more conveniently but its probably a bad idea
+maybe dbg formatting could be improved, i.e. bitmask values, string keys, whatever
+
+Do we want to replace "''" with "'"?

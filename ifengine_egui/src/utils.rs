@@ -8,11 +8,13 @@ use crate::theme::{TEXT_SMALL, global_theme};
 impl Ui {
     pub fn draw_heading(&mut self, mut text: RichText, level: u8) -> Response {
         let (size, margin) = match level {
-            1 => (80.0, 16.0),
-            2 => (48.0, 12.0),
-            3 => (32.0, 8.0),
-            4 => (24.0, 6.0),
-            _ => (18.0, 4.0),
+            0 => (144.0, 20.0),
+            1 => (96.0, 16.0),
+            2 => (64.0, 12.0),
+            3 => (48.0, 8.0),
+            4 => (32.0, 6.0),
+            5 => (26.0, 5.0),
+            _ => (22.0, 4.0),
         };
 
         text = text.size(size).strong().color(global_theme().get_color("strong").unwrap_or(Color32::WHITE));
@@ -35,10 +37,7 @@ impl Ui {
     where
     I: Into<egui::RichText>,
     {
-        let n = labels.len();
-        if n == 0 {
-            return;
-        }
+
 
         // let margin = self.min_rect().min.x;
         // let available_width = self.available_width() - 2.0 * margin;
@@ -48,8 +47,14 @@ impl Ui {
             ui.spacing_mut().item_spacing = egui::vec2(0.0, 0.0);
             ui.add_space(10.0); // push right
             let _ = add_left(ui);
+
+            let n = labels.len();
+            if n == 0 {
+                return;
+            }
             let available_width = ui.available_width();
             let column_width = available_width / n as f32;
+
 
             for l in labels {
                 ui.allocate_ui([column_width, 0.0].into(), |sub_ui| {

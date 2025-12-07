@@ -71,12 +71,12 @@ impl Parse for KeyExprs {
     }
 }
 
-pub struct KeyAndOptional {
-    pub key: syn::Expr,
+pub struct ExprAndOptional {
+    pub expr: syn::Expr,
     pub n: Option<syn::Expr>,
 }
 
-impl syn::parse::Parse for KeyAndOptional {
+impl syn::parse::Parse for ExprAndOptional {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
         let key: syn::Expr = input.parse()?;
 
@@ -87,6 +87,6 @@ impl syn::parse::Parse for KeyAndOptional {
             None
         };
 
-        Ok(Self { key, n })
+        Ok(Self { expr: key, n })
     }
 }

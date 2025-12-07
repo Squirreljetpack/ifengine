@@ -1,13 +1,24 @@
-# Ifengine
+# IFEngine [![Crates.io](https://img.shields.io/crates/v/ifengine)](https://crates.io/crates/ifengine)
 
-Ifengine is a rust framework for writing interactive fiction.
-Other frameworks in this space include [Twine](https://klembot.github.io/chapbook/) and [Inkle](#https://github.com/inkle/ink).
+IFEngine is a rust framework for writing interactive fiction.
+Other participants of this space include [Twine](https://klembot.github.io/chapbook/) and [Inkle](https://github.com/inkle/ink).
 
-The goal is to enjoy an effortless writing experience, as well as all the benefits of the Rust ecosystem!
+The goal is to enjoy an effortless writing experience, together with all the benefits of the Rust ecosystem.
 
-# Why Rust?
+## [Example](https://ifengine.netlify.app/)
+
+
+story credit: https://antemaion.itch.io/saltwrack (Sorry I haven't asked permission yet as im just using it for testing this project is still just experimental!)
+
+## Why Rust?
 
 TODO
+
+## Features
+- Story analysis: Generate a [graph](https://ifengine.netlify.app/#graph) of your story.
+- Nice syntax: Weave together your story elements and code with intuitive [macros](#docs).
+- Powerful state management: The full power of the rust language at your behest.
+- Navigable content: Stories link and compose together through elements like [link](#link), [tunnel](#tunnel), and [weave](#weave). Jump between them using `Go to definition`.
 
 # Guide
 
@@ -54,7 +65,7 @@ pub struct State {
 // ----------- woke_story/src/chap1.rs -----------
 #[ifview]
 pub fn p1(s: &mut State) {
-    h!("WHY I GOT OUT OF BED THIS MORNING", 3);
+    h!("LET ME TELL YOU WHY I GOT OUT OF BED THIS MORNING ITS NOT WHAT YOU THINK", 3);
     p!(link!("BEGIN", p3));
 }
 
@@ -62,7 +73,7 @@ pub fn p1(s: &mut State) {
 
 4. **Launch!**
 ```rust
-// ifengine_egui/src/app_type.rs
+// ----------- ifengine_egui/src/app_type.rs -----------
 use my_story::{new, Game}; // change me
 ```
 
@@ -71,18 +82,15 @@ cd ifengine_egui
 trunk serve
 ```
 
-# Example
-https://ifengine.netlify.app/
-
-story credit: https://antemaion.itch.io/saltwrack (Sorry I haven't asked permission yet as im just using it for testing this project is still just experimental!)
-
-# Features
-- Story analysis: Generate a [graph](https://ifengine.netlify.app/#graph) of your story!
-- Nice syntax: Weave together your story elements and code with intuitive [macros](#docs).
-- Powerful state management: The full power of the rust language at your behest!
-- Navigable content: Stories link and compose together through elements like [link](#link), [tunnel](#tunnel), and [weave](#weave). Rust analyze allows you to jump between them with Go to definition.
-
 
 # Docs
 
 todo
+
+## Model
+
+## View
+
+## Elements
+
+## Additional

@@ -1,6 +1,7 @@
 use std::collections::HashSet;
 
 pub mod chap1;
+pub mod chap1d;
 
 pub type Game = ifengine::Game<State>;
 pub fn new() -> Game {
@@ -40,8 +41,8 @@ mod tests {
     fn test_sim() {
         let game = new();
         let _sim = game.simulate(|s| {
-            s.depth > 6
+            s.depth > 12
         });
-        // dbg!(&sim);
+        dbg!(&_sim);
     }
 }
