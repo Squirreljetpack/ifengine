@@ -26,7 +26,7 @@ pub struct Node {
 // todo: layout, connecting to same pin, disable body showing for empty body
 pub fn new_snarl(width: f32, height: f32) -> (Snarl<Node>, usize) {
     let app = new();
-    let sim = app.simulate(|s| s.depth > 6);
+    let sim = app.simulate(|s| s.depth > 13);
 
     // node_id -> snarl_node_id, output_count
     let mut seen = HashMap::new();

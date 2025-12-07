@@ -2,8 +2,8 @@ use std::borrow::Cow;
 
 use crate::core::Action;
 
-/// Image type
-/// See [`crate::view::Object`]
+/// Image type.
+/// See [`crate::view::Object`].
 #[derive(Debug, Clone)]
 pub struct Image {
     pub size: [usize; 2],
@@ -13,8 +13,8 @@ pub struct Image {
 }
 
 
-/// Local or Remote image
-/// See [`Image`]
+/// Local or Remote image.
+/// See [`Image`].
 #[derive(Debug, Clone)]
 pub enum ImageVariant {
     Url(String),

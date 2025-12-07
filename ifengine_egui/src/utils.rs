@@ -2,7 +2,8 @@ use egui::{Area, Button, Color32, Context, Image, IntoAtoms, Label, Response, Ri
 use egui_alignments::center_horizontal;
 use easy_ext::ext;
 
-use crate::theme::{TEXT_SMALL, global_theme};
+use crate::theme::global_theme;
+use crate::app_impl::TEXT_SMALL;
 
 #[ext(UiExt)]
 impl Ui {
@@ -199,6 +200,8 @@ Close: FnMut(),
             ..Default::default()
         }
         .show(ui, |ui| {
+            ui.visuals_mut().override_text_color = global_theme().get_color("primary"); // need to override specifically for some reason
+
             // compute button size and position
             let close_size = Vec2::new(10.0, 10.0);
             let close_pos = Pos2::new(size.x - close_size.x, 2.0); // this controls the size of the ui apparently, use margin to space

@@ -29,13 +29,6 @@ impl eframe::App for App {
             show_overlay(
                 ctx,
                 |ui| {
-                    // ui.vertical_centered(|ui| {
-                    //     ui.label("Hello Overlay!");
-                    //     if ui.button("Do something").clicked() {
-                    //         println!("Clicked inside overlay");
-                    //     }
-                    // });
-
                     let (snarl, viewer) = self.graph_viewer.get_or_insert_with(|| {
                         let (snarl, prefix_len) =
                         crate::graph::new_snarl(ui.available_width(), ui.available_height());
@@ -47,7 +40,6 @@ impl eframe::App for App {
                             },
                         )
                     });
-
                     SnarlWidget::new()
                     .id(egui::Id::new("snarl-demo"))
                     .style(global_theme().snarl)
@@ -61,9 +53,7 @@ impl eframe::App for App {
         self.show_graph = show_graph;
         egui::TopBottomPanel::top("top_panel")
         .frame(egui::Frame {
-            fill: ctx.style().visuals.window_fill, // normal panel background
-            // stroke: Stroke::NONE,
-            inner_margin: egui::Margin::same(10), // optional padding
+            inner_margin: egui::Margin::same(10),
             ..Default::default()
         })
         .show_separator_line(false)
@@ -105,15 +95,10 @@ impl eframe::App for App {
 
         egui::CentralPanel::default().show(ctx, |ui| {
             center_vertical(ui, |ui| {
-                // ui.with_layout(egui::Layout::top_down(egui::Align::Center), |ui| {
-                //     ui.add_space(40.0);
-                // });
                 ui.vertical_centered_justified(|ui| {
                     let width = ui.available_width().min(800.0);
                     ui.set_width(width);
                     render(resp, ui, &mut self.game);
-
-                    // ui.set_max_width(800.0);
                 });
             });
         });
@@ -145,6 +130,9 @@ mod generated {
     include!(concat!(env!("OUT_DIR"), "/generated_fonts.rs"));
 }
 
+pub static MENU_SPACING: egui::Vec2 = egui::vec2(0.0, 12.0);
+pub static TEXT_SMALL: f32 = 16.0;
+
 pub fn new_app(cc: &eframe::CreationContext<'_>) -> App {
     // This is also where you can customize the look and feel of egui using
     // `cc.egui_ctx.set_visuals` and `cc.egui_ctx.set_fonts`.
@@ -162,7 +150,7 @@ pub fn new_app(cc: &eframe::CreationContext<'_>) -> App {
                 TextStyle::Body => FontId::new(20.0, FontFamily::Proportional),
                 TextStyle::Monospace => FontId::new(20.0, FontFamily::Monospace),
                 TextStyle::Button => FontId::new(18.0, FontFamily::Proportional),
-                TextStyle::Small => FontId::new(16.0, FontFamily::Name("quote".into())),
+                TextStyle::Small => FontId::new(TEXT_SMALL, FontFamily::Name("quote".into())),
                 _ => FontId::new(16.0, FontFamily::Proportional),
             };
         }
@@ -172,11 +160,21 @@ pub fn new_app(cc: &eframe::CreationContext<'_>) -> App {
         );
         style.spacing.menu_margin = Margin::symmetric(10, 10)
     });
-    // cc.egui_ctx.set_zoom_factor(1.0);
 
-    let visuals = global_theme().visuals(); // or detect OS theme, or user pref
-    cc.egui_ctx.set_visuals(visuals);
+    let theme = if cc.egui_ctx.style().visuals.dark_mode {
+        "dark"
+    } else {
+        "light"
+    };
+    global_theme_mut().switch(theme, &cc.egui_ctx); // todo: doesn't work
 
+    if on_graph_route() {
+        let mut ret = App::new();
+        ret.show_graph = true;
+        ret
+    } else {
+        App::new()
+    }
     // Load previous app state (if any).
     // Note that you must enable the `persistence` feature for this to work.
     // if let Some(storage) = cc.storage {
@@ -184,7 +182,25 @@ pub fn new_app(cc: &eframe::CreationContext<'_>) -> App {
     // } else {
     //     story::new()
     // }
-    App::new()
 }
 
-pub static MENU_SPACING: egui::Vec2 = egui::vec2(0.0, 12.0);
+
+#[cfg(target_arch = "wasm32")]
+fn on_graph_route() -> bool {
+    use web_sys::window;
+
+    if let Some(win) = window() {
+        let loc = win.location();
+        let pathname = loc.pathname().unwrap_or_default(); // e.g., "/graph"
+        let hash = loc.hash().unwrap_or_default();         // e.g., "#graph"
+
+        pathname == "/graph" || hash == "#graph"
+    } else {
+        false
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn on_graph_route() -> bool {
+    false
+}

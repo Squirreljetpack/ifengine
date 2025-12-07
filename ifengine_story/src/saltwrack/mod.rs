@@ -22,7 +22,6 @@ pub struct State {
 }
 
 // Note: all the Into's on str assignment are annoying, maybe derive setters?
-
 #[derive(Debug, Default, Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Companion {
@@ -43,7 +42,7 @@ mod tests {
     fn test_sim() {
         let game = new();
         let _sim = game.simulate(|s| {
-            s.depth > 12
+            s.depth > 13
         });
         dbg!(&_sim);
     }
