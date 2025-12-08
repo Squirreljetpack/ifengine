@@ -1,0 +1,21 @@
+[package]
+name = "egui_alignments"
+# The following section is edited from the original @ https://github.com/a-littlebit/egui_alignments/tree/master
+edition = "2024"
+version = "0.3.6"
+publish = false
+license = "MIT OR Apache-2.0"
+# version.workspace = true
+# edition.workspace = true
+# description = "Simple alignment tools for egui"
+# readme = "../../README.md"
+# keywords = ["egui", "alignment", "layout"]
+# homepage = "https://github.com/a-littlebit/egui_alignments"
+# repository = "https://github.com/a-littlebit/egui_alignments"
+# license.workspace = true
+
+
+[dependencies]
+# egui = { workspace = true }
+egui = "0.33"
+

@@ -27,14 +27,14 @@ it's cool i like it (todo).
 1. **Download your frontend template**
 ```
 git clone git@github.com:Squirreljetpack/ifengine.git
-mv ifengine/ifengine_egui .
+mv ifengine/egui .
 rm -rf ifengine
 ```
 or with [zsh-dl](https://github.com/Squirreljetpack/zsh-dl/):
 ```
-dl https://github.com/Squirreljetpack/ifengine/tree/main/ifengine_egui
+dl https://github.com/Squirreljetpack/ifengine/tree/main/egui
 ```
-Currently, your options are: [egui](./ifengine_egui) .. and nothing else.
+Currently, your options are: [egui](./egui) .. and nothing else.
 
 2. **Create your library**
 
@@ -43,7 +43,7 @@ cargo init woke_story
 cargo add ifengine
 ```
 
-3. **Write your story** (See: [example](./ifengine_story/src/saltwrack/chap1.rs), [elements](https://docs.rs/ifengine/latest/ifengine/elements/index.html))
+3. **Write your story** (See: [example](./story/src/saltwrack/chap1.rs), [elements](https://docs.rs/ifengine/latest/ifengine/elements/index.html))
 
 
 ```rust
@@ -75,12 +75,12 @@ pub fn p1(s: &mut State) {
 
 4. **Launch!**
 ```rust
-// ----------- ifengine_egui/src/app.rs -----------
+// ----------- egui/src/app.rs -----------
 use my_story::{new, Game}; // change me
 ```
 
 ```shell
-cd ifengine_egui
+cd egui
 trunk serve
 ```
 

@@ -1,7 +1,7 @@
 [workspace]
 members = [
     "ifengine",
-    "ifengine_egui",
+    "egui",
     "ifengine_macros",
 ]
 resolver = "3"
