@@ -1,9 +1,10 @@
 [package]
 name = "ifengine_egui"
-version = "0.1.0"
+version = "0.0.5"
 authors = ["Squirreljetpack"]
 edition = "2024"
 include = ["LICENSE-APACHE", "LICENSE-MIT", "**/*.rs", "Cargo.toml"]
+publish = false
 
 [package.metadata.docs.rs]
 all-features = true

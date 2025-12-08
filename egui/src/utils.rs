@@ -75,7 +75,7 @@ impl Ui {
         add_contents: impl FnOnce(&mut Ui) -> R,
     ) -> egui::InnerResponse<Option<R>> {
         let img = Image::new(include_image!("../../assets/imgs/menu.png"))
-        .fit_to_exact_size(egui::vec2(14.0, 14.0));
+        .fit_to_exact_size(egui::vec2(17.0, 17.0));
 
         let img = if show {
             if light_theme {
@@ -105,7 +105,7 @@ impl Ui {
         add_contents: impl FnOnce(&mut Ui) -> R,
     ) -> egui::InnerResponse<Option<R>> {
         let (response, inner) = menu::SubMenuButton::from_button(
-            Button::new(label).right_text(">"), // haven't figured out how to render more glyphs, downloaded fonts mostly don't work
+            Button::new(label).right_text("⟩"), // haven't figured out how to render more glyphs, downloaded fonts mostly don't work
         )
         .ui(self, add_contents);
 

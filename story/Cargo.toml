@@ -1,9 +1,10 @@
 [package]
 name = "story"
-version = "0.0.1"
+version = "0.0.5"
 authors = ["Squirreljetpack"]
 edition = "2024"
 include = ["LICENSE-APACHE", "LICENSE-MIT", "**/*.rs", "Cargo.toml"]
+publish = false
 
 [package.metadata.docs.rs]
 all-features = true
