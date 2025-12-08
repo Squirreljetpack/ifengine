@@ -89,7 +89,7 @@ impl Span {
     // handle underline manually due to egui exaggerating line height offset
     // Link Variant gets a cursor change
     pub fn add(self, ui: &mut Ui, sense: bool) -> Response {
-        let rich = self.as_rich_text().with_line_height(ui, 1.5);
+        let rich = self.as_rich_text().with_line_height(ui, 1.6);
 
         let needs_underline = self.modifiers.contains(Modifier::UNDERLINE)
             || matches!(self.variant, SpanVariant::Link);

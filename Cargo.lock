@@ -1605,7 +1605,7 @@ dependencies = [
 
 [[package]]
 name = "ifengine"
-version = "0.0.4"
+version = "0.0.5"
 dependencies = [
  "bitflags 2.10.0",
  "const-fnv1a-hash",
@@ -1619,7 +1619,7 @@ dependencies = [
 
 [[package]]
 name = "ifengine_egui"
-version = "0.1.0"
+version = "0.0.5"
 dependencies = [
  "easy-ext",
  "eframe",
@@ -1643,7 +1643,7 @@ dependencies = [
 
 [[package]]
 name = "ifengine_macros"
-version = "0.0.4"
+version = "0.0.5"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2932,7 +2932,7 @@ checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 
 [[package]]
 name = "story"
-version = "0.0.1"
+version = "0.0.5"
 dependencies = [
  "ifengine",
  "serde",

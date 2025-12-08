@@ -111,7 +111,7 @@ use crate::{State};
 
 #[ifview]
 pub fn p1(s: &mut State) {
-    h!("LET ME TELL YOU WHY I GOT OUT OF BED THIS MORNING ITS REAL INTERESTING FIRST THERE WAS A BUG ON THE WALL I THOUGHT I SAW AND THEN", 3);
+    h!("LET ME TELL YOU WHY I GOT OUT OF BED THIS MORNING...")
     p!(link!("BEGIN", p3));
 }
 ```
@@ -132,3 +132,7 @@ trunk serve
 > To use this library, you write functions which produce [`Responses`](https://docs.rs/ifengine/latest/ifengine/core/enum.Response.html), eventually resolving to a [`View`](https://docs.rs/ifengine/latest/ifengine/view/struct.View.html). The view corresponding to the current game state is retrieved by calling [`Game::view`](https://docs.rs/ifengine/latest/ifengine/core/struct.Game.html#method.view).
 >
 > A view is a sequence of [`Objects`](https://docs.rs/ifengine/latest/ifengine/view/enum.Object.html) which you can attach by calling the provided [elements and macros](https://docs.rs/ifengine/latest/ifengine/elements/index.html) within a function decorated by [`#[ifview]`](https://docs.rs/ifengine/latest/ifengine/attr.ifview.html).
+
+
+# Contributions
+Ideas and contributions welcome. There is a rough [todo](./TODO.md) as well.
