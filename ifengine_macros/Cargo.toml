@@ -1,6 +1,6 @@
 [package]
 name = "ifengine_macros"
-version = "0.0.4"
+version = "0.0.5"
 authors = ["Squirreljetpack"]
 edition = "2024"
 description = "Procedural macros for ifengine"
