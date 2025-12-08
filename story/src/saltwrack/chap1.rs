@@ -1,8 +1,7 @@
 #[allow(unused_imports)]
-use ifengine::elements::{ChoiceVariant::*, click, dp, p, ps};
-use ifengine::{END, GO, tun, elements::{back, choice, h, ls, mchoice}, ifview, link, utils::MaskExt
+use ifengine::elements::{ChoiceVariant::*, click, dp, p, ps, back, choice, h, ls, mchoice};
+use ifengine::{END, GO, tun, ifview, link, utils::MaskExt
 };
-
 use crate::{chap1d::*, saltwrack::State};
 
 #[ifview]

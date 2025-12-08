@@ -90,13 +90,17 @@ impl<C: GameContext> Game<C> {
             self.pages.pop(); // drop the initial page for the next rendered and (possibly same) page. In particular, it will have the fully resolved name, (while i.e. the pagehandles produced by link! in handle_action don't).
         }
 
+        let start_id = page.id.clone();
+
         let view = loop {
+            self.fresh &= start_id != page.id;
+
             let r = page.call(self);
             match r {
                 Response::View(view) => {
                     page.id = view.pageid.clone(); // id the page by the fully resolved name
-
                     self.pages.push(page)?; // only rendered pages get added to history
+
                     break view;
                 }
                 Response::Switch(next) => {
@@ -170,6 +174,10 @@ impl GameInner {
             }
         }
         Ok(())
+    }
+
+    pub fn fresh(&self) -> bool {
+        self.fresh
     }
 }
 

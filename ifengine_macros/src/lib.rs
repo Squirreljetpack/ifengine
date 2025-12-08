@@ -72,8 +72,6 @@ pub fn ifview(_attr: TokenStream, item: TokenStream) -> TokenStream {
                 __ifengine_simulating
             );
 
-            __ifengine_game.fresh = false;
-
             #original_block
 
             #[allow(unreachable_code)]
@@ -981,7 +979,7 @@ pub fn alts(input: TokenStream) -> TokenStream {
                     (__ifengine_page_state.id(), #key),
                     ((idx as u64) << 1) + 1
                 ))
-                .hide_if(__ifengine_page_state.simulating)
+                .no_sim()
             }}
         }
 
@@ -994,13 +992,13 @@ pub fn alts(input: TokenStream) -> TokenStream {
                         alts[(idx as usize) % alts.len()]
                     )
                     .with_action(ifengine::Action::Inc((__ifengine_page_state.id(), #key)))
-                    .hide_if(__ifengine_page_state.simulating)
+                    .no_sim()
                 } else {
                     ifengine::view::Span::from(
                         alts[0]
                     )
                     .with_action(ifengine::Action::Inc((__ifengine_page_state.id(), #key)))
-                    .hide_if(__ifengine_page_state.simulating)
+                    .no_sim()
                 }
             }}
         }
@@ -1047,7 +1045,7 @@ pub fn count(input: TokenStream) -> TokenStream {
             (#closure)(__ifengine_page_state.get(#key).unwrap_or_default())
         )
         .with_action(ifengine::Action::Inc((__ifengine_page_state.id(), #key)))
-        .hide_if(__ifengine_page_state.simulating)
+        .no_sim()
     }};
 
     expanded.into()
@@ -1111,7 +1109,7 @@ pub fn click(input: TokenStream) -> TokenStream {
             )
             .with_action(ifengine::Action::Inc((__ifengine_page_state.id(), #key)))
             .as_link()
-            .hide_if(__ifengine_page_state.simulating)
+            .no_sim()
         } else {
             ifengine::view::Span::from(
                 #expr
@@ -1167,7 +1165,7 @@ pub fn back(input: TokenStream) -> TokenStream {
             ifengine::view::Span::from(#expr)
             .as_link()
             .with_action(ifengine::Action::Back(1))
-            .hide_if(__ifengine_page_state.simulating)
+            .no_sim()
         }
     };
 

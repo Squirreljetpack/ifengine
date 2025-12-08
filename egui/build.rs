@@ -67,9 +67,17 @@ fn add_fonts_from_dir(
     if fonts_dir.is_dir() {
         let mut font_names = Vec::new();
 
-        for entry in fs::read_dir(fonts_dir).unwrap() {
-            let entry = entry.unwrap();
-            let path = entry.path();
+        let mut entries: Vec<PathBuf> = fs::read_dir(fonts_dir)
+        .unwrap()
+        .filter_map(Result::ok)
+        .map(|e| e.path())
+        .collect();
+
+        entries.sort_by_key(
+            |p| p.file_stem().unwrap().to_string_lossy().to_string()
+        );
+
+        for path in entries {
             if path.is_file() {
                 if let Some(ext) = path.extension() {
                     if ext == "ttf" || ext == "otf" {

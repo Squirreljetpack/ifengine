@@ -23,8 +23,15 @@ it's cool i like it (todo).
 
 
 # Guide
+0. **Initialize your project**
+
+```shell
+mkdir -p ifproject
+cd ifproject
+```
 
 1. **Download your frontend template**
+
 ```
 git clone git@github.com:Squirreljetpack/ifengine.git
 mv ifengine/egui .
@@ -36,19 +43,37 @@ dl https://github.com/Squirreljetpack/ifengine/tree/main/egui
 ```
 Currently, your options are: [egui](./egui) .. and nothing else.
 
-2. **Create your library**
+2. **Make a few changes**
 
-```shell
-cargo init woke_story
-cargo add ifengine
+`egui/Cargo.toml`:
+```toml
+[package]
+# change me
+
+[dependencies]
+# ifengine
+ifengine = { path = "../ifengine" } # remove me
+story = { path = "../story" }
 ```
 
-3. **Write your story** (See: [example](./story/src/saltwrack/chap1.rs), [elements](https://docs.rs/ifengine/latest/ifengine/elements/index.html))
+3. **Create your library**
+```shell
+cargo init --lib story
+cd story
+cargo add ifengine
 
+# ifproject/
+# ├── egui
+# └── story
+#     ├── Cargo.toml
+#     └── src
+#         └── lib.rs
+```
 
+4. **Write your story** (See: [example](./story/src/saltwrack/chap1.rs), [elements](https://docs.rs/ifengine/latest/ifengine/elements/index.html))
+
+`story/src/lib.rs`:
 ```rust
-// ----------- woke_story/src/lib.rs -----------
-
 pub mod chap1;
 
 pub type Game = ifengine::Game<State>;
@@ -63,27 +88,40 @@ pub struct State {
 }
 ```
 
+`story/src/chap1.rs`:
 ```rust
-// ----------- woke_story/src/chap1.rs -----------
+#[allow(unused_imports)]
+use ifengine::{
+    elements::{
+        ChoiceVariant::*,
+        choice,
+        click,
+        dp,
+        h,
+        choice,
+        mchoice,
+        p,
+    },
+    utils::MaskExt,
+    GO,
+    ifview,
+    link,
+};
+use crate::{State};
+
 #[ifview]
 pub fn p1(s: &mut State) {
-    h!("LET ME TELL YOU WHY I GOT OUT OF BED THIS MORNING ITS REAL INTERESTING FIRST THERE WAS", 3);
+    h!("LET ME TELL YOU WHY I GOT OUT OF BED THIS MORNING ITS REAL INTERESTING FIRST THERE WAS A BUG ON THE WALL I THOUGHT I SAW AND THEN", 3);
     p!(link!("BEGIN", p3));
 }
-
 ```
 
-4. **Launch!**
-```rust
-// ----------- egui/src/app.rs -----------
-use my_story::{new, Game}; // change me
-```
+5. **Launch!**
 
 ```shell
 cd egui
 trunk serve
 ```
-
 
 # Docs
 
