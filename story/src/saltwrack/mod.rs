@@ -1,7 +1,6 @@
 use std::{borrow::Cow, collections::HashSet};
 
-pub mod chap1;
-pub mod chap1d;
+pub(crate) mod chap1d;
 
 pub type Game = ifengine::Game<State>;
 pub fn new() -> Game {

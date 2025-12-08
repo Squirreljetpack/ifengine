@@ -1,20 +1,24 @@
-weave: inkle threading: weave!(widget1, widget2...) {
+# Features
+- weave: inkle threading: weave!(widget1, widget2...) {
 	follow each with a game clone until a view is reached, store the widget_idx, action_idx (using get_interactables?), choice_value
 }
-text input element: PageMap should be (HashMap, StringMap)
+- text input element: PageMap should be (HashMap, StringMap)
 
-
-egui graph
+# Graphing the simulation
+graphing
  - layout
  - single edge for backlinks
  - etc
-Full render, doc and macro support for all object types
 
+# Utility
+- Full render, doc and macro support for all object types
 - derive aliases may be cool
-
+- Docs
+    - cannot link docs from proc macro until crate split (could also use absolute urls)
+    - MaybeKey is private
 
 # EGUI
-- Smaller size
+- Smaller size: currently acceptable at <8mb
     maybe configure trunk: wasm-pack build -t web --release \
     --manifest-path ./Cargo.toml \
     -Z build-std=panic_abort,std -Z build-std-features=panic_immediate_abort
@@ -23,16 +27,20 @@ Full render, doc and macro support for all object types
 - Fade transitions
     - we could probably fade outgoing to nothing with animate_bool, then fade in the next page but dunno if there's a cleaner crate approach.
 - An actual handcrafted theme for default
-- Finished for now, some web fw like leptos is probably a better fit
-- header panel broken on mac for some reason
+- implement all object types
+- No more changes for now, some web fw like leptos is probably a better fit
 
-# Docs
-- cannot link docs from proc macro until crate split (could also use absolute urls)
-- MaybeKey is private
+# Flutter
+# Leptos
 
-# Note
-passing data between pages?
-- all thru state/tags good enough?
-maybe dbg formatting could be improved, i.e. bitmask values, string keys, whatever
+# Format
+- A text format that parses to a Game
+    - How do we interweave code?
 
-Do we want to replace "''" with "'"?
+# Misc
+- passing data between pages?
+    - state/tags is seems sufficient...
+- maybe dbg formatting could be improved, i.e. bitmask values, string keys, whatever
+- utils
+    - Do we want to replace "''" with "'" in linguate?
+    - whats the scope?

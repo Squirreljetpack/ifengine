@@ -1,3 +1,5 @@
+use std::sync::atomic::{AtomicBool, Ordering};
+
 use egui::{FontFamily, FontId, Margin, RichText, TextStyle, style::ScrollStyle};
 use egui_alignments::center_vertical;
 use egui_snarl::ui::SnarlWidget;
@@ -22,6 +24,7 @@ impl eframe::App for App {
         // ctx.all_styles_mut(|x| {
         //     dbg!(&x.text_styles);
         // });
+        init_theme(ctx);
         let light = global_theme().is_light();
 
         let mut show_graph = self.show_graph;
@@ -54,6 +57,7 @@ impl eframe::App for App {
         egui::TopBottomPanel::top("top_panel")
         .frame(egui::Frame {
             inner_margin: egui::Margin::same(10),
+            fill: ctx.style().visuals.panel_fill, // necessary for some reasone
             ..Default::default()
         })
         .show_separator_line(false)
@@ -96,7 +100,12 @@ impl eframe::App for App {
             // todo: fade transition
         }
 
-        egui::CentralPanel::default().show(ctx, |ui| {
+        egui::CentralPanel::default()
+        .frame(egui::Frame {
+            fill: ctx.style().visuals.window_fill, // body
+            ..Default::default()
+        })
+        .show(ctx, |ui| {
             center_vertical(ui, |ui| {
                 ui.vertical_centered_justified(|ui| {
                     let width = ui.available_width().min(800.0);
@@ -109,15 +118,16 @@ impl eframe::App for App {
         });
 
         egui::TopBottomPanel::bottom("bottom_panel")
-        // .frame(egui::Frame {
-        //     inner_margin: egui::Margin {
-        //         left: 0,
-        //         right: 2,
-        //         top: 0,
-        //         bottom: 2,
-        //     },
-        //     ..Default::default()
-        // })
+        .frame(egui::Frame {
+            fill: ctx.style().visuals.window_fill, // body
+            // inner_margin: egui::Margin {
+            //     left: 0,
+            //     right: 2,
+            //     top: 0,
+            //     bottom: 2,
+            // },
+            ..Default::default()
+        })
         .show_separator_line(false)
         .show(ctx, |ui| {
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Min), |ui| {
@@ -130,6 +140,7 @@ impl eframe::App for App {
     }
 }
 
+
 // Include the generated fonts module
 mod generated {
     include!(concat!(env!("OUT_DIR"), "/generated_fonts.rs"));
@@ -137,6 +148,19 @@ mod generated {
 
 pub static MENU_SPACING: egui::Vec2 = egui::vec2(0.0, 12.0);
 pub static TEXT_SMALL: f32 = 16.0;
+static THEME_SET: AtomicBool = AtomicBool::new(false);
+
+// this doesn't work inside new_app so we lift it out
+fn init_theme(ctx: &egui::Context) {
+    if THEME_SET.compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst).is_ok() {
+        let theme = if ctx.style().visuals.dark_mode {
+            "dark"
+        } else {
+            "light"
+        };
+        global_theme_mut().switch(theme, &ctx);
+    }
+}
 
 pub fn new_app(cc: &eframe::CreationContext<'_>) -> App {
     // This is also where you can customize the look and feel of egui using
@@ -171,13 +195,6 @@ pub fn new_app(cc: &eframe::CreationContext<'_>) -> App {
         scroll_style.interact_handle_opacity = 0.5;
         style.spacing.scroll = scroll_style;
     });
-
-    let theme = if cc.egui_ctx.style().visuals.dark_mode {
-        "dark"
-    } else {
-        "light"
-    };
-    global_theme_mut().switch(theme, &cc.egui_ctx); // todo: doesn't work
 
     if on_graph_route() {
         let mut ret = App::new();
