@@ -129,7 +129,7 @@ impl<C: GameContext> Game<C> {
                     records.insert_view(&s, &mut v);
                     let mut to_queue = vec![];
 
-                    for e in v.interactables_flat() {
+                    for e in v.interactables_sim() {
                         let mut next = s.next(curr_id.clone());
                         match next.interact_sim(e, &curr_id) {
                             Ok(()) => {

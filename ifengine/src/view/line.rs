@@ -20,6 +20,7 @@ pub struct Span {
     // is it worth collapsing to single Vec<(String, String)> for efficiency?
     pub style: HashMap<String, String>,
     pub classes: Vec<String>,
+    pub no_sim: bool,
 }
 
 /// Applies a style preset.
@@ -44,6 +45,7 @@ impl Span {
             modifiers: Modifier::empty(),
             style: HashMap::new(),
             classes: Vec::new(),
+            no_sim: false,
         }
     }
 
@@ -79,13 +81,16 @@ impl Span {
     /// Hides the span during simulation.
     ///
     /// Element macros with actions likely to be cyclic specify this by default to prune choices when running simulations.
-    /// That can be overridden by manually setting this to false.
-    pub fn hide_if(self, hide: bool) -> Self {
-        if hide {
-            Self::default()
-        } else {
-            self
-        }
+    /// That can be overridden with no_sim().
+    pub fn no_sim(mut self) -> Self {
+        self.no_sim = true;
+        self
+    }
+
+    /// Enforce that this span's action is not omitted during simulation.
+    pub fn sim(mut self) -> Self {
+        self.no_sim = false;
+        self
     }
 }
 

@@ -10,29 +10,29 @@ egui graph
  - etc
 Full render, doc and macro support for all object types
 
-- change hide_if to hide_in_sim
 - derive aliases may be cool
 
+
 # EGUI
-- reduce binary size (currently 15mb)
-    - reduced to 7
-    - is dynamic font loading possible?
-- maybe configure trunk: wasm-pack build -t web --release \
+- Smaller size
+    maybe configure trunk: wasm-pack build -t web --release \
     --manifest-path ./Cargo.toml \
     -Z build-std=panic_abort,std -Z build-std-features=panic_immediate_abort
-maybe other frameworks will allow lazy loading
-- somehow the footer underline doesn't get applied in trunk build despite ok in in trunk serve
-- `/#graph` should show graph
-- flickering: transitions should help
+    maybe other frameworks will allow lazy loading
+- somehow the footer underline doesn't get applied in trunk build sometimes despite ok in in trunk serve
+- Fade transitions
+    - we could probably fade outgoing to nothing with animate_bool, then fade in the next page but dunno if there's a cleaner crate approach.
 - An actual handcrafted theme for default
 - Finished for now, some web fw like leptos is probably a better fit
+- header panel broken on mac for some reason
 
 # Docs
-- cannot link docs from proc macro until crate split
+- cannot link docs from proc macro until crate split (could also use absolute urls)
 - MaybeKey is private
 
 # Note
-tracking box dyn any can pass data between pages more conveniently but its probably a bad idea
+passing data between pages?
+- all thru state/tags good enough?
 maybe dbg formatting could be improved, i.e. bitmask values, string keys, whatever
 
 Do we want to replace "''" with "'"?

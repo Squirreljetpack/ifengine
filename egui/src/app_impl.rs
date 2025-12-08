@@ -1,4 +1,4 @@
-use egui::{FontFamily, FontId, Margin, RichText, TextStyle};
+use egui::{FontFamily, FontId, Margin, RichText, TextStyle, style::ScrollStyle};
 use egui_alignments::center_vertical;
 use egui_snarl::ui::SnarlWidget;
 
@@ -92,13 +92,18 @@ impl eframe::App for App {
                 todo!()
             }
         };
+        if self.game.fresh {
+            // todo: fade transition
+        }
 
         egui::CentralPanel::default().show(ctx, |ui| {
             center_vertical(ui, |ui| {
                 ui.vertical_centered_justified(|ui| {
                     let width = ui.available_width().min(800.0);
                     ui.set_width(width);
-                    render(resp, ui, &mut self.game);
+                    egui::ScrollArea::vertical().show(ui, |ui| {
+                        render(resp, ui, &mut self.game);
+                    });
                 });
             });
         });
@@ -158,7 +163,13 @@ pub fn new_app(cc: &eframe::CreationContext<'_>) -> App {
             TextStyle::Name("title".into()),
             FontId::new(80.0, FontFamily::Name("title".into())),
         );
-        style.spacing.menu_margin = Margin::symmetric(10, 10)
+        style.spacing.menu_margin = Margin::symmetric(10, 10);
+        let mut scroll_style = ScrollStyle::floating();
+        scroll_style.bar_width = 3.0;
+        scroll_style.floating_width = 0.0;
+        scroll_style.interact_background_opacity = 0.5;
+        scroll_style.interact_handle_opacity = 0.5;
+        style.spacing.scroll = scroll_style;
     });
 
     let theme = if cc.egui_ctx.style().visuals.dark_mode {
