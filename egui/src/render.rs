@@ -7,7 +7,8 @@ use ifengine::{
 };
 
 use crate::{
-    utils::UiExt, view::{ElementExt, LineExt}
+    utils::UiExt,
+    view::{ElementExt, LineExt},
 };
 
 // i don't think theres a nice way to extract this to ifengine crate, so this logic ig is fine to require each project to reimplement
@@ -34,27 +35,22 @@ pub fn render(view: View, ui: &mut Ui, game: &mut GameInner) {
                 ui.draw_empty(1);
             }
             Object::Image(img) => match img {
-                Image { size: [w, h], variant, action, alt } => {
+                Image {
+                    size: [w, h],
+                    variant,
+                    action,
+                    alt,
+                } => {
                     let img = match variant {
-                        ImageVariant::Local(uri, bytes) => {
-                            egui::Image::from_bytes(uri, bytes)
-                        },
+                        ImageVariant::Local(uri, bytes) => egui::Image::from_bytes(uri, bytes),
                         ImageVariant::Url(p) => egui::Image::from_uri(p),
                     };
 
                     let mut resp = match (w, h) {
-                        (0, 0) => {
-                            ui.add(img)
-                        }
-                        (0, h) => {
-                            ui.add(img.max_height(h as f32))
-                        }
-                        (w, 0) => {
-                            ui.add(img.max_width(w as f32))
-                        }
-                        (w, h) => {
-                            ui.add(img.fit_to_exact_size(egui::vec2(w as f32, h as f32)))
-                        }
+                        (0, 0) => ui.add(img),
+                        (0, h) => ui.add(img.max_height(h as f32)),
+                        (w, 0) => ui.add(img.max_width(w as f32)),
+                        (w, h) => ui.add(img.fit_to_exact_size(egui::vec2(w as f32, h as f32))),
                     };
                     resp = if !alt.is_empty() {
                         resp.on_hover_text(alt)
@@ -66,7 +62,6 @@ pub fn render(view: View, ui: &mut Ui, game: &mut GameInner) {
                             let _ = game.handle_action(action);
                         }
                     }
-
                 }
             },
             Object::Heading(line, level) => {

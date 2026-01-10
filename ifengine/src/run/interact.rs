@@ -8,17 +8,20 @@ use crate::{
 
 #[derive(Debug, Clone, Copy)]
 pub enum Interactable<'a> {
-    Choice(&'a PageKey, &'a Vec<(u8, Line)>, u8),     // parent, index of the choice
-    Span(&'a Object, &'a Span), // parent, the span
+    Choice(&'a PageKey, &'a Vec<(u8, Line)>, u8), // parent, index of the choice
+    Span(&'a Object, &'a Span),                   // parent, the span
 }
 
 impl<'a> Interactable<'a> {
     pub fn content(&self) -> Cow<'a, str> {
         match self {
-            Interactable::Choice(_, lines, idx) => {
-                lines.iter().find_map(|(i, x)| if i == idx { Some(x) } else { None }).unwrap().content().into()
-            }
-            Interactable::Span(_, s) => Cow::Borrowed(&s.content)
+            Interactable::Choice(_, lines, idx) => lines
+                .iter()
+                .find_map(|(i, x)| if i == idx { Some(x) } else { None })
+                .unwrap()
+                .content()
+                .into(),
+            Interactable::Span(_, s) => Cow::Borrowed(&s.content),
         }
     }
 }
@@ -56,7 +59,8 @@ impl View {
 
                 Object::Choice(key, choices) => {
                     for (i, line) in choices {
-                        let all_spans_have_action = line.spans.iter().all(|span| span.action.is_some());
+                        let all_spans_have_action =
+                            line.spans.iter().all(|span| span.action.is_some());
 
                         if !all_spans_have_action {
                             bucket.push(Interactable::Choice(&key, &choices, *i));
@@ -85,19 +89,19 @@ impl View {
     /// Filters out None Actions
     pub fn interactables_sim(&self) -> Vec<Interactable<'_>> {
         self.interactables()
-        .into_iter()
-        .flat_map(|v| {
-            v.into_iter().filter(|e| {
-                if let Interactable::Span(_, span) = e
-                && (span.no_sim || matches!(span.action, Some(Action::None)))
-                {
-                    false
-                } else {
-                    true
-                }
+            .into_iter()
+            .flat_map(|v| {
+                v.into_iter().filter(|e| {
+                    if let Interactable::Span(_, span) = e
+                        && (span.no_sim || matches!(span.action, Some(Action::None)))
+                    {
+                        false
+                    } else {
+                        true
+                    }
+                })
             })
-        })
-        .collect()
+            .collect()
     }
 }
 
@@ -117,11 +121,11 @@ impl<C: GameContext> Game<C> {
 
     pub fn interact_all<F>(&self, view: View) -> Vec<Result<Self, GameError>> {
         view.interactables_sim()
-        .into_iter()
-        .map(|e| {
-            let mut g = self.clone();
-            g.interact(e, &view.pageid).map(|_| g)
-        })
-        .collect()
+            .into_iter()
+            .map(|e| {
+                let mut g = self.clone();
+                g.interact(e, &view.pageid).map(|_| g)
+            })
+            .collect()
     }
 }

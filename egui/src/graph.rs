@@ -1,18 +1,13 @@
-use std::{
-    collections::HashMap,
-    fmt::Display,
-};
+use std::{collections::HashMap, fmt::Display};
 
+use super::app::new;
 use egui::Ui;
 use egui_snarl::{
     InPin, InPinId, NodeId, OutPin, OutPinId, Snarl,
     ui::{SnarlPin, SnarlViewer},
 };
-use ifengine::
-    run::PageRecord
-;
+use ifengine::run::PageRecord;
 use rand::Rng;
-use super::app::new;
 
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]

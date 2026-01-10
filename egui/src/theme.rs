@@ -59,47 +59,49 @@ static COLORS: ColorMaps = phf_map! {
     // },
 };
 
-static THEME: LazyLock<std::sync::RwLock<Theme>> = LazyLock::new(|| Theme {
-    colors: &COLORS,
-    current: "light",
-    snarl: SnarlStyle {
-        node_layout: Some(NodeLayout::coil()),
-        pin_placement: Some(PinPlacement::Outside { margin: 0.0 }),
-        pin_size: Some(0.0),
-        node_frame: Some(egui::Frame {
-            inner_margin: egui::Margin::same(8),
-            outer_margin: egui::Margin {
-                left: 0,
-                right: 0,
-                top: 0,
-                bottom: 4,
-            },
-            corner_radius: egui::CornerRadius::same(8),
-            stroke: egui::Stroke {
-                width: 1.0,
-                color: egui::Color32::from_gray(100),
-            },
-            shadow: egui::Shadow::NONE,
-            ..Default::default()
-        }),
-        bg_frame: Some(egui::Frame {
-            inner_margin: egui::Margin::ZERO,
-            outer_margin: egui::Margin::ZERO,
-            corner_radius: egui::CornerRadius::ZERO,
-            // fill: egui::Color32::from_gray(40),
-            stroke: egui::Stroke::NONE,
-            shadow: egui::Shadow::NONE,
-            ..Default::default()
-        }),
-        wire_width: Some(2.0),
-        wire_smoothness: Some(1.0), // lower is smoother
-        upscale_wire_frame: Some(true),
-        wire_frame_size: Some(20.0),
-        ..SnarlStyle::new()
-    },
-    ..Default::default()
-}.into());
-
+static THEME: LazyLock<std::sync::RwLock<Theme>> = LazyLock::new(|| {
+    Theme {
+        colors: &COLORS,
+        current: "light",
+        snarl: SnarlStyle {
+            node_layout: Some(NodeLayout::coil()),
+            pin_placement: Some(PinPlacement::Outside { margin: 0.0 }),
+            pin_size: Some(0.0),
+            node_frame: Some(egui::Frame {
+                inner_margin: egui::Margin::same(8),
+                outer_margin: egui::Margin {
+                    left: 0,
+                    right: 0,
+                    top: 0,
+                    bottom: 4,
+                },
+                corner_radius: egui::CornerRadius::same(8),
+                stroke: egui::Stroke {
+                    width: 1.0,
+                    color: egui::Color32::from_gray(100),
+                },
+                shadow: egui::Shadow::NONE,
+                ..Default::default()
+            }),
+            bg_frame: Some(egui::Frame {
+                inner_margin: egui::Margin::ZERO,
+                outer_margin: egui::Margin::ZERO,
+                corner_radius: egui::CornerRadius::ZERO,
+                // fill: egui::Color32::from_gray(40),
+                stroke: egui::Stroke::NONE,
+                shadow: egui::Shadow::NONE,
+                ..Default::default()
+            }),
+            wire_width: Some(2.0),
+            wire_smoothness: Some(1.0), // lower is smoother
+            upscale_wire_frame: Some(true),
+            wire_frame_size: Some(20.0),
+            ..SnarlStyle::new()
+        },
+        ..Default::default()
+    }
+    .into()
+});
 
 // --------- IMPL -------------
 impl Theme {
@@ -193,8 +195,8 @@ impl Theme {
             _ => a.cmp(b),
         });
 
-        rest.sort();           // sort the rest alphabetically
-        first.extend(rest);    // combine
+        rest.sort(); // sort the rest alphabetically
+        first.extend(rest); // combine
         first
     }
 
@@ -226,6 +228,10 @@ pub fn global_theme_mut() -> std::sync::RwLockWriteGuard<'static, Theme> {
 
 impl Default for Theme {
     fn default() -> Self {
-        Theme { colors: &phf_map! {}, current: "", snarl: SnarlStyle::default() }
+        Theme {
+            colors: &phf_map! {},
+            current: "",
+            snarl: SnarlStyle::default(),
+        }
     }
 }

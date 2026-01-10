@@ -1,5 +1,6 @@
 use std::{borrow::Cow, collections::HashSet};
 
+pub mod chap1;
 pub(crate) mod chap1d;
 
 pub type Game = ifengine::Game<State>;
@@ -17,7 +18,7 @@ pub struct State {
     pub rations: usize,
     pub miles: usize,
 
-    pub part1: Part1
+    pub part1: Part1,
 }
 
 // Note: all the Into's on str assignment are annoying, maybe derive setters?
@@ -30,7 +31,7 @@ pub struct Companion {
 #[derive(Debug, Default, Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Part1 {
-    seen: HashSet<String>
+    seen: HashSet<String>,
 }
 
 #[cfg(test)]
@@ -40,9 +41,7 @@ mod tests {
     #[test]
     fn test_sim() {
         let game = new();
-        let _sim = game.simulate(|s| {
-            s.depth > 13
-        });
+        let _sim = game.simulate(|s| s.depth > 13);
         dbg!(&_sim);
     }
 }

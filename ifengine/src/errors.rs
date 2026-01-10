@@ -3,14 +3,7 @@ use thiserror::Error;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-#[derive(
-    Debug,
-    Error,
-    std::hash::Hash,
-    PartialEq,
-    Eq,
-    Clone,
-)]
+#[derive(Debug, Error, std::hash::Hash, PartialEq, Eq, Clone)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum GameError {
     #[error("NoStack")]
@@ -21,14 +14,7 @@ pub enum GameError {
     End,
 }
 
-#[derive(
-    Debug,
-    Error,
-    std::hash::Hash,
-    PartialEq,
-    Eq,
-    Clone,
-)]
+#[derive(Debug, Error, std::hash::Hash, PartialEq, Eq, Clone)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum SimEnd {
     #[error("⟨{0}⟩")]

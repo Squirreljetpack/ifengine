@@ -2,7 +2,8 @@ use std::cell::RefCell;
 
 use crate::{
     core::{
-        GameTags, PageId, Response, game_state::{PageKey, PageMap}
+        GameTags, PageId, Response,
+        game_state::{PageKey, PageMap},
     },
     view::{Object, View},
 };
@@ -18,11 +19,17 @@ pub struct PageState<'a> {
     fresh: bool,
     game_tags: &'a mut GameTags,
     /// [`crate::Game::simulate`]
-    pub simulating: bool
+    pub simulating: bool,
 }
 
 impl<'a> PageState<'a> {
-    pub fn new(name: impl Into<PageId>, page_state: &'a mut PageMap, game_tags: &'a mut GameTags, fresh: bool, simulating: bool) -> Self {
+    pub fn new(
+        name: impl Into<PageId>,
+        page_state: &'a mut PageMap,
+        game_tags: &'a mut GameTags,
+        fresh: bool,
+        simulating: bool,
+    ) -> Self {
         Self {
             view: View::new(name.into()),
             page_state: RefCell::new(page_state),
@@ -30,7 +37,7 @@ impl<'a> PageState<'a> {
             seed: None,
             fresh,
             game_tags,
-            simulating
+            simulating,
         }
     }
 }

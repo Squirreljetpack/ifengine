@@ -1,8 +1,8 @@
 use ifengine::elements::img;
 #[allow(unused_imports)]
 use ifengine::{
-    elements::{alts, choice, count, dchoice, dynamic_choice, text, mchoice, fresh, p, page_dbg},
-    ifview, link
+    elements::{alts, choice, count, dchoice, dynamic_choice, fresh, mchoice, p, page_dbg, text},
+    ifview, link,
 };
 
 #[derive(Clone)]
@@ -55,7 +55,9 @@ pub fn rainy_day(_: &mut ()) {
         }
     };
 
-    img!("https://upload.wikimedia.org/wikipedia/commons/thumb/b/b6/SIPI_Jelly_Beans_4.1.07.tiff/lossy-page1-256px-SIPI_Jelly_Beans_4.1.07.tiff.jpg",);
+    img!(
+        "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b6/SIPI_Jelly_Beans_4.1.07.tiff/lossy-page1-256px-SIPI_Jelly_Beans_4.1.07.tiff.jpg",
+    );
 
     dchoice!(
         choices,
@@ -79,8 +81,6 @@ pub fn rainy_day(_: &mut ()) {
             // eprintln!("2 clicked")
         },
     };
-
-
 
     // .insert("hi".into(), "bye".into());
 }

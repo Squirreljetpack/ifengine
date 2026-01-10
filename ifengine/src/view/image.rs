@@ -12,7 +12,6 @@ pub struct Image {
     pub alt: String, // caption and alt_text
 }
 
-
 /// Local or Remote image.
 /// See [`Image`].
 #[derive(Debug, Clone)]
@@ -27,7 +26,7 @@ impl Image {
             size: [0, 0],
             variant: ImageVariant::Url(url.into()),
             action: None,
-            alt: String::new()
+            alt: String::new(),
         }
     }
 
@@ -36,7 +35,7 @@ impl Image {
             size: [0, 0],
             variant: ImageVariant::Local(path.into(), bytes),
             action: None,
-            alt: String::new()
+            alt: String::new(),
         }
     }
 

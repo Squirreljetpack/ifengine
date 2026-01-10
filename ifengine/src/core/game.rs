@@ -1,9 +1,9 @@
 use std::collections::{HashMap, HashSet};
 
-use crate::{Action, GameError};
 use crate::core::game_state::{GameState, InternalKey};
 use crate::core::{Page, PageHandle, PageId, Response};
 use crate::view::View;
+use crate::{Action, GameError};
 
 /// Used to manage custom state
 pub type StringMap = HashMap<String, String>;
@@ -54,7 +54,7 @@ pub struct Game<C = StringMap> {
     pub inner: GameInner,
     pub context: C,
     pub tags: GameTags,
-    pub(crate) simulating: bool
+    pub(crate) simulating: bool,
 }
 
 impl<C: GameContext> Game<C> {
@@ -72,7 +72,7 @@ impl<C: GameContext> Game<C> {
             context: Default::default(),
             tags: Default::default(),
             inner,
-            simulating: false
+            simulating: false,
         }
     }
 
@@ -126,7 +126,6 @@ impl<C: GameContext> Game<C> {
 
     pub fn id(&self) -> Option<PageId> {
         let mut test = self.clone();
-
 
         let Response::View(view) = self.pages.current()?.call(&mut test) else {
             return None;
@@ -280,7 +279,6 @@ impl PageStack {
     }
 }
 
-
 // ----------------------- BOILERPLATE ---------------------------------------------------
 // impl Game {
 //     pub fn test_1() -> Self {
@@ -315,4 +313,3 @@ impl<C: GameContext> std::ops::DerefMut for Game<C> {
         &mut self.inner
     }
 }
-
