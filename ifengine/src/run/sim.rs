@@ -19,20 +19,20 @@ impl<C: GameContext> Game<C> {
     /// F:
     pub fn simulate<F>(&self, mut visitor: F) -> Simulation
     where
-    F: FnMut(&mut SimulationState<C>) -> bool,
+        F: FnMut(&mut SimulationState<C>) -> bool,
     {
         let mut ret = Simulation::new();
 
         // A tunnel categorized by the function which it enters into, which does not necessarily must respond with a view
         let tun_id = self
-        .pages
-        .current()
-        .unwrap()
-        .id
-        .rsplit("::")
-        .next()
-        .unwrap()
-        .into(); // all tunnels with the same basename are grouped the same. This is because the pagehandles contained by tunnel cannot be guaranteed to have the same import style. Although this too, is still very error_prone (i.e. renames) as well as runs the risk of collisions.
+            .pages
+            .current()
+            .unwrap()
+            .id
+            .rsplit("::")
+            .next()
+            .unwrap()
+            .into(); // all tunnels with the same basename are grouped the same. This is because the pagehandles contained by tunnel cannot be guaranteed to have the same import style. Although this too, is still very error_prone (i.e. renames) as well as runs the risk of collisions.
         let mut start = self.clone();
         start.simulating = true;
 
@@ -78,7 +78,7 @@ impl<C: GameContext> Game<C> {
         tunnels_queue: &mut Vec<(String, Self)>,
         visitor: &mut F,
     ) where
-    F: FnMut(&mut SimulationState<C>) -> bool,
+        F: FnMut(&mut SimulationState<C>) -> bool,
     {
         while let Some(mut s) = queue.pop() {
             // unimportant preflight
@@ -248,7 +248,6 @@ impl PageRecords {
         let pageid = v.pageid.clone();
         let prev = s.last.clone();
 
-
         match self.entry(&pageid) {
             Entry::Occupied(mut occ) => {
                 let mut record = occ.get_mut();
@@ -282,11 +281,7 @@ impl PageRecords {
 
     // this can be 0!
     pub fn depth(&self) -> usize {
-        self.0
-            .iter()
-            .map(|r| r.min_depth)
-            .max()
-            .unwrap_or(0)
+        self.0.iter().map(|r| r.min_depth).max().unwrap_or(0)
     }
 }
 

@@ -1,5 +1,5 @@
-pub use story::{new, Game};
 use egui_snarl::Snarl;
+pub use story::{Game, new};
 
 use crate::graph::Node;
 
@@ -20,14 +20,13 @@ impl App {
     pub fn header(&self) -> Vec<String> {
         if self.game.context.miles != 0 {
             vec![
-            format!("Day: {}", self.game.context.days),
-            format!("Miles travelled: {}", self.game.context.miles),
-            format!("Rations: {}", self.game.context.rations),
+                format!("Day: {}", self.game.context.days),
+                format!("Miles travelled: {}", self.game.context.miles),
+                format!("Rations: {}", self.game.context.rations),
             ]
         } else {
             vec![]
         }
-
     }
 }
 
@@ -40,9 +39,7 @@ pub struct GUIState {
     pub show_graph: bool,
 
     pub graph_viewer: Option<(Snarl<Node>, crate::graph::GraphViewer)>,
-
 }
-
 
 // ----------------- BOILERPLATE -----------------
 

@@ -8,15 +8,13 @@
 mod macros_enabled {
     #[allow(unused)] // doc imports, don't work on proc macros
     use crate::{
-        elements,
-        view::{Line, Span, Object, RenderData},
-        Action,
-        View,
+        Action, View,
         core::{GameContext, GameTags, PageState, Response},
+        elements,
+        elements::ChoiceVariant,
         run::Simulation,
-        elements::ChoiceVariant
+        view::{Line, Object, RenderData, Span},
     };
-
 
     // Note: these are (counter-intuitively) exported at crate root
     // todo: lowpri: we should probably rewrite more proc macros into declarative macros if we can, only using proc macro to omit passing in the local state
@@ -59,11 +57,11 @@ mod macros_enabled {
     macro_rules! link {
         ($e:expr, $f:path) => {
             $crate::view::Span::from($e)
-            .as_link()
-            .with_action($crate::Action::Next($crate::core::PageHandle::new(
-                stringify!($f).into(),
-                $f,
-            )))
+                .as_link()
+                .with_action($crate::Action::Next($crate::core::PageHandle::new(
+                    stringify!($f).into(),
+                    $f,
+                )))
         };
         ($e:expr) => {
             $crate::view::Span::from($e).as_link()
@@ -79,16 +77,16 @@ mod macros_enabled {
     macro_rules! tun {
         ($e:expr, $f:path) => {
             $crate::view::Span::from($e)
-            .as_link()
-            .with_action($crate::Action::Tunnel($crate::core::PageHandle::new(
-                stringify!($f).into(),
-                $f,
-            )))
+                .as_link()
+                .with_action($crate::Action::Tunnel($crate::core::PageHandle::new(
+                    stringify!($f).into(),
+                    $f,
+                )))
         };
         ($e:expr) => {
             $crate::view::Span::from($e)
-            .as_link()
-            .with_action($crate::Action::Exit)
+                .as_link()
+                .with_action($crate::Action::Exit)
         };
     }
 
@@ -102,7 +100,7 @@ mod macros_enabled {
     /// - `$n:expr`: Go back `$n` steps.
     /// - No arguments: go back 1 step.
     #[macro_export]
-    macro_rules! GO {
+    macro_rules! GOTO {
         ($f:path) => {
             return $crate::core::Response::Switch($crate::core::PageHandle::new(
                 stringify!($f).into(),
@@ -125,9 +123,10 @@ mod macros_enabled {
     #[macro_export]
     macro_rules! ENTER {
         ($f:path) => {
-            return $crate::core::Response::EnterTunnel(
-                $crate::core::PageHandle::new(stringify!($f).into(), $f),
-            );
+            return $crate::core::Response::EnterTunnel($crate::core::PageHandle::new(
+                stringify!($f).into(),
+                $f,
+            ));
         };
         () => {
             return $crate::core::Response::Exit
@@ -169,10 +168,10 @@ mod macros_enabled {
     pub use ifengine_macros::*;
 }
 
+use crate::view::Line;
 /// Re-export macros when the feature is enabled.
 #[cfg(feature = "macros")]
 pub use macros_enabled::*;
-use crate::view::Line;
 
 /// The variants accepted by the [`choices`] macro on the left-hand side.
 ///

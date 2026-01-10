@@ -11,6 +11,7 @@ keywords = ["proc-macro", "ifengine"]
 
 [lib]
 proc-macro = true
+sandboxed = true
 
 [dependencies]
 syn = { version = "2", features = ["full"] }

@@ -1,6 +1,6 @@
 use std::f32::INFINITY;
 
-use egui::{vec2, Align, Id, InnerResponse, Layout, Margin, Ui};
+use egui::{Align, Id, InnerResponse, Layout, Margin, Ui, vec2};
 
 use super::Container;
 

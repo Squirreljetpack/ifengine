@@ -1,8 +1,7 @@
-#[allow(unused_imports)]
-use ifengine::elements::{ChoiceVariant::*, click, dp, p, ps, back, choice, h, ls, mchoice};
-use ifengine::{END, GO, tun, ifview, link, utils::MaskExt
-};
 use crate::{chap1d::*, saltwrack::State};
+#[allow(unused_imports)]
+use ifengine::elements::{ChoiceVariant::*, back, choice, click, dp, h, ls, mchoice, p, ps};
+use ifengine::{END, GOTO, ifview, link, tun, utils::MaskExt};
 
 #[ifview]
 pub fn p1(s: &mut State) {
@@ -32,7 +31,7 @@ pub fn p3(s: &mut State) {
     [["Interpreter."]]  The title of your position, an honorific conveying pride in your skills."#)
     {
         s.myname = o.into();
-        GO!(p4)
+        GOTO!(p4)
     }
 }
 
@@ -71,7 +70,7 @@ pub fn p5(s: &mut State) {
         s.c2.name.is_empty().then_some(link!("the second saltwalker", _walker_2)),
         (!s.part1.seen.contains("interpreter_2")).then_some(link!("the second interpreter", _interpreter_2))
     }.all() {
-        GO!(p6)
+        GOTO!(p6)
     }
 }
 
@@ -87,7 +86,7 @@ pub fn _oracle_1(s: &mut State) {
     ls! {
         click!("select the first oracle", {
             s.c1.name = "Danil".into();
-            GO!();
+            GOTO!();
         }),
         back!("consider otherwise")
     };
@@ -102,7 +101,7 @@ pub fn _oracle_2(s: &mut State) {
     ls! {
         click!("select the second oracle", {
             s.c1.name = "Aron".into();
-            GO!();
+            GOTO!();
         }),
         back!("consider otherwise")
     };
@@ -117,7 +116,7 @@ pub fn _walker_1(s: &mut State) {
     ls! {
         click!("select the first walker", {
             s.c2.name = "Ego".into();
-            GO!();
+            GOTO!();
         }),
         back!("consider otherwise")
     };
@@ -132,7 +131,7 @@ pub fn _walker_2(s: &mut State) {
     ls! {
         click!("select the second walker", {
             s.c2.name = "Naim".into();
-            GO!();
+            GOTO!();
         }),
         back!("consider otherwise")
     };
@@ -148,7 +147,7 @@ He barely glances at you; he’s preoccupied with turning over some glass model,
 The clerk seems weary rather than angered as she begins: “Interpreter, you are aware that given the nature of the salt wrack, the Society’s subcouncil has determined—“ “Spare me.” He gives you a sympathetic grimace as he [[leaves.]]"#).is_some()
     {
         s.part1.seen.insert("interpreter_2".into());
-        GO!()
+        GOTO!()
     }
 }
 
@@ -170,11 +169,11 @@ pub fn p7(s: &mut State) {
     choice! {
         click!("40 days", {
             s.rations = 400;
-            GO!(p8);
+            GOTO!(p8);
         }),
         click!("50 days", {
             s.rations = 500;
-            GO!(p8);
+            GOTO!(p8);
         }),
     };
 }
@@ -188,10 +187,9 @@ You pore over maps and revisit the Observational Society’s collections, examin
 
 When at last you three meet again, it is in a high-raftered warehouse whose vast doors open northward. The walls are stained with salt and stranger compounds. You clamber into your [[vehicle]], accompanied by your companions."
     ).is_some() {
-        GO!(p9)
+        GOTO!(p9)
     }
 }
-
 
 #[ifview]
 pub fn p9(s: &mut State) {
@@ -199,7 +197,7 @@ pub fn p9(s: &mut State) {
         "This machine, too, is experimental. The latest innovation from Hearth’s engineers. A great metal beast, you think. Quadrupedal, with claws to hook into uneven ground. Wheels wouldn’t be of use in the salt wrack. The legs support a rectangular chamber with seats and room for cargo, piled with various supplies, open to the air but shielded in front. Despite the facelessness of the mechanism, it’s undeniably designed like an animal; the impression is only heightened when you set off, and it begins to walk with a [[steady prowling stride]]."
     ).is_some() {
         s.miles = 40;
-        GO!(p10)
+        GOTO!(p10)
     }
 }
 
@@ -209,35 +207,33 @@ pub fn p10(s: &mut State) {
         "There is no boundary between Hearth, your everywhere-place—the familiar place of dwelling—and the forsaken place outside of it, surrounding it. There is no line, not even a fading gradient. Your vehicle lopes over grey frozen heath for a few dozen miles. Soon, there is a thin film of ash or ashlike material on the ground..",
         link!("The sun is a glowing white spot behind the clouds.", p11)
     );
-
-
 }
-
 
 #[ifview]
 pub fn p11(s: &mut State) {
     ps!(
-        "It is summer, and a few living things cling to the ground between patches of rime. Low tundra plants with ghostlike buds. Lichen-stains on crags and boulders. All known and catalogued; you are in search of deeper secrets."
-        ,
+        "It is summer, and a few living things cling to the ground between patches of rime. Low tundra plants with ghostlike buds. Lichen-stains on crags and boulders. All known and catalogued; you are in search of deeper secrets.",
         "Your colleagues don’t talk much at first. The oracle sits hunched beside you, fidgeting occasionally with their glasses or a spare pencil. The saltwalker holds onto your maps and compasses, for now. Her experience will be useful for at least a few hundred miles north. Beyond that, few travel, even walkers. There’s no reason to go so far beyond civilization. Besides expensive, fatal curiosity.",
-        "She seems more willing to chat. You didn’t exactly get to know your colleagues before you were sent out here. You could ask her…");
+        "She seems more willing to chat. You didn’t exactly get to know your colleagues before you were sent out here. You could ask her…"
+    );
 
-        if mchoice!(
-            link!("“Which city are you from?”"),
-            link!("“What’s it like for you—driving a machine instead of walking?”"),
-            link!("“How far have you travelled?”"),
-            link!("don’t bother her with questions")
-        ).any() {
-            GO!(p12)
-        }
+    if mchoice!(
+        link!("“Which city are you from?”"),
+        link!("“What’s it like for you—driving a machine instead of walking?”"),
+        link!("“How far have you travelled?”"),
+        link!("don’t bother her with questions")
+    )
+    .any()
+    {
+        GOTO!(p12)
     }
+}
 
-
-    #[ifview]
-    pub fn p12(s: &mut State) {
-        dp!(
-            "She smirks. “Which city? Why don’t you guess?”",
-            "It’s hard to say. Skin as pale as hers is uncommon in Hearth and Rye, but none of the city-states were ever composed of only one ethnicity. Without cultural tells, you can’t hazard a guess. And she seems pleased to have stumped you.",
-            "Not long afterwards, she eases the vehicle to a stop. The sun is slanting low, and you’ll need time to set up camp. The first day of travel is over. You’re not sure quite what to expect from [[the first night]]."
-        );
-    }
+#[ifview]
+pub fn p12(s: &mut State) {
+    dp!(
+        "She smirks. “Which city? Why don’t you guess?”",
+        "It’s hard to say. Skin as pale as hers is uncommon in Hearth and Rye, but none of the city-states were ever composed of only one ethnicity. Without cultural tells, you can’t hazard a guess. And she seems pleased to have stumped you.",
+        "Not long afterwards, she eases the vehicle to a stop. The sun is slanting low, and you’ll need time to set up camp. The first day of travel is over. You’re not sure quite what to expect from [[the first night]]."
+    );
+}

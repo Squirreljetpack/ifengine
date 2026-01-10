@@ -9,7 +9,6 @@
 //! A starting page is used to initialize the [`Game`](https://docs.rs/ifengine/latest/ifengine/core/struct.Game.html), which can then be called upon to yield its current view through [`Game::view`](https://docs.rs/ifengine/latest/ifengine/core/struct.Game.html#method.view), and updated by interacting with the view.
 //! A view consists of a sequence of [`Objects`](https://docs.rs/ifengine/latest/ifengine/view/enum.Object.html) which you can attach by calling the provided [elements and macros](https://docs.rs/ifengine/latest/ifengine/elements/index.html) within the page.
 
-
 pub mod core;
 mod errors;
 
@@ -17,9 +16,9 @@ mod errors;
 pub use ifengine_macros::ifview;
 
 pub mod elements;
+pub mod run;
 pub mod utils;
 pub mod view;
-pub mod run;
 
 // core types needed to use the library
 pub use {

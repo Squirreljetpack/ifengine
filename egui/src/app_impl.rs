@@ -34,7 +34,7 @@ impl eframe::App for App {
                 |ui| {
                     let (snarl, viewer) = self.graph_viewer.get_or_insert_with(|| {
                         let (snarl, prefix_len) =
-                        crate::graph::new_snarl(ui.available_width(), ui.available_height());
+                            crate::graph::new_snarl(ui.available_width(), ui.available_height());
                         (
                             snarl,
                             GraphViewer {
@@ -44,9 +44,9 @@ impl eframe::App for App {
                         )
                     });
                     SnarlWidget::new()
-                    .id(egui::Id::new("snarl-demo"))
-                    .style(global_theme().snarl)
-                    .show(snarl, viewer, ui);
+                        .id(egui::Id::new("snarl-demo"))
+                        .style(global_theme().snarl)
+                        .show(snarl, viewer, ui);
                 },
                 || {
                     show_graph = false;
@@ -55,39 +55,38 @@ impl eframe::App for App {
         }
         self.show_graph = show_graph;
         egui::TopBottomPanel::top("top_panel")
-        .frame(egui::Frame {
-            inner_margin: egui::Margin::same(10),
-            fill: ctx.style().visuals.panel_fill, // necessary for some reasone
-            ..Default::default()
-        })
-        .show_separator_line(false)
-        .show(ctx, |ui| {
-            let hovered = ui
-            .ctx()
-            .input(|i| i.pointer.interact_pos())
-            .map(|pos| ui.response().rect.contains(pos))
-            .unwrap_or(false);
-            ui.add_space(10.0);
-            ui.horizontal_centered_labels(self.header(), |ui| {
-                ui.add_menu(hovered, light, |ui| {
-                    ui.style_mut().spacing.item_spacing = MENU_SPACING;
-                    if ui.button("Graph").clicked() {
-                        self.show_graph = true;
-                    }
-                    ui.add_submenu("Themes", |ui| {
+            .frame(egui::Frame {
+                inner_margin: egui::Margin::same(10),
+                fill: ctx.style().visuals.panel_fill, // necessary for some reasone
+                ..Default::default()
+            })
+            .show_separator_line(false)
+            .show(ctx, |ui| {
+                let hovered = ui
+                    .ctx()
+                    .input(|i| i.pointer.interact_pos())
+                    .map(|pos| ui.response().rect.contains(pos))
+                    .unwrap_or(false);
+                ui.add_space(10.0);
+                ui.horizontal_centered_labels(self.header(), |ui| {
+                    ui.add_menu(hovered, light, |ui| {
                         ui.style_mut().spacing.item_spacing = MENU_SPACING;
-
-                        let variants = global_theme().variants();
-                        for variant in variants {
-                            if ui.button(variant).clicked() {
-                                global_theme_mut().switch(variant, ui.ctx());
-                            }
+                        if ui.button("Graph").clicked() {
+                            self.show_graph = true;
                         }
-                    })
+                        ui.add_submenu("Themes", |ui| {
+                            ui.style_mut().spacing.item_spacing = MENU_SPACING;
+
+                            let variants = global_theme().variants();
+                            for variant in variants {
+                                if ui.button(variant).clicked() {
+                                    global_theme_mut().switch(variant, ui.ctx());
+                                }
+                            }
+                        })
+                    });
                 });
             });
-        });
-
 
         let resp = match self.game.view() {
             Ok(view) => view,
@@ -101,45 +100,44 @@ impl eframe::App for App {
         }
 
         egui::CentralPanel::default()
-        .frame(egui::Frame {
-            fill: ctx.style().visuals.window_fill, // body
-            ..Default::default()
-        })
-        .show(ctx, |ui| {
-            center_vertical(ui, |ui| {
-                ui.vertical_centered_justified(|ui| {
-                    let width = ui.available_width().min(800.0);
-                    ui.set_width(width);
-                    egui::ScrollArea::vertical().show(ui, |ui| {
-                        render(resp, ui, &mut self.game);
+            .frame(egui::Frame {
+                fill: ctx.style().visuals.window_fill, // body
+                ..Default::default()
+            })
+            .show(ctx, |ui| {
+                center_vertical(ui, |ui| {
+                    ui.vertical_centered_justified(|ui| {
+                        let width = ui.available_width().min(800.0);
+                        ui.set_width(width);
+                        egui::ScrollArea::vertical().show(ui, |ui| {
+                            render(resp, ui, &mut self.game);
+                        });
                     });
                 });
             });
-        });
 
         egui::TopBottomPanel::bottom("bottom_panel")
-        .frame(egui::Frame {
-            fill: ctx.style().visuals.window_fill, // body
-            // inner_margin: egui::Margin {
-            //     left: 0,
-            //     right: 2,
-            //     top: 0,
-            //     bottom: 2,
-            // },
-            ..Default::default()
-        })
-        .show_separator_line(false)
-        .show(ctx, |ui| {
-            ui.with_layout(egui::Layout::right_to_left(egui::Align::Min), |ui| {
-                ui.add_custom_link(
-                    RichText::new("Made with IfEngine").size(10.0),
-                    "https://github.com/Squirreljetpack/ifengine",
-                )
+            .frame(egui::Frame {
+                fill: ctx.style().visuals.window_fill, // body
+                // inner_margin: egui::Margin {
+                //     left: 0,
+                //     right: 2,
+                //     top: 0,
+                //     bottom: 2,
+                // },
+                ..Default::default()
+            })
+            .show_separator_line(false)
+            .show(ctx, |ui| {
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Min), |ui| {
+                    ui.add_custom_link(
+                        RichText::new("Made with IfEngine").size(10.0),
+                        "https://github.com/Squirreljetpack/ifengine",
+                    )
+                });
             });
-        });
     }
 }
-
 
 // Include the generated fonts module
 mod generated {
@@ -152,7 +150,10 @@ static THEME_SET: AtomicBool = AtomicBool::new(false);
 
 // this doesn't work inside new_app so we lift it out
 fn init_theme(ctx: &egui::Context) {
-    if THEME_SET.compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst).is_ok() {
+    if THEME_SET
+        .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+        .is_ok()
+    {
         let theme = if ctx.style().visuals.dark_mode {
             "dark"
         } else {
@@ -212,7 +213,6 @@ pub fn new_app(cc: &eframe::CreationContext<'_>) -> App {
     // }
 }
 
-
 #[cfg(target_arch = "wasm32")]
 fn on_graph_route() -> bool {
     use web_sys::window;
@@ -220,7 +220,7 @@ fn on_graph_route() -> bool {
     if let Some(win) = window() {
         let loc = win.location();
         let pathname = loc.pathname().unwrap_or_default(); // e.g., "/graph"
-        let hash = loc.hash().unwrap_or_default();         // e.g., "#graph"
+        let hash = loc.hash().unwrap_or_default(); // e.g., "#graph"
 
         pathname == "/graph" || hash == "#graph"
     } else {

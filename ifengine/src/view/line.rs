@@ -143,8 +143,8 @@ impl Line {
                 if MASK {
                     spans.push(
                         Span::from_lingual(part)
-                        .as_link()
-                        .with_action(Action::SetBit(key.clone(), i as u8 / 2)),
+                            .as_link()
+                            .with_action(Action::SetBit(key.clone(), i as u8 / 2)),
                     );
                 } else {
                     let h: u64;
@@ -160,8 +160,8 @@ impl Line {
 
                     spans.push(
                         Span::from_lingual(part)
-                        .as_link()
-                        .with_action(Action::Set(key.clone(), h)),
+                            .as_link()
+                            .with_action(Action::Set(key.clone(), h)),
                     );
                 }
             } else {
