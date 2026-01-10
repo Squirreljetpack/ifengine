@@ -16,7 +16,6 @@ pub trait PageErased: Send + Sync + 'static {
     fn call(&self, game: &mut dyn Any) -> Response;
 }
 
-
 impl<C: GameContext> PageErased for Page<C> {
     fn call(&self, game: &mut dyn Any) -> Response {
         let game = game.downcast_mut::<Game<C>>().expect("Game type mismatch");
@@ -24,7 +23,6 @@ impl<C: GameContext> PageErased for Page<C> {
     }
 }
 // todo: add struct impl
-
 
 // newtype over alias just because arc doesn't have serialize, this is very annoying
 // On the plus side makes typing a bit stronger...
@@ -105,7 +103,7 @@ impl<T: Into<Arc<str>>> From<T> for PageId {
 #[cfg(feature = "serde")]
 mod serde_impl {
     use super::*;
-    use serde::{Serialize, Serializer, Deserialize, Deserializer};
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
     impl Serialize for PageId {
         fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>

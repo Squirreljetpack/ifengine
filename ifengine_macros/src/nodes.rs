@@ -1,7 +1,8 @@
 use quote::quote;
 use syn::{
     Expr, Result, Token,
-    parse::{Parse, ParseStream}, punctuated::Punctuated,
+    parse::{Parse, ParseStream},
+    punctuated::Punctuated,
 };
 
 fn unique_id() -> u64 {

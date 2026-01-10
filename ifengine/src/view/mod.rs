@@ -7,7 +7,7 @@ pub use image::*;
 pub use line::*;
 
 #[allow(unused)]
-use crate::core::{PageId, game_state::PageKey, Page};
+use crate::core::{Page, PageId, game_state::PageKey};
 
 /// Some [`Object`] variants may want additional data to specify custom styles for the frontend.
 /// That can be specified here.
@@ -70,7 +70,7 @@ impl View {
         Self {
             inner: vec![],
             pageid: name,
-            tags: vec![]
+            tags: vec![],
         }
     }
 
