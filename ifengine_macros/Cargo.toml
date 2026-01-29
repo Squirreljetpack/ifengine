@@ -1,23 +1,22 @@
 [package]
-name = "ifengine_macros"
-version = "0.0.5"
-authors = ["Squirreljetpack"]
-edition = "2024"
-description = "Procedural macros for ifengine"
-license = "MIT OR Apache-2.0"
-repository = "https://github.com/yourusername/ifengine_macros"
-readme = "README.md"
-keywords = ["proc-macro", "ifengine"]
+    name        = "ifengine_macros"
+    version     = "0.0.5"
+    authors     = [ "Squirreljetpack" ]
+    edition     = "2024"
+    description = "Procedural macros for ifengine"
+    license     = "MIT OR Apache-2.0"
+    repository  = "https://github.com/yourusername/ifengine_macros"
+    readme      = "README.md"
+    keywords    = [ "proc-macro", "ifengine" ]
 
 [lib]
-proc-macro = true
-sandboxed = true
+    proc-macro = true
 
 [dependencies]
-syn = { version = "2", features = ["full"] }
-quote = "1"
-proc-macro2 = "1"
+    syn         = { version = "2", features = [ "full" ] }
+    quote       = "1"
+    proc-macro2 = "1"
 
-# splitting a third crate would resolve this cyclic dependency
-# [target.'cfg(doc)'.dependencies]
-# ifengine = { version = "0.*", path = "../ifengine" }
+    # splitting a third crate would resolve this cyclic dependency
+    # [target.'cfg(doc)'.dependencies]
+    # ifengine = { version = "0.*", path = "../ifengine" }
