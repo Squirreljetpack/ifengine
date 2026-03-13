@@ -13,7 +13,7 @@ impl App {
     pub fn new() -> Self {
         Self {
             game: new(),
-            state: GUIState::default(),
+            state: GUIState::new(),
         }
     }
 
@@ -38,7 +38,25 @@ pub struct GUIState {
     pub show_menu: bool,
     pub show_graph: bool,
 
+    pub transitioning: bool,
+
     pub graph_viewer: Option<(Snarl<Node>, crate::graph::GraphViewer)>,
+
+    #[cfg_attr(feature = "serde", serde(skip))]
+    pub last_view: Option<ifengine::View>,
+    pub fade_duration: [f32; 2],
+}
+
+impl GUIState {
+    pub fn new() -> Self {
+        Self {
+            #[cfg(debug_assertions)]
+            fade_duration: [0.0; 2],
+            #[cfg(not(debug_assertions))]
+            fade_duration: [0.5; 2],
+            ..Default::default()
+        }
+    }
 }
 
 // ----------------- BOILERPLATE -----------------

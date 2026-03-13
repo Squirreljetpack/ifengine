@@ -248,3 +248,55 @@ where
             });
         });
 }
+
+pub fn fade_transition(
+    ui: &mut egui::Ui,
+    duration: [f32; 2],
+    easing: [fn(f32) -> f32; 2],
+    old_page: impl FnOnce(&mut egui::Ui),
+    new_page: impl FnOnce(&mut egui::Ui),
+) -> bool {
+    let base_id = ui.make_persistent_id("page_fade_transition");
+
+    let fade_in = ui.ctx().memory(|mem| mem.data.get_temp::<bool>(base_id));
+
+    // egui is super weird that target_value starts at target so that the animation is skipped otherwise
+    let uninit = fade_in.is_none();
+    if uninit {
+        ui.ctx()
+            .animate_bool_with_time_and_easing(base_id, true, 0.0, easing[0]);
+    }
+
+    let fade_in = fade_in.unwrap_or_default();
+
+    let opacity = ui.ctx().animate_bool_with_time_and_easing(
+        base_id,
+        fade_in,
+        duration[fade_in as usize],
+        easing[fade_in as usize],
+    );
+
+    if uninit {
+        ui.ctx()
+            .memory_mut(|mem| mem.data.insert_temp(base_id, false));
+    } else if (fade_in && opacity >= 1.0) || (!fade_in && opacity <= 0.0) {
+        ui.ctx()
+            .memory_mut(|mem| mem.data.insert_temp(base_id, !fade_in));
+        if fade_in {
+            ui.ctx().memory_mut(|mem| mem.data.remove::<bool>(base_id));
+            new_page(ui);
+            return true;
+        }
+    }
+
+    ui.scope(|ui| {
+        ui.set_opacity(opacity.clamp(0.0, 1.0));
+        if !fade_in {
+            old_page(ui);
+        } else {
+            new_page(ui);
+        }
+    });
+
+    false
+}

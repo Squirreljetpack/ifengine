@@ -25,10 +25,10 @@ pub struct PageState<'a> {
 impl<'a> PageState<'a> {
     pub fn new(
         name: impl Into<PageId>,
-        page_state: &'a mut PageMap,
-        game_tags: &'a mut GameTags,
         fresh: bool,
         simulating: bool,
+        page_state: &'a mut PageMap,
+        game_tags: &'a mut GameTags,
     ) -> Self {
         Self {
             view: View::new(name.into()),

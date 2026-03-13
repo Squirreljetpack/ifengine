@@ -20,7 +20,7 @@ pub struct GameInner {
     pub state: GameState,
     #[cfg_attr(feature = "serde", serde(skip))]
     pub pages: PageStack,
-    pub fresh: bool,
+    fresh: bool,
     pub iterations: usize, // todo
 }
 
@@ -93,12 +93,11 @@ impl<C: GameContext> Game<C> {
         let start_id = page.id.clone();
 
         let view = loop {
-            self.fresh &= start_id != page.id;
-
             let r = page.call(self);
             match r {
                 Response::View(view) => {
                     page.id = view.pageid.clone(); // id the page by the fully resolved name
+                    self.fresh = start_id != page.id;
                     self.pages.push(page)?; // only rendered pages get added to history
 
                     break view;
@@ -255,10 +254,11 @@ impl PageStack {
         self.0.last_mut()?.pop()
     }
 
+    /// Errors on n == 0
     pub fn pop_n(&mut self, n: usize) -> Result<PageHandle, GameError> {
         let stack = self.0.last_mut().ok_or(GameError::NoStack)?;
 
-        if n < stack.len() {
+        if n < stack.len() && n > 0 {
             stack.truncate(stack.len() - n);
             stack.last().cloned().ok_or(GameError::NoPage)
         } else {

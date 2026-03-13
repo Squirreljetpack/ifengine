@@ -58,7 +58,7 @@ pub enum Object {
 ///
 /// # Additional
 /// Produced [`crate::Game::view`].
-#[derive(Default, Debug)]
+#[derive(Default, Debug, Clone)]
 pub struct View {
     pub inner: Vec<Object>,
     pub pageid: PageId,

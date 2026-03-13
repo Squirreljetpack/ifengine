@@ -14,7 +14,7 @@ impl Span {
         let mut m = self.modifiers;
 
         match self.variant {
-            SpanVariant::Link => m |= Modifier::UNDERLINE,
+            SpanVariant::Link => m |= Modifier::ITALIC,
             _ => {}
         }
 
@@ -83,16 +83,18 @@ impl Span {
         ui.draw_heading(self.as_rich_text(), level)
     }
 
+    pub const UNDERLINE_TEXT_Y_OFFSET: f32 = -0.0;
+    pub const UNDERLINE_Y_OFFSET: f32 = -6.0;
+
     // Supported style keys:
     // hover: bool
     // color: ThemeColor
     // handle underline manually due to egui exaggerating line height offset
     // Link Variant gets a cursor change
-    pub fn add(self, ui: &mut Ui, sense: bool) -> Response {
+    pub fn add(&self, ui: &mut Ui, sense: bool) -> Response {
         let rich = self.as_rich_text().with_line_height(ui, 1.6);
 
-        let needs_underline = self.modifiers.contains(Modifier::UNDERLINE)
-            || matches!(self.variant, SpanVariant::Link);
+        let needs_underline = self.modifiers.contains(Modifier::UNDERLINE);
 
         let mut lbl = egui::Label::new(rich);
         if sense {
@@ -101,30 +103,46 @@ impl Span {
 
         if needs_underline {
             let (pos, galley, response) = lbl.layout_in_ui(ui);
-            ui.painter()
-                .galley(pos, galley.clone(), ui.visuals().text_color());
 
-            let line_rects = galley.rows.iter().map(|r| {
-                let x = r.rect_without_leading_space().min.x;
-                [
-                    x + pos.x + 1.0,
-                    pos.y + r.pos.y + r.size.y - 2.5,
-                    r.size.x - x - 1.0,
-                    r.size.y,
-                ]
-            });
+            // Shift the actual text draw position
+            let text_pos = egui::pos2(pos.x, pos.y + Self::UNDERLINE_TEXT_Y_OFFSET);
+
+            ui.painter()
+                .galley(text_pos, galley.clone(), ui.visuals().text_color());
 
             let color = ui.visuals().text_color();
             let stroke = egui::Stroke::new(1.0, color);
 
-            for [x, y, w, h] in line_rects {
-                ui.painter()
-                    .line_segment([egui::pos2(x, y), egui::pos2(x + w, y)], stroke);
+            for r in galley.rows.iter() {
+                let x_start = r.rect_without_leading_space().min.x + pos.x + 1.0;
+                let w = r.rect_without_leading_space().width() - 2.0;
 
+                // Anchor row positions to text_pos.y, (instead of pos.y)
+                // This ensures moving the text moves the underline and hover zone with it.
+                let row_top = text_pos.y + r.pos.y;
+                let row_bottom = row_top + r.size.y;
+
+                // Apply underline offset relative to the drawn text
+                let underline_y = row_bottom + Self::UNDERLINE_Y_OFFSET;
+
+                ui.painter().line_segment(
+                    [
+                        egui::pos2(x_start, underline_y),
+                        egui::pos2(x_start + w, underline_y),
+                    ],
+                    stroke,
+                );
+
+                // add interaction
                 if matches!(self.variant, SpanVariant::Link) {
-                    let text_rect =
-                        egui::Rect::from_min_max(egui::pos2(x, y - h), egui::pos2(x + w, y));
-                    let hover = ui.allocate_rect(text_rect, egui::Sense::hover());
+                    let text_rect = egui::Rect::from_min_max(
+                        egui::pos2(x_start, row_top),
+                        egui::pos2(x_start + w, row_bottom),
+                    );
+
+                    let interact_id = ui.id().with(r.pos.x.to_bits()).with(r.pos.y.to_bits());
+                    let hover = ui.interact(text_rect, interact_id, egui::Sense::hover());
+
                     if hover.hovered() {
                         ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
                     }
@@ -133,7 +151,13 @@ impl Span {
 
             response
         } else {
-            ui.add(lbl)
+            let response = ui.add(lbl);
+
+            if matches!(self.variant, SpanVariant::Link) && response.hovered() {
+                ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
+            }
+
+            response
         }
     }
 }
@@ -150,13 +174,15 @@ impl RichText {
 // todo: configurable effect on sensed hover
 #[ext(LineExt)]
 impl Line {
-    pub fn ui(self, ui: &mut Ui, game: &mut GameInner) -> Response {
+    pub fn ui(self, ui: &mut Ui, mut game: Option<&mut GameInner>) -> Response {
         ui.scope(|ui| {
             ui.spacing_mut().item_spacing = egui::vec2(0.0, 10.0);
 
             ui.horizontal_wrapped(|ui| {
                 for mut element in self.spans {
-                    if let Some(action) = element.action.take() {
+                    if let Some(action) = element.action.take()
+                        && let Some(game) = game.as_mut()
+                    {
                         if element.add(ui, true).clicked() {
                             let _ = game.handle_action(action);
                         };
@@ -169,7 +195,7 @@ impl Line {
         .response
     }
 
-    pub fn ui_clicked(self, ui: &mut Ui, game: &mut GameInner) -> bool {
+    pub fn ui_clicked(self, ui: &mut Ui, mut game: Option<&mut GameInner>) -> bool {
         let mut clicked = false;
         let ui_resp = ui
             .scope(|ui| {
@@ -177,7 +203,9 @@ impl Line {
 
                 ui.horizontal_wrapped(|ui| {
                     for mut element in self.spans {
-                        if let Some(action) = element.action.take() {
+                        if let Some(action) = element.action.take()
+                            && let Some(game) = game.as_mut()
+                        {
                             if element.add(ui, true).clicked() {
                                 let _ = game.handle_action(action);
                             };

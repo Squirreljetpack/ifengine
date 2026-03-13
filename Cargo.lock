@@ -1007,9 +1007,9 @@ dependencies = [
 
 [[package]]
 name = "emath"
-version = "0.33.2"
+version = "0.33.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0e561352ae95c22ad179fb56c38d6e6eecd86cf4925cf5c70e738dd01df9b620"
+checksum = "491bdf728bf25ddd9ad60d4cf1c48588fa82c013a2440b91aa7fc43e34a07c32"
 dependencies = [
  "bytemuck",
  "serde",
@@ -1629,6 +1629,7 @@ dependencies = [
  "egui-snarl",
  "egui_alignments",
  "egui_extras",
+ "emath",
  "env_logger",
  "getrandom",
  "ifengine",
