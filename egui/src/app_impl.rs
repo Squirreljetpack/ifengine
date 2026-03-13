@@ -106,34 +106,40 @@ impl eframe::App for App {
                     ui.vertical_centered_justified(|ui| {
                         let width = ui.available_width().min(800.0);
                         ui.set_width(width);
-                        egui::ScrollArea::vertical().show(ui, |ui| {
-                            let game = &mut self.game;
-                            let last_view = self.state.last_view.clone();
+                        egui::Frame::new()
+                            // for some reason it takes both to work properly
+                            .outer_margin(egui::Margin::symmetric(0, 20))
+                            .inner_margin(egui::Margin::symmetric(0, 20))
+                            .show(ui, |ui| {
+                                egui::ScrollArea::vertical().show(ui, |ui| {
+                                    let game = &mut self.game;
+                                    let last_view = self.state.last_view.clone();
 
-                            if game.fresh() && last_view.is_some() {
-                                self.state.transitioning = true;
-                            }
+                                    if game.fresh() && last_view.is_some() {
+                                        self.state.transitioning = true;
+                                    }
 
-                            if self.state.transitioning
-                                && let Some(last_view) = last_view
-                            {
-                                let finished = fade_transition(
-                                    ui,
-                                    self.state.fade_duration,
-                                    [emath::easing::quadratic_out, emath::easing::linear],
-                                    |ui| render(last_view, ui, None),
-                                    |ui| render(resp.clone(), ui, Some(game)),
-                                );
+                                    if self.state.transitioning
+                                        && let Some(last_view) = last_view
+                                    {
+                                        let finished = fade_transition(
+                                            ui,
+                                            self.state.fade_duration,
+                                            [emath::easing::quadratic_out, emath::easing::linear],
+                                            |ui| render(last_view, ui, None),
+                                            |ui| render(resp.clone(), ui, Some(game)),
+                                        );
 
-                                if finished {
-                                    self.last_view = Some(resp);
-                                    self.state.transitioning = false;
-                                }
-                            } else {
-                                render(resp.clone(), ui, Some(game));
-                                self.last_view = Some(resp);
-                            }
-                        });
+                                        if finished {
+                                            self.last_view = Some(resp);
+                                            self.state.transitioning = false;
+                                        }
+                                    } else {
+                                        render(resp.clone(), ui, Some(game));
+                                        self.last_view = Some(resp);
+                                    }
+                                });
+                            })
                     });
                 });
             });
