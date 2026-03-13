@@ -1,7 +1,7 @@
 use crate::{theme::global_theme, utils::UiExt};
 
 use easy_ext::ext;
-use egui::{Color32, Response, RichText, Ui};
+use egui::{Color32, FontFamily, Response, RichText, Ui};
 use ifengine::{
     core::GameInner,
     view::{Line, Modifier, Span, SpanVariant},
@@ -18,14 +18,42 @@ impl Span {
             _ => {}
         }
 
+        // ---- font variants (True Italic/Bold) ----
+        let has_bold = m.contains(Modifier::BOLD);
+        let has_italic = m.contains(Modifier::ITALIC);
+        let mut variant_applied = false;
+
+        if has_bold || has_italic {
+            // Determine base family - default to proportional
+            let base_family = if m.contains(Modifier::SUBSCRIPT) {
+                "quote"
+            } else {
+                "proportional"
+            };
+
+            let variant = match (has_bold, has_italic) {
+                (true, true) => format!("{}-bold-italic", base_family),
+                (true, false) => format!("{}-bold", base_family),
+                (false, true) => format!("{}-italic", base_family),
+                _ => unreachable!(),
+            };
+            
+            // Note: We check if the font exists by name? 
+            // Actually egui will just fall back to default if Name doesn't exist.
+            // For now we assume they exist because our build.rs generates them.
+            txt = txt.family(FontFamily::Name(variant.into()));
+            variant_applied = true;
+        }
+
         // ---- core style fields ----
-        if m.contains(Modifier::BOLD) {
+        // Only apply faux styles if we didn't use a dedicated font file
+        if has_bold && !variant_applied {
             txt = txt.strong();
         }
         if m.contains(Modifier::DIM) {
             txt = txt.weak();
         }
-        if m.contains(Modifier::ITALIC) {
+        if has_italic && !variant_applied {
             txt = txt.italics();
         }
         // if m.contains(Modifier::UNDERLINE) {

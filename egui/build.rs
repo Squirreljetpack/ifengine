@@ -79,52 +79,101 @@ fn add_fonts_from_dir(
             .map(|e| e.path())
             .collect();
 
-        entries.sort_by_key(|p| p.file_stem().unwrap().to_string_lossy().to_string());
+        // Sort by length of stem first (base fonts are usually shortest), then alphabetically.
+        entries.sort_by_key(|p| {
+            let stem = p.file_stem().unwrap().to_string_lossy();
+            (stem.len(), stem.to_string())
+        });
+
+        let mut bold_fonts = Vec::new();
+        let mut italic_fonts = Vec::new();
+        let mut bold_italic_fonts = Vec::new();
 
         for path in entries {
             if path.is_file() {
                 if let Some(ext) = path.extension() {
                     if ext == "ttf" || ext == "otf" {
-                        let name = path.file_stem().unwrap().to_str().unwrap();
-                        let name = if name.len() > 2
-                            && name.chars().nth(0).unwrap().is_ascii_digit()
-                            && name.chars().nth(1).unwrap() == '-'
-                        {
-                            &name[2..]
-                        } else {
-                            name
-                        };
+                        let clean_name = font_name(&path);
 
                         let absolute_path = path.to_str().unwrap();
 
                         font_definitions_code.push_str(&format!(
                             "    fonts.font_data.insert(\"{}\".to_owned(), egui::FontData::from_static(include_bytes!(\"{}\")).into());\n",
-                            name, absolute_path
+                            clean_name, absolute_path
                         ));
 
-                        font_names.push(name.to_string());
+                        // Categorize variants (since egui only uses the first available font family, irrespective of modifier)
+                        let name_lower = clean_name.to_lowercase();
+                        let has_bold = name_lower.contains("bold");
+                        let has_italic = name_lower.contains("italic");
+
+                        if has_bold && has_italic {
+                            bold_italic_fonts.push(clean_name.to_string());
+                        } else if has_bold {
+                            bold_fonts.push(clean_name.to_string());
+                        } else if has_italic {
+                            italic_fonts.push(clean_name.to_string());
+                        } else {
+                            font_names.push(clean_name.to_string());
+                        }
                     }
                 }
             }
         }
 
-        let egui_family = match font_family_name.to_lowercase().as_str() {
-            "proportional" => "egui::FontFamily::Proportional".to_string(),
-            "monospace" => "egui::FontFamily::Monospace".to_string(),
-            other => format!("egui::FontFamily::Name(\"{}\".into())", other),
-        };
+        let family_name = font_family_name.to_lowercase();
 
-        let font_array = font_names
-            .iter()
-            .map(|n| format!("\"{}\".to_owned()", n))
-            .collect::<Vec<_>>()
-            .join(", ");
-
-        font_definitions_code.push_str(&format!(
-            "    fonts.families.insert({}, vec![{}]);\n",
-            egui_family, font_array
+        font_definitions_code.push_str(&font_family_insertion_line(&family_name, "", &font_names));
+        font_definitions_code.push_str(&font_family_insertion_line(
+            &family_name,
+            "bold",
+            &bold_fonts,
+        ));
+        font_definitions_code.push_str(&font_family_insertion_line(
+            &family_name,
+            "italic",
+            &italic_fonts,
+        ));
+        font_definitions_code.push_str(&font_family_insertion_line(
+            &family_name,
+            "bold-italic",
+            &bold_italic_fonts,
         ));
     }
+}
+
+fn font_name(path: &Path) -> &str {
+    let name = path.file_stem().unwrap().to_str().unwrap();
+    let clean_name = if name.len() > 2
+        && name.chars().nth(0).unwrap().is_ascii_digit()
+        && name.chars().nth(1).unwrap() == '-'
+    {
+        &name[2..]
+    } else {
+        name
+    };
+    clean_name
+}
+
+fn font_family_insertion_line(family_name: &str, variant: &str, font_array: &[String]) -> String {
+    let array = font_array
+        .iter()
+        .map(|n| format!("\"{}\".to_owned()", n))
+        .collect::<Vec<_>>()
+        .join(", ");
+
+    let name = match (family_name, variant) {
+        ("proportional", "") => "egui::FontFamily::Proportional".to_string(),
+        ("monospace", "") => "egui::FontFamily::Monospace".to_string(),
+        (other, suffix) => {
+            if !suffix.is_empty() {
+                format!("egui::FontFamily::Name(\"{}-{}\".into())", other, suffix)
+            } else {
+                format!("egui::FontFamily::Name(\"{}\".into())", other)
+            }
+        }
+    };
+    format!("    fonts.families.insert({}, vec![{}]);\n", name, array)
 }
 
 #[derive(Deserialize, Debug)]
