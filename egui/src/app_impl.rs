@@ -9,7 +9,7 @@ use crate::{
     graph::GraphViewer,
     render::render,
     theme::{global_theme, global_theme_mut},
-    utils::{UiExt, show_overlay},
+    utils::{UiExt, fade_transition, show_overlay},
 };
 
 impl eframe::App for App {
@@ -95,10 +95,6 @@ impl eframe::App for App {
                 todo!()
             }
         };
-        if self.game.fresh {
-            // todo: fade transition
-        }
-
         egui::CentralPanel::default()
             .frame(egui::Frame {
                 fill: ctx.style().visuals.window_fill, // body
@@ -110,7 +106,32 @@ impl eframe::App for App {
                         let width = ui.available_width().min(800.0);
                         ui.set_width(width);
                         egui::ScrollArea::vertical().show(ui, |ui| {
-                            render(resp, ui, &mut self.game);
+                            let game = &mut self.game;
+                            let last_view = self.state.last_view.clone();
+
+                            if game.fresh() && last_view.is_some() {
+                                self.state.transitioning = true;
+                            }
+
+                            if self.state.transitioning
+                                && let Some(last_view) = last_view
+                            {
+                                let finished = fade_transition(
+                                    ui,
+                                    self.state.fade_duration,
+                                    [emath::easing::quadratic_out, emath::easing::linear],
+                                    |ui| render(last_view, ui, None),
+                                    |ui| render(resp.clone(), ui, Some(game)),
+                                );
+
+                                if finished {
+                                    self.last_view = Some(resp);
+                                    self.state.transitioning = false;
+                                }
+                            } else {
+                                render(resp.clone(), ui, Some(game));
+                                self.last_view = Some(resp);
+                            }
                         });
                     });
                 });

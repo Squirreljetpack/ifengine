@@ -67,11 +67,13 @@ pub fn ifview(_attr: TokenStream, item: TokenStream) -> TokenStream {
             let __ifengine_game_tags = &mut __ifengine_game.tags;
             let __ifengine_game = &mut __ifengine_game.inner;
             let mut __ifengine_page_state = ifengine::core::PageState::new(
+
                 format!("{}::{}", module_path!(), stringify!(#name)),
+                __ifengine_game.fresh(),
+                __ifengine_simulating,
                 __ifengine_game.state.get_page_mut(format!("{}::{}", module_path!(), stringify!(#name))),
                 __ifengine_game_tags,
-                __ifengine_game.fresh,
-                __ifengine_simulating
+
             );
 
             #original_block

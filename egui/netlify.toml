@@ -1,10 +1,10 @@
 # netlify.toml
 [build]
   publish = "dist"
-  command = "trunk build"
+  command = "trunk build --release"
 
-# for some reason this doesn't work
-# [[redirects]]
-#   from = "/*"
-#   to = "/index.html"
-#   status = 200
+  # for some reason this doesn't work
+  # [[redirects]]
+  #   from = "/*"
+  #   to = "/index.html"
+  #   status = 200
