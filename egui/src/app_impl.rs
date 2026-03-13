@@ -62,11 +62,12 @@ impl eframe::App for App {
             })
             .show_separator_line(false)
             .show(ctx, |ui| {
-                let hovered = ui
-                    .ctx()
-                    .input(|i| i.pointer.interact_pos())
-                    .map(|pos| ui.response().rect.contains(pos))
-                    .unwrap_or(false);
+                let hovered = self.game.iterations() <= 2
+                    || ui
+                        .ctx()
+                        .input(|i| i.pointer.interact_pos())
+                        .map(|pos| ui.response().rect.contains(pos))
+                        .unwrap_or_default();
                 ui.add_space(10.0);
                 ui.horizontal_centered_labels(self.header(), |ui| {
                     ui.add_menu(hovered, light, |ui| {

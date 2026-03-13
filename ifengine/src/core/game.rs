@@ -19,9 +19,9 @@ impl<T> GameContext for T where T: Default + Clone + std::fmt::Debug + 'static {
 pub struct GameInner {
     pub state: GameState,
     #[cfg_attr(feature = "serde", serde(skip))]
-    pub pages: PageStack,
+    pub(crate) pages: PageStack,
     fresh: bool,
-    pub iterations: usize, // todo
+    pub(crate) iterations: usize, // todo
 }
 
 /// Wraps [`GameInner`] with customizable a context used to represent the game-specific state.
@@ -98,6 +98,9 @@ impl<C: GameContext> Game<C> {
                 Response::View(view) => {
                     page.id = view.pageid.clone(); // id the page by the fully resolved name
                     self.fresh = start_id != page.id;
+                    if self.fresh {
+                        self.iterations += 1;
+                    }
                     self.pages.push(page)?; // only rendered pages get added to history
 
                     break view;
@@ -176,6 +179,12 @@ impl GameInner {
 
     pub fn fresh(&self) -> bool {
         self.fresh
+    }
+    pub fn iterations(&self) -> usize {
+        self.iterations
+    }
+    pub fn page_depth(&self) -> usize {
+        self.pages.0.last().map(|x| x.len()).unwrap_or_default()
     }
 }
 
