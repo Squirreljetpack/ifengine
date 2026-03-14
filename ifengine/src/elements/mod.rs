@@ -33,12 +33,35 @@ mod macros_enabled {
     /// # Examples
     ///
     /// ```
+    ///  use ifengine::s;
+    ///
     /// let my_span = s!("Hello world");
     /// ```
     #[macro_export]
     macro_rules! s {
         ($e:expr) => {
             $crate::view::Span::from($e)
+        };
+        ($($e:expr),+ $(,)?) => {
+            $crate::view::Span::from(
+                [ $( $e.to_string() ),+ ].join("")
+            )
+        };
+    }
+
+    /// Create a [`Line`] from one or more [`Span`]s.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use ifengine::{l, s};
+    ///
+    /// let line2 = l!(s!("Hello"), s!("World"), s!("!"));
+    /// ```
+    #[macro_export]
+    macro_rules! l {
+        ( $( $e:expr ),+ $(,)? ) => {
+            $crate::view::Line::from_spans(vec![$($crate::view::Span::from($e)),+])
         };
     }
 
@@ -49,7 +72,9 @@ mod macros_enabled {
     ///
     /// # Examples
     ///
-    /// ```
+    /// ```ignore
+    /// use ifengine::link;
+    ///
     /// let link1 = link!("Click me", MyPage);
     /// let link2 = link!("Just a link");
     /// ```
@@ -97,16 +122,25 @@ mod macros_enabled {
     /// This returns `!`, exiting the current function.
     ///
     /// - `$f:path`: Switch to the given page.
-    /// - `$n:expr`: Go back `$n` steps.
-    /// - No arguments: go back 1 step.
+    ///
+    /// Note: Do not rely on these in closures!
     #[macro_export]
-    macro_rules! GOTO {
+    macro_rules! LINK {
         ($f:path) => {
             return $crate::core::Response::Switch($crate::core::PageHandle::new(
                 stringify!($f).into(),
                 $f,
             ));
         };
+    }
+
+    /// Immediately return a transition-type [`Response`].
+    ///
+    /// This returns `!`, exiting the current function.
+    /// - `$n:expr`: Go back `$n` steps.
+    /// - No arguments: go back 1 step.
+    #[macro_export]
+    macro_rules! BACK {
         ($n:expr) => {
             return $crate::core::Response::Back($n);
         };
@@ -121,7 +155,7 @@ mod macros_enabled {
     /// - `$f:path`: Enter a tunnel to the specified page.
     /// - No arguments: exit current tunnel.
     #[macro_export]
-    macro_rules! ENTER {
+    macro_rules! TUN {
         ($f:path) => {
             return $crate::core::Response::EnterTunnel($crate::core::PageHandle::new(
                 stringify!($f).into(),
@@ -160,10 +194,10 @@ mod macros_enabled {
     pub use ifengine_macros::paragraphs as ps;
 
     /// Alias for [`text`].
-    pub use ifengine_macros::text as l;
+    pub use ifengine_macros::text;
 
     /// Alias for [`texts`].
-    pub use ifengine_macros::texts as ls;
+    pub use ifengine_macros::texts as ts;
 
     pub use ifengine_macros::*;
 }

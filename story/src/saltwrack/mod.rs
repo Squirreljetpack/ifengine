@@ -41,7 +41,7 @@ mod tests {
     #[test]
     fn test_sim() {
         let game = new();
-        let _sim = game.simulate(|s| s.depth > 13);
+        let _sim = game.simulate(|s| s.depth <= 20);
         dbg!(&_sim);
     }
 }

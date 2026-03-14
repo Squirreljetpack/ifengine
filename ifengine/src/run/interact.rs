@@ -33,6 +33,8 @@ impl View {
     ///    Interactable::Span(parent, span…),
     ///    Interactable::Span(parent, span…),
     ///    ...]
+    ///
+    /// Choices which contain an interactable element are ignored!
     pub fn interactables(&self) -> Vec<Vec<Interactable<'_>>> {
         let mut out = Vec::new();
 
@@ -59,10 +61,17 @@ impl View {
 
                 Object::Choice(key, choices) => {
                     for (i, line) in choices {
-                        let all_spans_have_action =
-                            line.spans.iter().all(|span| span.action.is_some());
+                        let ignore = {
+                            if true {
+                                line.spans.iter().any(|span| span.action.is_some())
+                                    || !line.spans.is_empty()
+                            } else {
+                                // all spans have actions
+                                line.spans.iter().all(|span| span.action.is_some())
+                            }
+                        };
 
-                        if !all_spans_have_action {
+                        if !ignore {
                             bucket.push(Interactable::Choice(&key, &choices, *i));
                         }
 
@@ -114,7 +123,7 @@ impl<C: GameContext> Game<C> {
             }
             Interactable::Span(_, s) => {
                 let action = s.action.as_ref().unwrap();
-                self.handle_action(action.clone())
+                self.handle_action(action.clone()).map(|_| {})
             }
         }
     }

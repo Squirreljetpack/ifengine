@@ -205,15 +205,21 @@ impl<'a> IntoIterator for &'a Line {
 }
 
 // Into<Span>
-impl From<String> for Span {
-    fn from(s: String) -> Self {
-        Self::new(s)
-    }
-}
+// impl From<String> for Span {
+//     fn from(s: String) -> Self {
+//         Self::new(s)
+//     }
+// }
 
-impl From<&str> for Span {
-    fn from(s: &str) -> Self {
-        Self::from(s.to_owned())
+// impl From<&str> for Span {
+//     fn from(s: &str) -> Self {
+//         Self::from(s.to_owned())
+//     }
+// }
+
+impl<T: ToString> From<T> for Span {
+    fn from(s: T) -> Self {
+        Self::new(s.to_string())
     }
 }
 
@@ -284,3 +290,19 @@ impl<const N: usize> From<[String; N]> for Line {
         Line::from_iter(items)
     }
 }
+
+impl<const N: usize> From<[Span; N]> for Line {
+    fn from(items: [Span; N]) -> Self {
+        Line::from_iter(items)
+    }
+}
+
+// this is too broad
+// impl<U, S: Into<Span>> From<U> for Line
+// where
+//     U: IntoIterator<Item = S>,
+// {
+//     fn from(items: U) -> Self {
+//         Line::from_iter(items)
+//     }
+// }

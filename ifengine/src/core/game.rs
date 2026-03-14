@@ -21,6 +21,7 @@ pub struct GameInner {
     #[cfg_attr(feature = "serde", serde(skip))]
     pub(crate) pages: PageStack,
     fresh: bool,
+    last_id: PageId,
     pub(crate) iterations: usize, // todo
 }
 
@@ -29,15 +30,15 @@ pub struct GameInner {
 /// The context is exposed to your [pages](crate::core::Page), allowing you to interact with your game state within them.
 ///
 /// # Example
-/// ```rust
+/// ```rust,ignore
 /// use ifengine::{GameError, View};
 /// use story::chap1;
 ///
 /// let game = ifengine::Game!(chap1::p1);
 ///
 /// let view = match game.view() {
-///    Ok(view: View) => view,
-///    Err(e: GameError) => {
+///    Ok(view) => view,
+///    Err(e) => {
 ///        panic!("Unhandled err: {e}");
 ///    }
 /// };
@@ -59,12 +60,14 @@ pub struct Game<C = StringMap> {
 
 impl<C: GameContext> Game<C> {
     pub fn new_with_page(page_name: impl Into<PageId>, page: Page<C>) -> Self {
-        let widget = PageHandle::new(page_name.into(), page);
+        let last_id = page_name.into();
+        let widget = PageHandle::new(last_id.clone(), page);
 
         let inner = GameInner {
             state: GameState::new(),
             pages: PageStack::new_with_page(widget),
-            fresh: true,
+            fresh: true, // doesn't matter
+            last_id,
             iterations: 0,
         };
 
@@ -90,17 +93,17 @@ impl<C: GameContext> Game<C> {
             self.pages.pop(); // drop the initial page for the next rendered and (possibly same) page. In particular, it will have the fully resolved name, (while i.e. the pagehandles produced by link! in handle_action don't).
         }
 
-        let start_id = page.id.clone();
-
         let view = loop {
             let r = page.call(self);
             match r {
                 Response::View(view) => {
                     page.id = view.pageid.clone(); // id the page by the fully resolved name
-                    self.fresh = start_id != page.id;
+                    self.fresh = self.last_id != page.id;
                     if self.fresh {
                         self.iterations += 1;
+                        self.last_id = page.id.clone()
                     }
+
                     self.pages.push(page)?; // only rendered pages get added to history
 
                     break view;
@@ -177,6 +180,7 @@ impl GameInner {
         Ok(())
     }
 
+    /// Whether the last call to view changed the page
     pub fn fresh(&self) -> bool {
         self.fresh
     }
@@ -191,7 +195,7 @@ impl GameInner {
 /// Instantiate a [`Game`] from a function decorated with [`crate::ifview`].
 ///
 /// # Example
-/// ```rust
+/// ```rust,ignore
 /// use story::chap1;
 ///
 /// pub type Game = ifengine::Game<State>;

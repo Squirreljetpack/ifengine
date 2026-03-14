@@ -2,7 +2,7 @@
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::{
-    Arm, Block, Error, Expr, ExprClosure, ItemFn, LitStr, Result, Token,
+    Arm, Error, Expr, ExprClosure, ItemFn, LitStr, Result, Token,
     parse::{Parse, ParseStream},
     parse_macro_input,
     punctuated::Punctuated,
@@ -234,7 +234,20 @@ pub fn choice(input: TokenStream) -> TokenStream {
 /// Any type that implements `Into<`[`Line`](ifengine::view::Line)`>` will coerce to `Choice::Once`.
 /// Any `Option<Into<Line>>` will coerce to `Choice::None` or `Choice::Always`.
 ///
-/// The return type is a [bool ;n] representing which of the options were hidden (NOT displayed).
+/// The return type is a [bool; n] representing which of the options were hidden (NOT displayed).
+///
+/// The following example permits you to pass once you have chosen 2 party members and checked the special event.
+/// ```rust
+///  if mchoice! {
+///     s.c1.name.is_empty().then_some(link!("member_1_choice_1", _oracle_1)),
+///     s.c1.name.is_empty().then_some(link!("member_1_choice_2", _oracle_2)),
+///     s.c2.name.is_empty().then_some(link!("member_2_choice_1", _walker_1)),
+///     s.c2.name.is_empty().then_some(link!("member_2_choice_2", _walker_2)),
+///     (!s.part1.seen.contains("special_event")).then_some(link!("special_event", _interpreter_2))
+///  }.all() {
+///     GOTO!(p6)
+///  }
+/// ```
 
 #[proc_macro]
 pub fn mchoice(input: TokenStream) -> TokenStream {
@@ -296,7 +309,7 @@ pub fn mchoice(input: TokenStream) -> TokenStream {
 /// This macro displays list of choices, and registers a corresponding handler
 /// for each selection. The handler is specified as a `match` expression, where
 /// each arm corresponds to a choice and contains the code to execute when
-/// that choice is selected. Unlike the other choice elements ([`choice`], [`choices`]),
+/// that choice is selected. Unlike the other choice elements ([`choice`], [`mchoice`]),
 /// the conditional expression is evaluated only the first time it's choice is selected.
 /// The intent is that the arms are used to set values for the user's custom [`ifengine::core::GameContext`].
 ///
@@ -316,7 +329,25 @@ pub fn mchoice(input: TokenStream) -> TokenStream {
 ///
 /// # Example
 /// ```rust
+/// let choices = vec![
+///     (0, line!("A")),
+///     (1, line!("B")),
+///     (2, line!("C")),
+/// ];
+///
+/// if let Some(x) = dynamic_choice!(choices) {
+///     match x {
+///         0 => "A clicked",
+///         1 => "B clicked",
+///         2 => "C clicked",
+///     }
+/// }
+/// ```
+///
+/// It is also possible to use unit enums:
+/// ```rust
 /// #[derive(Clone, Copy)]
+/// #[repr(u8)]
 /// enum DChoices { A, B, C }
 ///
 /// let choices = vec![
@@ -368,38 +399,41 @@ struct DChoicesInput {
 impl Parse for DChoicesInput {
     fn parse(input: ParseStream) -> Result<Self> {
         let KeyExpr { maybe_key, expr } = input.parse()?;
-        input.parse::<Token![,]>()?;
+
+        if !input.is_empty() {
+            input.parse::<Token![,]>()?;
+        }
 
         let mut arms = Vec::new();
         while !input.is_empty() {
-            let arm: syn::Arm = input.parse()?;
-            arms.push(arm);
+            arms.push(input.parse::<Arm>()?);
         }
 
         Ok(DChoicesInput {
             maybe_key,
             expr,
-            arms: arms.into_iter().collect(),
+            arms,
         })
     }
 }
 
 /// A version of [`dynamic_choice`] with slightly abbreviated syntax.
+/// It can be a bit trickier to use this if your list is fully dynamic,
+/// but the flexibility of match statements should be sufficient for any purpose.
+/// For example, if you have pairs of (handler, choice), you can simply them and use
+/// `c => handlers[c]` as your arm.
 ///
 /// # Example
 /// ```rust
-/// #[derive(Clone, Copy)]
-/// enum DChoices { A, B, C }
-///
 /// let choices = vec![
-///     (DChoices::A, line!("A")),
-///     (DChoices::B, line!("B")),
-///     (DChoices::C, line!("C")),
+///     line!("A"),
+///     line!("B"),
+///     line!("C"),
 /// ];
-/// dchoice!{ choices,
-///     DChoices::A => "A clicked",
-///     DChoices::B => "B clicked",
-///     DChoices::C => "C clicked",
+/// dchoice! { choices,
+///     0 => "A clicked",
+///     1 => "B clicked",
+///     2 => "C clicked",
 /// }
 /// ```
 #[proc_macro]
@@ -412,25 +446,39 @@ pub fn dchoice(input: TokenStream) -> TokenStream {
 
     let key_tokens = maybe_key.into_tokens();
 
-    let match_tokens = quote! {
-        match unsafe { std::mem::transmute::<u8, _>(__ifengine_chosen_discriminant) } {
-            #(#arms),*
+    let has_wildcard = arms.iter().any(|arm| matches!(arm.pat, syn::Pat::Wild(_)));
+    let catch_all = if has_wildcard {
+        quote! {}
+    } else {
+        quote! { _ => {} }
+    };
+    let match_block = if arms.is_empty() {
+        quote! {}
+    } else {
+        quote! {
+            if let Some(__ifengine_id) = __ifengine_page_state.remove_mask_last(#key_tokens) {
+                match __ifengine_id as usize {
+                    #(#arms)*
+                    #catch_all
+                }
+            }
         }
     };
 
     let expanded = quote! {
-        // Push the DynamicChoice object
-        __ifengine_page_state.push(ifengine::view::Object::Choice(
-            #key_tokens,
-            #expr
-            .into_iter()
-            .map(|(t, l)| (t as u8, ifengine::view::Line::from(l)))
-            .collect()
-        ));
+        {
+            __ifengine_page_state.push(ifengine::view::Object::Choice(
+                #key_tokens,
+                #expr
+                .iter()
+                .enumerate()
+                .map(|(i, l)| (i as u8, ifengine::view::Line::from(l.clone())))
+                .collect()
+            ));
 
-        // Execute user block if a choice was selected
-        if let Some(__ifengine_chosen_discriminant) = __ifengine_page_state.remove_mask_last(#key_tokens) {
-            #match_tokens
+            if let Some(__ifengine_id) = __ifengine_page_state.remove_mask_last(#key_tokens) {
+                #match_block
+            }
         }
     };
 
@@ -604,6 +652,9 @@ pub fn text(input: TokenStream) -> TokenStream {
 ///
 /// # Additional
 /// A trailing [`ifengine::view::RenderData`] can be specified following `::`.
+///
+/// Note that text and choice styling may differ depending on the renderer, particularly with respect to vertical item spacing.
+/// When you want to display choices without handling their effects seperately from actions attached to their spans, prefer [`dchoice`].
 ///
 /// # Example
 /// ```rust
@@ -1057,21 +1108,20 @@ pub fn count(input: TokenStream) -> TokenStream {
 struct ClickInput {
     maybe_key: MaybeKey,
     expr: Expr,
-    block: Block,
+    block: Expr,
 }
 
 impl Parse for ClickInput {
     fn parse(input: ParseStream) -> Result<Self> {
-        // Parse comma-separated expressions first
-        let exprs: Punctuated<Expr, Token![,]> = Punctuated::parse_terminated(input)?;
-        let mut iter = exprs.into_iter();
+        let maybe_key = input.parse()?;
 
-        let (maybe_key, expr, block) = match (iter.next(), iter.next(), iter.next()) {
-            (Some(key), Some(expr), Some(Expr::Block(block))) => {
-                (MaybeKey::Key(key), expr, block.block)
-            }
-            (Some(expr), Some(Expr::Block(block)), None) => (MaybeKey::Auto, expr, block.block),
-            _ => return Err(input.error("expected at least an expression and a block")),
+        let expr: Expr = input.parse()?;
+
+        let block = if input.peek(Token![,]) {
+            input.parse::<Token![,]>()?;
+            input.parse::<Expr>()?
+        } else {
+            syn::parse_quote!({})
         };
 
         Ok(ClickInput {
@@ -1086,13 +1136,16 @@ impl Parse for ClickInput {
 ///
 /// # Syntax
 /// ```rust
-/// p!(click!(span, { block } ))
+/// p!(click!(span, expr ))
 /// ```
 ///
 /// # Arguments
 /// - [`MaybeKey`]
 /// - `span`: The element to display. The link style is automatically applied.
 /// - `block`: Executed exactly once whenever the key is clicked.
+///
+/// # Note
+/// The handler is evaluated before the span is.
 #[proc_macro]
 pub fn click(input: TokenStream) -> TokenStream {
     let ClickInput {
@@ -1101,24 +1154,23 @@ pub fn click(input: TokenStream) -> TokenStream {
         block,
     } = syn::parse_macro_input!(input as ClickInput);
     let key = maybe_key.into_tokens();
-    let stmts = &block.stmts;
 
     let expanded = quote! {{
-        if __ifengine_page_state.remove(#key).is_some() {
-            #(#stmts)*
-            #[allow(unreachable_code)]
-            ifengine::view::Span::from(
-                #expr
-            )
-            .with_action(ifengine::Action::Inc((__ifengine_page_state.id(), #key)))
-            .as_link()
-            .no_sim()
+        if __ifengine_page_state.was_zero(#key) {
+            let _ = #block;
+        };
+
+        let span = ifengine::view::Span::from(
+            #expr
+        )
+        .with_action(ifengine::Action::Inc((__ifengine_page_state.id(), #key)))
+        .as_link();
+
+        // sim the handler once
+        if __ifengine_page_state.get(#key).is_some() {
+            span.no_sim()
         } else {
-            ifengine::view::Span::from(
-                #expr
-            )
-            .with_action(ifengine::Action::Inc((__ifengine_page_state.id(), #key)))
-            .as_link()
+            span
         }
     }};
 

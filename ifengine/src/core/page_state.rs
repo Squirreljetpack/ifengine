@@ -142,6 +142,17 @@ impl<'a> PageState<'a> {
         self.page_state.borrow_mut().remove(&key)
     }
 
+    pub fn was_zero(&self, key: PageKey) -> bool {
+        if let Some(x) = self.page_state.borrow_mut().get_mut(&key)
+            && *x == 0
+        {
+            *x = 1;
+            true
+        } else {
+            false
+        }
+    }
+
     pub fn tag(&mut self, s: &str) -> bool {
         let q: PageId = s.into();
         self.view.tags.push(q.clone());

@@ -17,7 +17,8 @@ pub struct GameState {
 
 impl GameState {
     /// Increment the value at the given key by 1.
-    /// Creates the chapter or entry if it does not exist.
+    /// Initializes the chapter or entry to 0 if it does not exist.
+    /// The click action uses [`crate::PageState::was_zero`] to run its closure exactly once.
     pub fn inc(&mut self, key: &InternalKey) {
         let (chapter_id, entry_key) = key;
         let chapter = self
@@ -26,7 +27,11 @@ impl GameState {
             .or_insert_with(|| PageMap {
                 inner: HashMap::new(),
             });
-        *chapter.inner.entry(entry_key.clone()).or_insert(0) += 1;
+        chapter
+            .inner
+            .entry(entry_key.clone())
+            .and_modify(|v| *v += 1) // increment if already exists
+            .or_insert(0);
     }
 
     /// Insert a specific value at the given key.
