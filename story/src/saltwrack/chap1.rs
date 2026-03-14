@@ -1,7 +1,12 @@
 use crate::{chap1d::*, saltwrack::State};
 #[allow(unused_imports)]
-use ifengine::elements::{ChoiceVariant::*, back, choice, click, dp, h, ls, mchoice, p, ps};
-use ifengine::{END, GOTO, ifview, link, tun, utils::MaskExt};
+use ifengine::elements::{ChoiceVariant::*, back, choice, click, dp, h, mchoice, p, ps, ts};
+use ifengine::{
+    BACK, END, LINK,
+    elements::{dchoice, read_key},
+    ifview, l, link, s, tun,
+    utils::MaskExt,
+};
 
 #[ifview]
 pub fn p1(s: &mut State) {
@@ -19,19 +24,37 @@ pub fn p2(s: &mut State) {
 }
 
 #[ifview]
-pub fn p3(s: &mut State) {
+pub fn p3(state: &mut State) {
     ps!(
         "You turn back to the clerk sitting across the desk from you, over piles of slightly crumpled paper. Her hands are stained with ink. Her voice is hoarse, as though she has recently been ill.",
         "Oh—what would you prefer to be addressed as?"
     );
 
-    if let Some(o) = dp!(r#"
-    [["Sen."]]  The neutral honorific of respect: a fine choice for any purpose.
-    [["Ammat."]]  An honorific translating to “sibling”, common among egalitarians, communalists, and anarchists.
-    [["Interpreter."]]  The title of your position, an honorific conveying pride in your skills."#)
-    {
-        s.myname = o.into();
-        GOTO!(p4)
+    let names = [
+        "Sen",
+        "The neutral honorific of respect: a fine choice for any purpose.",
+        "Ammat",
+        "An honorific translating to “sibling”, common among egalitarians, communalists, and anarchists.",
+        "Interpreter",
+        "The title of your position, an honorific conveying pride in your skills.",
+    ];
+
+    // note: array chunks is nightly but this seems fine
+    let choices: Vec<_> = names
+        .chunks_exact(2)
+        .enumerate()
+        .map(|(i, x)| [click!((i as u64), x[0]), s!(".  ", x[1])])
+        .collect();
+
+    dchoice! {
+        choices,
+    };
+
+    for i in 0..3 {
+        if read_key!(i).is_some() {
+            state.myname = names[i as usize * 2].to_string();
+            LINK!(p4)
+        }
     }
 }
 
@@ -70,7 +93,7 @@ pub fn p5(s: &mut State) {
         s.c2.name.is_empty().then_some(link!("the second saltwalker", _walker_2)),
         (!s.part1.seen.contains("interpreter_2")).then_some(link!("the second interpreter", _interpreter_2))
     }.all() {
-        GOTO!(p6)
+        LINK!(p6)
     }
 }
 
@@ -82,13 +105,14 @@ pub fn _oracle_1(s: &mut State) {
         "They are a slight figure, watching you from behind round silver spectacles without meeting your gaze. Their features are angular and delicate. They have icily pale eyes, and their hair is an odd shade of dark grey; perhaps they come from Firmament. Their clothing is drab, neat, and unassuming save for a single drop of dried blood on their collar."
     );
 
-    // ls! is serving as a choice with no effects and no retained state here
-    ls! {
+    dchoice! {
+        [
         click!("select the first oracle", {
             s.c1.name = "Danil".into();
-            GOTO!();
+            BACK!();
         }),
         back!("consider otherwise")
+        ]
     };
 }
 
@@ -98,12 +122,12 @@ pub fn _oracle_2(s: &mut State) {
         "They are tall, brown-skinned, clad in layers of faded floral-patterned fabric; the overall impression is of striking elegance, despite their dishevelment. Their long hair is tied back in a thick braid. The skin of their arms is inked with spiralling, oddly precise sigils, like blueprints for an unknown mechanism. They gaze off into some dreamy distance, eyes wide and dark and utterly calm."
     );
 
-    ls! {
-        click!("select the second oracle", {
+    dchoice! {
+        [click!("select the second oracle", {
             s.c1.name = "Aron".into();
-            GOTO!();
+            BACK!();
         }),
-        back!("consider otherwise")
+        back!("consider otherwise")]
     };
 }
 
@@ -113,12 +137,12 @@ pub fn _walker_1(s: &mut State) {
         "He seems every bit a man of Hearth, with his warm dark skin and tightly coiled hair. He must be the oldest person in the room; there are deep wrinkles around his eyes, and his wiry beard is mostly grey. He looks almost skittish. You notice little glinting pendants wired onto his clothing: the saltwalker waysign sigils, you think. You can’t tell what they mean."
     );
 
-    ls! {
-        click!("select the first walker", {
+    dchoice! {
+        [click!("select the first walker", {
             s.c2.name = "Ego".into();
-            GOTO!();
+            BACK!();
         }),
-        back!("consider otherwise")
+        back!("consider otherwise")]
     };
 }
 
@@ -128,12 +152,12 @@ pub fn _walker_2(s: &mut State) {
         "She is plumply muscular, short-haired, with moles scattered over her pale skin. Her hands are cut by the crossing marks of scars. She wears a selection of knives openly. Her eyes are concealed by a glassy black helm whose purpose is arcane to you, but her body language seems friendly and energetic."
     );
 
-    ls! {
-        click!("select the second walker", {
+    dchoice! {
+        [click!("select the second walker", {
             s.c2.name = "Naim".into();
-            GOTO!();
+            BACK!();
         }),
-        back!("consider otherwise")
+        back!("consider otherwise")]
     };
 }
 
@@ -141,13 +165,13 @@ pub fn _walker_2(s: &mut State) {
 pub fn _interpreter_2(s: &mut State) {
     if dp!(r#"
 He barely glances at you; he’s preoccupied with turning over some glass model, a green tangle that looks like it might represent the inside of a cell. As you look him over, the functionary notices your attention, and her brow furrows.
-
+    
 “Interpreter?” She’s addressing him. “I thought you—it was agreed you weren’t going to accompany the expedition. We’ve only enough resources for three.” He scoffs, not loudly. “So it’s settled? Rather than another naturalist, you would assign some mystic to my colleague. Thereby preventing any productive discussion in the field, where the observational work of two trained minds would be most valuable. Hardly a scientific expedition, if you ask me.”
-
+    
 The clerk seems weary rather than angered as she begins: “Interpreter, you are aware that given the nature of the salt wrack, the Society’s subcouncil has determined—“ “Spare me.” He gives you a sympathetic grimace as he [[leaves.]]"#).is_some()
     {
         s.part1.seen.insert("interpreter_2".into());
-        GOTO!()
+        BACK!()
     }
 }
 
@@ -169,11 +193,11 @@ pub fn p7(s: &mut State) {
     choice! {
         click!("40 days", {
             s.rations = 400;
-            GOTO!(p8);
+            LINK!(p8);
         }),
         click!("50 days", {
             s.rations = 500;
-            GOTO!(p8);
+            LINK!(p8);
         }),
     };
 }
@@ -182,12 +206,12 @@ pub fn p7(s: &mut State) {
 pub fn p8(_: &mut State) {
     if dp!(
         "Some of your time is taken up by organizing supplies, some by being warned. You’ve taken part in a few short expeditions, years ago: but not far from the edges of the city you lived in then, and none longer than a week. This is different. Some have tried, and failed, to reach the heart of the salt wrack. There is a very real chance that you too will never return. You have no doubt your companions are preparing in whatever ways they see fit.
-
+        
 You pore over maps and revisit the Observational Society’s collections, examining microscope slides and desiccated specimens of saltgrown oddities. Even after so much study, you can’t know what to expect from the unknown species and phenomena you’ll witness so far north.
-
+        
 When at last you three meet again, it is in a high-raftered warehouse whose vast doors open northward. The walls are stained with salt and stranger compounds. You clamber into your [[vehicle]], accompanied by your companions."
     ).is_some() {
-        GOTO!(p9)
+        LINK!(p9)
     }
 }
 
@@ -197,7 +221,7 @@ pub fn p9(s: &mut State) {
         "This machine, too, is experimental. The latest innovation from Hearth’s engineers. A great metal beast, you think. Quadrupedal, with claws to hook into uneven ground. Wheels wouldn’t be of use in the salt wrack. The legs support a rectangular chamber with seats and room for cargo, piled with various supplies, open to the air but shielded in front. Despite the facelessness of the mechanism, it’s undeniably designed like an animal; the impression is only heightened when you set off, and it begins to walk with a [[steady prowling stride]]."
     ).is_some() {
         s.miles = 40;
-        GOTO!(p10)
+        LINK!(p10)
     }
 }
 
@@ -225,7 +249,7 @@ pub fn p11(s: &mut State) {
     )
     .any()
     {
-        GOTO!(p12)
+        LINK!(p12)
     }
 }
 

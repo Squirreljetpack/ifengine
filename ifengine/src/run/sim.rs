@@ -8,6 +8,7 @@ use iddqd::{IdHashMap, id_hash_map::Entry};
 use crate::{
     Action, Game, GameError, SimEnd, View,
     core::{GameContext, GameTags, PageHandle, PageId, PageStack, Response, game_state::GameState},
+    utils::_dbg,
     view::Object,
 };
 
@@ -66,7 +67,10 @@ impl<C: GameContext> Game<C> {
                         return Err(SimEnd::Tunnel(fork_name));
                     }
                     Action::Exit => Err(SimEnd::TunnelExit),
-                    _ => self.handle_action(action.clone()).map_err(|e| e.into()),
+                    _ => self
+                        .handle_action(action.clone())
+                        .map(|_| {})
+                        .map_err(|e| e.into()),
                 }
             }
         }
@@ -80,6 +84,7 @@ impl<C: GameContext> Game<C> {
     ) where
         F: FnMut(&mut SimulationState<C>) -> bool,
     {
+        // dfs
         while let Some(mut s) = queue.pop() {
             // unimportant preflight
             let Some(mut page) = s.pages.current() else {
@@ -88,8 +93,9 @@ impl<C: GameContext> Game<C> {
             if page.id.is_empty() {
                 s.pages.pop(); // drop the initial page for the next rendered and (possibly same) page. In particular, it will have the fully resolved name, (while i.e. the pagehandles produced by link! in handle_action don't).
             }
+            _dbg!(&page);
 
-            if visitor(&mut s) {
+            if !visitor(&mut s) {
                 continue; // could support custom ends here
             }
 
@@ -98,6 +104,7 @@ impl<C: GameContext> Game<C> {
                 match r {
                     Response::View(view) => {
                         page.id = view.pageid.clone(); // id the page by the fully resolved name
+                        _dbg!(&page.id);
                         break s.pages.push(page).map(|_| view).map_err(|e| e.into()); // only rendered pages get added to history
                     }
                     Response::Switch(next) => {
@@ -130,13 +137,16 @@ impl<C: GameContext> Game<C> {
                     let mut to_queue = vec![];
 
                     for e in v.interactables_sim() {
+                        _dbg!(&e.content());
                         let mut next = s.next(curr_id.clone());
                         match next.interact_sim(e, &curr_id) {
                             Ok(()) => {
                                 to_queue.push(next);
+                                _dbg!(to_queue.len());
                             }
                             Err(e) => {
                                 if let SimEnd::Tunnel(fork_name) = &e {
+                                    _dbg!("tun");
                                     tunnels_queue.push((fork_name.clone(), next.game));
                                 }
                                 records.push_sim_end(&curr_id, e.into());

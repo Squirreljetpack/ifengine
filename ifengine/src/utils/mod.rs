@@ -5,3 +5,14 @@ pub use text::*;
 
 mod mask;
 pub use mask::*;
+
+macro_rules! _dbg {
+    ($($t:tt)*) => {
+        #[cfg(debug_assertions)]
+        {
+            dbg!($($t)*);
+        }
+    };
+}
+
+pub(crate) use _dbg;

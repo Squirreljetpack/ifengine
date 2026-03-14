@@ -18,7 +18,7 @@ impl eframe::App for App {
     fn save(&mut self, storage: &mut dyn eframe::Storage) {
         eframe::set_value(storage, eframe::APP_KEY, self);
     }
-
+    
     /// Called each time the UI needs repainting, which may be many times per second.
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         // ctx.all_styles_mut(|x| {
@@ -26,7 +26,7 @@ impl eframe::App for App {
         // });
         init_theme(ctx);
         let light = global_theme().is_light();
-
+        
         let mut show_graph = self.show_graph;
         if show_graph {
             show_overlay(
@@ -34,7 +34,7 @@ impl eframe::App for App {
                 |ui| {
                     let (snarl, viewer) = self.graph_viewer.get_or_insert_with(|| {
                         let (snarl, prefix_len) =
-                            crate::graph::new_snarl(ui.available_width(), ui.available_height());
+                        crate::graph::new_snarl(ui.available_width(), ui.available_height());
                         (
                             snarl,
                             GraphViewer {
@@ -44,9 +44,9 @@ impl eframe::App for App {
                         )
                     });
                     SnarlWidget::new()
-                        .id(egui::Id::new("snarl-demo"))
-                        .style(global_theme().snarl)
-                        .show(snarl, viewer, ui);
+                    .id(egui::Id::new("snarl-demo"))
+                    .style(global_theme().snarl)
+                    .show(snarl, viewer, ui);
                 },
                 || {
                     show_graph = false;
@@ -55,40 +55,46 @@ impl eframe::App for App {
         }
         self.show_graph = show_graph;
         egui::TopBottomPanel::top("top_panel")
-            .frame(egui::Frame {
-                inner_margin: egui::Margin::same(10),
-                fill: ctx.style().visuals.panel_fill, // necessary for some reasone
-                ..Default::default()
-            })
-            .show_separator_line(false)
-            .show(ctx, |ui| {
-                let hovered = self.game.iterations() <= 2
-                    || ui
-                        .ctx()
-                        .input(|i| i.pointer.interact_pos())
-                        .map(|pos| ui.response().rect.contains(pos))
-                        .unwrap_or_default();
-                ui.add_space(10.0);
-                ui.horizontal_centered_labels(self.header(), |ui| {
+        .frame(egui::Frame {
+            inner_margin: egui::Margin::symmetric(5, 12),
+            fill: ctx.style().visuals.panel_fill, // necessary for some reasone
+            ..Default::default()
+        })
+        .show_separator_line(false)
+        .show(ctx, |ui| {
+            let hovered = self.game.iterations() <= 2
+            || ui
+            .ctx()
+            .input(|i| i.pointer.interact_pos())
+            .map(|pos| ui.response().rect.contains(pos))
+            .unwrap_or_default();
+            ui.add_space(10.0); // vertical
+            ui.horizontal_centered_labels(self.header(), |ui| {
+                ui.vertical(|ui| {
+                    ui.add_space(-7.0); // move menu up
+                    
                     ui.add_menu(hovered, light, |ui| {
                         ui.style_mut().spacing.item_spacing = MENU_SPACING;
+                        
                         if ui.button("Graph").clicked() {
                             self.show_graph = true;
                         }
+                        
                         ui.add_submenu("Themes", |ui| {
                             ui.style_mut().spacing.item_spacing = MENU_SPACING;
-
+                            
                             let variants = global_theme().variants();
                             for variant in variants {
                                 if ui.button(variant).clicked() {
                                     global_theme_mut().switch(variant, ui.ctx());
                                 }
                             }
-                        })
+                        });
                     });
                 });
             });
-
+        });
+        
         let resp = match self.game.view() {
             Ok(view) => view,
             Err(e) => {
@@ -97,73 +103,74 @@ impl eframe::App for App {
             }
         };
         egui::CentralPanel::default()
-            .frame(egui::Frame {
-                fill: ctx.style().visuals.window_fill, // body
-                ..Default::default()
-            })
-            .show(ctx, |ui| {
-                center_vertical(ui, |ui| {
-                    ui.vertical_centered_justified(|ui| {
-                        let width = ui.available_width().min(800.0);
-                        ui.set_width(width);
-                        egui::Frame::new()
-                            // for some reason it takes both to work properly
-                            .outer_margin(egui::Margin::symmetric(0, 20))
-                            .inner_margin(egui::Margin::symmetric(0, 20))
-                            .show(ui, |ui| {
-                                egui::ScrollArea::vertical().show(ui, |ui| {
-                                    let game = &mut self.game;
-                                    let last_view = self.state.last_view.clone();
-
-                                    if game.fresh() && last_view.is_some() {
-                                        self.state.transitioning = true;
-                                    }
-
-                                    if self.state.transitioning
-                                        && let Some(last_view) = last_view
-                                    {
-                                        let finished = fade_transition(
-                                            ui,
-                                            self.state.fade_duration,
-                                            [emath::easing::quadratic_out, emath::easing::linear],
-                                            |ui| render(last_view, ui, None),
-                                            |ui| render(resp.clone(), ui, Some(game)),
-                                        );
-
-                                        if finished {
-                                            self.last_view = Some(resp);
-                                            self.state.transitioning = false;
-                                        }
-                                    } else {
-                                        render(resp.clone(), ui, Some(game));
-                                        self.last_view = Some(resp);
-                                    }
-                                });
-                            })
-                    });
+        .frame(egui::Frame {
+            fill: ctx.style().visuals.window_fill, // body
+            ..Default::default()
+        })
+        .show(ctx, |ui| {
+            center_vertical(ui, |ui| {
+                ui.vertical_centered_justified(|ui| {
+                    let width = ui.available_width().min(800.0);
+                    ui.set_width(width);
+                    egui::Frame::new()
+                    // for some reason it takes both to work properly
+                    .outer_margin(egui::Margin::symmetric(5, 20))
+                    .inner_margin(egui::Margin::symmetric(5, 20))
+                    .show(ui, |ui| {
+                        egui::ScrollArea::vertical().show(ui, |ui| {
+                            let game = &mut self.game;
+                            let last_view = self.state.last_view.clone();
+                            
+                            if game.fresh() && last_view.is_some() {
+                                self.state.transitioning = true;
+                            }
+                            
+                            if self.state.transitioning
+                            && let Some(last_view) = last_view
+                            {
+                                let finished = fade_transition(
+                                    ui,
+                                    self.state.fade_duration,
+                                    [emath::easing::quadratic_out, emath::easing::linear],
+                                    |ui| render(last_view, ui, None),
+                                    |ui| render(resp.clone(), ui, Some(game)),
+                                );
+                                
+                                if finished {
+                                    self.last_view = Some(resp);
+                                    self.state.transitioning = false;
+                                }
+                            } else {
+                                render(resp.clone(), ui, Some(game));
+                                self.last_view = Some(resp);
+                            }
+                        });
+                    })
                 });
             });
-
+        });
+        
         egui::TopBottomPanel::bottom("bottom_panel")
-            .frame(egui::Frame {
-                fill: ctx.style().visuals.window_fill, // body
-                // inner_margin: egui::Margin {
-                //     left: 0,
-                //     right: 2,
-                //     top: 0,
-                //     bottom: 2,
-                // },
-                ..Default::default()
-            })
-            .show_separator_line(false)
-            .show(ctx, |ui| {
-                ui.with_layout(egui::Layout::right_to_left(egui::Align::Min), |ui| {
-                    ui.add_custom_link(
-                        RichText::new("Made with IfEngine").size(10.0),
-                        "https://github.com/Squirreljetpack/ifengine",
-                    )
-                });
+        .frame(egui::Frame {
+            fill: ctx.style().visuals.window_fill, // body
+            // inner_margin: egui::Margin {
+            //     left: 0,
+            //     right: 2,
+            //     top: 0,
+            //     bottom: 2,
+            // },
+            ..Default::default()
+        })
+        .show_separator_line(false)
+        .show(ctx, |ui| {
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Min), |ui| {
+                ui.add_space(10.0); // pushes content left a bit
+                ui.add_custom_link(
+                    RichText::new("Made with IfEngine").size(10.0),
+                    "https://github.com/Squirreljetpack/ifengine",
+                )
             });
+        });
     }
 }
 
@@ -179,8 +186,8 @@ static THEME_SET: AtomicBool = AtomicBool::new(false);
 // this doesn't work inside new_app so we lift it out
 fn init_theme(ctx: &egui::Context) {
     if THEME_SET
-        .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
-        .is_ok()
+    .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+    .is_ok()
     {
         let theme = if ctx.style().visuals.dark_mode {
             "dark"
@@ -194,12 +201,12 @@ fn init_theme(ctx: &egui::Context) {
 pub fn new_app(cc: &eframe::CreationContext<'_>) -> App {
     // This is also where you can customize the look and feel of egui using
     // `cc.egui_ctx.set_visuals` and `cc.egui_ctx.set_fonts`.
-
+    
     let mut fonts = egui::FontDefinitions::default();
     generated::add_fonts(&mut fonts);
-
+    
     cc.egui_ctx.set_fonts(fonts);
-
+    
     egui_extras::install_image_loaders(&cc.egui_ctx);
     cc.egui_ctx.all_styles_mut(|style| {
         for (text_style, font_id) in style.text_styles.iter_mut() {
@@ -224,7 +231,7 @@ pub fn new_app(cc: &eframe::CreationContext<'_>) -> App {
         scroll_style.interact_handle_opacity = 0.5;
         style.spacing.scroll = scroll_style;
     });
-
+    
     if on_graph_route() {
         let mut ret = App::new();
         ret.show_graph = true;
@@ -244,12 +251,12 @@ pub fn new_app(cc: &eframe::CreationContext<'_>) -> App {
 #[cfg(target_arch = "wasm32")]
 fn on_graph_route() -> bool {
     use web_sys::window;
-
+    
     if let Some(win) = window() {
         let loc = win.location();
         let pathname = loc.pathname().unwrap_or_default(); // e.g., "/graph"
         let hash = loc.hash().unwrap_or_default(); // e.g., "#graph"
-
+        
         pathname == "/graph" || hash == "#graph"
     } else {
         false
