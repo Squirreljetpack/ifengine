@@ -184,6 +184,8 @@ impl GameInner {
     pub fn fresh(&self) -> bool {
         self.fresh
     }
+
+    /// Number of times [`Game::view`] has returned a fresh page.
     pub fn iterations(&self) -> usize {
         self.iterations
     }

@@ -15,23 +15,26 @@ use crate::{
 
 pub fn render(view: View, ui: &mut Ui, mut game: Option<&mut GameInner>) {
     let name = view.name();
+    let mut first = true;
     for object in view {
         match object {
             Object::Paragraph(line) => {
-                ui.draw_empty(1);
+                if !first {
+                    ui.draw_empty(1);
+                }
                 line.ui(ui, game.as_deref_mut());
                 ui.draw_empty(1);
             }
             Object::Text(line, _) => {
                 let _ = line
-                .ui(ui, game.as_deref_mut())
-                .interact(egui::Sense::click());
+                    .ui(ui, game.as_deref_mut())
+                    .interact(egui::Sense::click());
             }
             Object::Choice(key, choices) => {
-                ui.vertical(|ui|{
+                ui.vertical(|ui| {
                     ui.draw_empty(1);
                     ui.spacing_mut().item_spacing = egui::vec2(0.0, 10.0);
-                    
+
                     for (i, line) in choices.into_iter() {
                         if line.ui_clicked(ui, game.as_deref_mut()) {
                             if let Some(game) = game.as_mut() {
@@ -41,7 +44,6 @@ pub fn render(view: View, ui: &mut Ui, mut game: Option<&mut GameInner>) {
                     }
                     ui.draw_empty(1);
                 });
-                
             }
             Object::Image(img) => render_image(img, ui, game.as_deref_mut()),
             Object::Heading(line, level) => {
@@ -62,7 +64,8 @@ pub fn render(view: View, ui: &mut Ui, mut game: Option<&mut GameInner>) {
             Object::Custom(_) => {
                 unimplemented!()
             }
-        }
+        };
+        first = false;
     }
 }
 
@@ -73,27 +76,27 @@ fn render_image(img: Image, ui: &mut Ui, mut game: Option<&mut GameInner>) {
         action,
         alt,
     } = img;
-    
+
     let img = match variant {
         ImageVariant::Local(uri, bytes) => egui::Image::from_bytes(uri, bytes),
         ImageVariant::Url(p) => egui::Image::from_uri(p),
     };
-    
+
     let mut resp = match (w, h) {
         (0, 0) => ui.add(img),
         (0, h) => ui.add(img.max_height(h as f32)),
         (w, 0) => ui.add(img.max_width(w as f32)),
         (w, h) => ui.add(img.fit_to_exact_size(egui::vec2(w as f32, h as f32))),
     };
-    
+
     resp = if !alt.is_empty() {
         resp.on_hover_text(alt)
     } else {
         resp
     };
-    
+
     if let Some(action) = action
-    && let Some(game) = game.as_mut()
+        && let Some(game) = game.as_mut()
     {
         if resp.clicked() {
             let _ = game.handle_action(action);

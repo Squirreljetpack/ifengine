@@ -19,25 +19,42 @@ pub fn linguate(text: &str) -> String {
     // 3. Replace ... with ellipsis
     result = result.replace("...", "…");
 
-    // todo: change this processing to proc macro
-
     // 4. Replace quotes manually
     // Double quotes
-    let mut in_double = false;
     let mut final_text = String::with_capacity(result.len());
+    let mut in_double = false;
+    let mut escape = false;
+
     for c in result.chars() {
+        if escape {
+            match c {
+                '"' | '\'' | '\\' => final_text.push(c),
+                _ => {
+                    final_text.push('\\');
+                    final_text.push(c);
+                }
+            }
+            escape = false;
+            continue;
+        }
+
         match c {
+            '\\' => escape = true,
             '"' => {
                 if in_double {
-                    final_text.push('”'); // closing
+                    final_text.push('”');
                 } else {
-                    final_text.push('“'); // opening
+                    final_text.push('“');
                 }
                 in_double = !in_double;
             }
-            '\'' => final_text.push('’'), // all single quotes to curly
+            '\'' => final_text.push('’'),
             _ => final_text.push(c),
         }
+    }
+
+    if escape {
+        final_text.push('\\');
     }
 
     final_text

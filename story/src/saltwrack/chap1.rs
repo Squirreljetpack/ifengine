@@ -46,9 +46,7 @@ pub fn p3(state: &mut State) {
         .map(|(i, x)| [click!((i as u64), x[0]), s!(".  ", x[1])])
         .collect();
 
-    dchoice! {
-        choices,
-    };
+    dchoice!(choices);
 
     for i in 0..3 {
         if read_key!(i).is_some() {

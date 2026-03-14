@@ -81,8 +81,15 @@ impl Ui {
         light_theme: bool,
         add_contents: impl FnOnce(&mut Ui) -> R,
     ) -> egui::InnerResponse<Option<R>> {
+        let is_touch = matches!(
+            self.ctx().os(),
+            egui::os::OperatingSystem::Android | egui::os::OperatingSystem::IOS
+        );
+
+        let icon_size = if is_touch { 34.0 } else { 20.0 };
+
         let img = Image::new(include_image!("../../assets/imgs/menu.png"))
-            .fit_to_exact_size(egui::vec2(17.0, 17.0));
+            .fit_to_exact_size(egui::vec2(icon_size, icon_size));
 
         let img = if show {
             if light_theme {
@@ -253,6 +260,7 @@ pub fn fade_transition(
     ui: &mut egui::Ui,
     duration: [f32; 2],
     easing: [fn(f32) -> f32; 2],
+    on_transition: impl FnOnce(&mut egui::Ui),
     old_page: impl FnOnce(&mut egui::Ui),
     new_page: impl FnOnce(&mut egui::Ui),
 ) -> bool {
@@ -280,6 +288,9 @@ pub fn fade_transition(
         ui.ctx()
             .memory_mut(|mem| mem.data.insert_temp(base_id, false));
     } else if (fade_in && opacity >= 1.0) || (!fade_in && opacity <= 0.0) {
+        if !fade_in && opacity <= 0.0 {
+            on_transition(ui)
+        }
         ui.ctx()
             .memory_mut(|mem| mem.data.insert_temp(base_id, !fade_in));
         if fade_in {
