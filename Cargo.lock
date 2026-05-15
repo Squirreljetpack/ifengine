@@ -1607,7 +1607,7 @@ dependencies = [
 
 [[package]]
 name = "ifengine"
-version = "0.0.5"
+version = "0.0.6"
 dependencies = [
  "bitflags 2.10.0",
  "const-fnv1a-hash",
@@ -1646,7 +1646,7 @@ dependencies = [
 
 [[package]]
 name = "ifengine_macros"
-version = "0.0.5"
+version = "0.0.6"
 dependencies = [
  "proc-macro2",
  "quote",
