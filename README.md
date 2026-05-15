@@ -39,7 +39,7 @@ rm -rf ifengine
 ```
 or with [zsh-dl](https://github.com/Squirreljetpack/zsh-dl/):
 ```
-dl https://github.com/Squirreljetpack/ifengine/tree/main/egui
+dl - https://github.com/Squirreljetpack/ifengine/tree/main/egui
 ```
 Currently, your options are: [egui](./egui) .. and nothing else.
 
@@ -54,6 +54,7 @@ Currently, your options are: [egui](./egui) .. and nothing else.
 # ifengine
 ifengine = { path = "../ifengine" } # remove me
 story = { path = "../story" }
+# ...
 ```
 
 3. **Create your library**

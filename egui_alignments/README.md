@@ -1,1 +1,0 @@
-Cloned from https://github.com/a-littlebit/egui_alignments/tree/master/crates/egui_alignments because the most recent version isn't on crates.io.
