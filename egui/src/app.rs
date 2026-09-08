@@ -53,7 +53,7 @@ impl GUIState {
             #[cfg(debug_assertions)]
             fade_duration: [0.0; 2],
             #[cfg(not(debug_assertions))]
-            fade_duration: [0.5; 2],
+            fade_duration: [0.5, 0.3],
             ..Default::default()
         }
     }

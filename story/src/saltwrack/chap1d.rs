@@ -1,4 +1,4 @@
-use ifengine::{elements::p, ifview, tun};
+use ifengine::{elements::{p, tun}, ifview};
 
 use crate::State;
 

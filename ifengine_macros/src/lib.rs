@@ -1,22 +1,29 @@
-//! See [`ifengine::elements`]
-use proc_macro::TokenStream;
-use quote::quote;
-use syn::{
-    Arm, Error, Expr, ExprClosure, ItemFn, LitStr, Result, Token,
-    parse::{Parse, ParseStream},
-    parse_macro_input,
-    punctuated::Punctuated,
-};
-mod nodes;
-use nodes::*;
+//! Procedural macros for the `ifengine` interactive fiction framework.
+//!
+//! See [`elements`](ifengine::elements) for usage details.
 
-/// Decorate your function with this.
+extern crate ifengine_core as ifengine;
+
+use proc_macro::TokenStream;
+
+mod choices;
+mod elements;
+mod nodes;
+mod state;
+mod view;
+
+// =========================================================================
+// Attributes
+// =========================================================================
+
+/// Decorate your page functions with this attribute.
 ///
 /// The function must take your game state as a parameter, and return `()`.
-/// This macro will rewrite your function to receive a &mut [`ifengine::Game`] and return a [`ifengine::core::Response`], as well as enabling usage of [`ifengine::elements`] to produce that response (which in most cases will be a [`ifengine::View`]).
+/// This macro will rewrite your function to receive a `&mut` [`struct@ifengine::Game`] and return a [`Response`](ifengine::core::Response),
+/// as well as enabling usage of [`elements`](ifengine::elements) to produce that response (which in most cases will be a [`View`](ifengine::View)).
 ///
 /// # Examples
-///```rust
+/// ```rust,ignore
 /// #[ifview]
 /// pub fn p1(s: &mut State) {
 ///     h!("SALTWRACK", 3); // heading level 3
@@ -28,143 +35,36 @@ use nodes::*;
 /// pub fn new() -> Game {
 ///    ifengine::Game!(chap1::p1)
 /// }
-///```
+/// ```
 #[proc_macro_attribute]
-pub fn ifview(_attr: TokenStream, item: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(item as ItemFn);
-
-    let name = &input.sig.ident;
-    let original_block = &input.block;
-
-    if input.sig.inputs.len() != 1 {
-        return Error::new_spanned(
-            &input.sig.inputs,
-            "ifview functions must have exactly one input: the context type C",
-        )
-        .to_compile_error()
-        .into();
-    }
-
-    let ctx_arg = input.sig.inputs.first().unwrap();
-    let ctx_type = if let syn::FnArg::Typed(pat_type) = ctx_arg
-        && let syn::Type::Reference(ty_ref) = &*pat_type.ty
-        && ty_ref.mutability.is_some()
-    {
-        &*ty_ref.elem
-    } else {
-        return Error::new_spanned(ctx_arg, "Expected a &mut C type")
-            .to_compile_error()
-            .into();
-    };
-
-    let expanded = quote! {
-        pub fn #name(__ifengine_game: &mut ifengine::Game<#ctx_type>)
-        -> ifengine::core::Response
-        {
-            let __ifengine_simulating = __ifengine_game.simulating();
-            #[allow(unused_variables)]
-            let #ctx_arg = &mut __ifengine_game.context;
-            let __ifengine_game_tags = &mut __ifengine_game.tags;
-            let __ifengine_game = &mut __ifengine_game.inner;
-            let mut __ifengine_page_state = ifengine::core::PageState::new(
-
-                format!("{}::{}", module_path!(), stringify!(#name)),
-                __ifengine_game.fresh(),
-                __ifengine_simulating,
-                __ifengine_game.state.get_page_mut(format!("{}::{}", module_path!(), stringify!(#name))),
-                __ifengine_game_tags,
-
-            );
-
-            #original_block
-
-            #[allow(unreachable_code)]
-            __ifengine_page_state.into_response()
-        }
-    };
-
-    expanded.into()
+pub fn ifview(attr: TokenStream, item: TokenStream) -> TokenStream {
+    view::ifview(attr, item)
 }
 
-// ----------- CHOICES -------------------------
-
-// Expr instead of Pattern
-struct LineArm {
-    line: Expr,
-    block: Option<Expr>,
-}
-
-impl Parse for LineArm {
-    fn parse(input: ParseStream) -> Result<Self> {
-        let line: Expr = input.parse()?;
-
-        let block = if input.parse::<Token![=>]>().is_ok() {
-            Some(input.parse()?)
-        } else {
-            None
-        };
-
-        Ok(LineArm { line, block })
-    }
-}
-struct ChoiceInput {
-    maybe_key: MaybeKey,
-    arms: Vec<LineArm>,
-}
-
-impl Parse for ChoiceInput {
-    fn parse(input: ParseStream) -> Result<Self> {
-        let maybe_key = input.parse()?;
-
-        let mut arms = Vec::new();
-        while !input.is_empty() {
-            let mut lhs_exprs = vec![input.parse::<Expr>()?];
-
-            while input.peek(Token![|]) {
-                let _ = input.parse::<Token![|]>()?;
-                lhs_exprs.push(input.parse()?);
-            }
-
-            let block = if input.parse::<Token![=>]>().is_ok() {
-                Some(input.parse()?)
-            } else {
-                None
-            };
-
-            for line in lhs_exprs {
-                arms.push(LineArm {
-                    line,
-                    block: block.clone(),
-                });
-            }
-
-            input.parse::<Token![,]>().ok();
-        }
-
-        Ok(ChoiceInput { maybe_key, arms })
-    }
-}
+// =========================================================================
+// Choices
+// =========================================================================
 
 /// Conditionally display one of several choices based on user selection.
 ///
-/// Returns true if it has resolved, otherwise false.
+/// Returns `true` if it has resolved, otherwise `false`.
 ///
 /// # Description
-/// The `choice!` macro takes a list of arms in the form `LHS => RHS`, where both
+/// The [`choice`] macro takes a list of arms in the form `LHS => RHS`, where both
 /// sides implement `Into<`[`Line`](ifengine::view::Line)`>`. It works as follows:
 ///
 /// - If no arm is selected, the LHS values are displayed as a list of lines.
-/// - Once a choice is selcted, subsequent renders execute the corresponding RHS expression and
+/// - Once a choice is selected, subsequent renders execute the corresponding RHS expression and
 ///   display its result.
 ///
-/// # Additional
-/// A [`MaybeKey`] can be specified as the first argument
-///   When a choice is clicked, it sets the value of its key to (the u8 value of) its id in [`PageState`].
-///   It is discouraged to specify this: by default, it will be automatically generated.
-/// Multiple LHS values can be specified for the same RHS using `|`
+/// # Optional Key Override
+/// An optional key (surrounded in parentheses) can be specified as the first argument.
+/// When a choice is clicked, it sets the value of its key to (the u8 value of) its id in [`PageState`](ifengine::core::PageState).
+/// By default, a deterministic key is automatically assigned.
+/// Multiple LHS values can be specified for the same RHS using `|`.
 ///
 /// # Example
-/// ```rust
+/// ```rust,ignore
 /// choice! {
 ///     "1" => "Chose 1",
 ///     "2" | "3" => {
@@ -174,54 +74,7 @@ impl Parse for ChoiceInput {
 /// ```
 #[proc_macro]
 pub fn choice(input: TokenStream) -> TokenStream {
-    let ChoiceInput { maybe_key, arms } = syn::parse_macro_input!(input as ChoiceInput);
-
-    let key_tokens = maybe_key.into_tokens();
-
-    let mut index_arms = Vec::new();
-    let mut lines = Vec::new();
-
-    for (i, LineArm { line, block }) in arms.iter().enumerate() {
-        let i = i as u8;
-
-        lines.push(quote! { (#i, ifengine::view::Line::from(#line)) });
-
-        let block_tokens = match block {
-            Some(b) => quote! { ifengine::view::Line::from({ #b }) },
-            None => quote! { unreachable!() },
-        };
-
-        index_arms.push(quote! {
-            #i => { #block_tokens }
-        });
-    }
-
-    let expanded = quote! {
-        if let Some(__ifengine_tmp_idx) = __ifengine_page_state.get_mask_last(#key_tokens) {
-            #[allow(unreachable_code)]
-            __ifengine_page_state.push(
-                ifengine::view::Object::Paragraph(
-                    match __ifengine_tmp_idx {
-                        #(#index_arms),*,
-                        _ => unreachable!(),
-                    }
-                )
-            );
-            true
-        } else {
-            __ifengine_page_state.push(
-                ifengine::view::Object::Choice(
-                    #key_tokens,
-                    vec![
-                    #(#lines),*
-                    ]
-                )
-            );
-            false
-        }
-    };
-
-    expanded.into()
+    choices::choice(input)
 }
 
 /// Execute a set of conditional expressions based on user-selected choices.
@@ -230,109 +83,50 @@ pub fn choice(input: TokenStream) -> TokenStream {
 /// corresponding expression (the RHS) is executed (executions occur in order), regardless of whether
 /// the choice's key (the LHS) is currently visible.
 ///
-/// Each LHS key is a [`ifengine::elements::ChoiceVariant`], dictating its visibility.
+/// Each LHS key is a [`ChoiceVariant`](ifengine::elements::ChoiceVariant), dictating its visibility.
 /// Any type that implements `Into<`[`Line`](ifengine::view::Line)`>` will coerce to `Choice::Once`.
 /// Any `Option<Into<Line>>` will coerce to `Choice::None` or `Choice::Always`.
 ///
-/// The return type is a [bool; n] representing which of the options were hidden (NOT displayed).
-///
-/// The following example permits you to pass once you have chosen 2 party members and checked the special event.
-/// ```rust
-///  if mchoice! {
-///     s.c1.name.is_empty().then_some(link!("member_1_choice_1", _oracle_1)),
-///     s.c1.name.is_empty().then_some(link!("member_1_choice_2", _oracle_2)),
-///     s.c2.name.is_empty().then_some(link!("member_2_choice_1", _walker_1)),
-///     s.c2.name.is_empty().then_some(link!("member_2_choice_2", _walker_2)),
-///     (!s.part1.seen.contains("special_event")).then_some(link!("special_event", _interpreter_2))
-///  }.all() {
-///     GOTO!(p6)
-///  }
-/// ```
-
-#[proc_macro]
-pub fn mchoice(input: TokenStream) -> TokenStream {
-    let ChoiceInput { maybe_key, arms } = syn::parse_macro_input!(input as ChoiceInput);
-
-    let key = maybe_key.into_tokens();
-
-    let arm_blocks: Vec<_> = arms
-        .iter()
-        .enumerate()
-        .map(|(i, LineArm { line, block })| {
-            let i = i as u8;
-
-            let block_tokens = match block {
-                Some(b) => quote! { #b },
-                None => quote! {},
-            };
-
-            quote! {
-                if (__ifengine_tmp_mask & (1u64 << #i)) != 0 {
-                    #block_tokens
-                }
-                if let Some(l) = ifengine::elements::ChoiceVariant::from(#line)
-                .as_line((__ifengine_tmp_mask & (1u64 << #i)) != 0)
-                {
-                    __ifengine_tmp_lines.push((#i, l));
-                    __ifengine_visible_mask[#i as usize] = false;
-                }
-            }
-        })
-        .collect::<Vec<_>>();
-
-    let n = arms.len();
-
-    let expanded = quote! {
-        {
-            let __ifengine_tmp_mask = __ifengine_page_state.get(#key).unwrap_or(0u64);
-            let mut __ifengine_tmp_lines = Vec::new();
-            let mut __ifengine_visible_mask = [true; #n];
-
-            #(#arm_blocks)*
-
-            if ! __ifengine_tmp_lines.is_empty() {
-                __ifengine_page_state.push(
-                    ifengine::view::Object::Choice(#key, __ifengine_tmp_lines)
-                );
-            }
-
-            __ifengine_visible_mask
-        }
-    };
-
-    expanded.into()
-}
-
-/// Executes code for a set of selectable choices. Prefer to use [`dchoice`] for brevity.
-///
-/// # Overview
-/// This macro displays list of choices, and registers a corresponding handler
-/// for each selection. The handler is specified as a `match` expression, where
-/// each arm corresponds to a choice and contains the code to execute when
-/// that choice is selected. Unlike the other choice elements ([`choice`], [`mchoice`]),
-/// the conditional expression is evaluated only the first time it's choice is selected.
-/// The intent is that the arms are used to set values for the user's custom [`ifengine::core::GameContext`].
-///
-/// # Arguments
-/// - [`MaybeKey`] (Optional)
-/// - **Choices list**: A `Vec<(Id, Line)>` representing the selectable options. The Id can either be a [#repr(u8)] Unit Enum or a pure u8.
-/// - **Handler**: A `match` statement handling each choice.
-///
-/// # Match statement
-/// The match token of the match statement should be given with your custom enum type, or not given if you identify your choices with pure u8's.
-///
-/// # Additional
-/// A [`MaybeKey`] can be specified in the first argument:
-///   When a choice is clicked, it sets the value of its key to its id (cast as a u8) in [`PageState`].
-///   When the page is next rendered, this value is removed, and the corresponding match arm is run.
-///   It is discouraged to specify this: by default, it will be automatically generated.
+/// The return type is a `[bool; n]` representing which of the options were hidden (NOT displayed).
 ///
 /// # Example
-/// ```rust
+/// ```rust,ignore
+/// if mchoice! {
+///    s.c1.name.is_empty().then_some(link!("member_1_choice_1", _oracle_1)),
+///    s.c1.name.is_empty().then_some(link!("member_1_choice_2", _oracle_2)),
+///    s.c2.name.is_empty().then_some(link!("member_2_choice_1", _walker_1)),
+///    s.c2.name.is_empty().then_some(link!("member_2_choice_2", _walker_2)),
+///    (!s.part1.seen.contains("special_event")).then_some(link!("special_event", _interpreter_2))
+/// }.all() {
+///    NEXT!(p6)
+/// }
+/// ```
+#[proc_macro]
+pub fn mchoice(input: TokenStream) -> TokenStream {
+    choices::mchoice(input)
+}
+
+/// Executes code for a set of selectable choices. Prefer to use [`dchoice!`] for brevity.
+///
+/// # Overview
+/// This macro displays a list of choices, and registers a corresponding handler
+/// for each selection. The handler is specified as a `match` expression, where
+/// each arm corresponds to a choice and contains the code to execute when
+/// that choice is selected. Unlike the other choice elements ([`choice!`], [`mchoice!`]),
+/// the conditional expression is evaluated only the first time its choice is selected.
+/// The intent is that the arms are used to set values for the user's custom [`GameContext`](ifengine::core::GameContext).
+///
+/// # Arguments
+/// - Optional key (surrounded in parentheses)
+/// - **Choices list**: A `Vec<(Id, Line)>` representing the selectable options. The Id can either be a `#[repr(u8)]` Unit Enum or a pure `u8`.
+/// - **Handler**: A `match` statement handling each choice.
+///
+/// # Example
+/// ```rust,ignore
 /// let choices = vec![
-///     (0, line!("A")),
-///     (1, line!("B")),
-///     (2, line!("C")),
+///     (0, l!("A")),
+///     (1, l!("B")),
+///     (2, l!("C")),
 /// ];
 ///
 /// if let Some(x) = dynamic_choice!(choices) {
@@ -343,92 +137,19 @@ pub fn mchoice(input: TokenStream) -> TokenStream {
 ///     }
 /// }
 /// ```
-///
-/// It is also possible to use unit enums:
-/// ```rust
-/// #[derive(Clone, Copy)]
-/// #[repr(u8)]
-/// enum DChoices { A, B, C }
-///
-/// let choices = vec![
-///     (DChoices::A, line!("A")),
-///     (DChoices::B, line!("B")),
-///     (DChoices::C, line!("C")),
-/// ];
-///
-/// if let Some(x) = dynamic_choice!(choices) {
-///     match x {
-///         DChoices::A => "A clicked",
-///         DChoices::B => "B clicked",
-///         DChoices::C => "C clicked",
-///     }
-/// }
-/// ```
-
 #[proc_macro]
 pub fn dynamic_choice(input: TokenStream) -> TokenStream {
-    let KeyExpr { maybe_key, expr } = syn::parse_macro_input!(input as KeyExpr);
-    let key_tokens = maybe_key.into_tokens();
-
-    let expanded = quote! {
-        {
-            // Push the DynamicChoice object
-            __ifengine_page_state.push(ifengine::view::Object::Choice(
-                #key_tokens,
-                #expr
-                .into_iter()
-                .map(|(t, l)| (t as u8, ifengine::view::Line::from(l)))
-                .collect()
-            ));
-
-            __ifengine_page_state.remove_mask_last(#key_tokens).map(|x|
-                unsafe { std::mem::transmute::<u8, _>(x) }
-            )
-        }
-    };
-
-    expanded.into()
+    choices::dynamic_choice(input)
 }
 
-struct DChoicesInput {
-    pub maybe_key: MaybeKey,
-    pub expr: Expr,
-    pub arms: Vec<Arm>,
-}
-
-impl Parse for DChoicesInput {
-    fn parse(input: ParseStream) -> Result<Self> {
-        let KeyExpr { maybe_key, expr } = input.parse()?;
-
-        if !input.is_empty() {
-            input.parse::<Token![,]>()?;
-        }
-
-        let mut arms = Vec::new();
-        while !input.is_empty() {
-            arms.push(input.parse::<Arm>()?);
-        }
-
-        Ok(DChoicesInput {
-            maybe_key,
-            expr,
-            arms,
-        })
-    }
-}
-
-/// A version of [`dynamic_choice`] with slightly abbreviated syntax.
-/// It can be a bit trickier to use this if your list is fully dynamic,
-/// but the flexibility of match statements should be sufficient for any purpose.
-/// For example, if you have pairs of (handler, choice), you can simply them and use
-/// `c => handlers[c]` as your arm.
+/// A version of [`dynamic_choice!`] with slightly abbreviated syntax.
 ///
 /// # Example
-/// ```rust
+/// ```rust,ignore
 /// let choices = vec![
-///     line!("A"),
-///     line!("B"),
-///     line!("C"),
+///     l!("A"),
+///     l!("B"),
+///     l!("C"),
 /// ];
 /// dchoice! { choices,
 ///     0 => "A clicked",
@@ -438,515 +159,207 @@ impl Parse for DChoicesInput {
 /// ```
 #[proc_macro]
 pub fn dchoice(input: TokenStream) -> TokenStream {
-    let DChoicesInput {
-        maybe_key,
-        expr,
-        arms,
-    } = parse_macro_input!(input as DChoicesInput);
-
-    let key_tokens = maybe_key.into_tokens();
-
-    let has_wildcard = arms.iter().any(|arm| matches!(arm.pat, syn::Pat::Wild(_)));
-    let catch_all = if has_wildcard {
-        quote! {}
-    } else {
-        quote! { _ => {} }
-    };
-    let match_block = if arms.is_empty() {
-        quote! {}
-    } else {
-        quote! {
-            if let Some(__ifengine_id) = __ifengine_page_state.remove_mask_last(#key_tokens) {
-                match __ifengine_id as usize {
-                    #(#arms)*
-                    #catch_all
-                }
-            }
-        }
-    };
-
-    let expanded = quote! {
-        {
-            __ifengine_page_state.push(ifengine::view::Object::Choice(
-                #key_tokens,
-                #expr
-                .iter()
-                .enumerate()
-                .map(|(i, l)| (i as u8, ifengine::view::Line::from(l.clone())))
-                .collect()
-            ));
-
-            if let Some(__ifengine_id) = __ifengine_page_state.remove_mask_last(#key_tokens) {
-                #match_block
-            }
-        }
-    };
-
-    expanded.into()
+    choices::dchoice(input)
 }
-/// Create a paragraph with interactive elements from a string.
+
+/// Create an interactive paragraph parsing wiki-style links with single-selection tracking.
 ///
-/// Interactive text sections are automatically added from text delimited by [[ and ]] (Also see: [`mparagraph`]).
-/// The return type is the value of whichever text token that was clicked.
+/// Interactive text sections are automatically added from text delimited by `[[target]]` or `[[target|label]]` (Also see: [`mparagraph!`]).
+/// Clicking any link records the selection under the macro's internal key and re-renders the page.
+///
+/// On render, this macro returns `Option<String>`: `Some(target)` with the clicked link's token value,
+/// or `None` if no link has been clicked yet.
 ///
 /// # Syntax
 /// ```text
-/// dparagraph!(maybe_key, expr1, expr2, ..., exprN)
-///
-/// # Additional
-/// Text is trimmed
-/// Multiple inputs are accepted, and produce multiple paragraphs
-/// The interactive elements must not change between renders.
-#[proc_macro]
-pub fn dparagraph(input: TokenStream) -> TokenStream {
-    let KeyExprs { maybe_key, exprs } = syn::parse_macro_input!(input as KeyExprs);
-
-    let key = maybe_key.into_tokens();
-
-    let expanded = quote! {{
-        let mut ret = None;
-
-        #(
-            let mut __ifengine_tmp_strings =
-            ifengine::utils::split_braced(&ifengine::utils::trim_lines(&#exprs));
-
-            if let Some(__ifengine_tmp_val) = __ifengine_page_state
-            .remove(#key)
-            .and_then(|k| {
-                ifengine::utils::find_hash_match(__ifengine_tmp_strings.iter().step_by(2), k).cloned()
-            }) {
-                ret = Some(__ifengine_tmp_val);
-            }
-
-            __ifengine_page_state.push(
-                ifengine::view::Object::Paragraph(
-                    ifengine::view::Line::from_interleaved_actions::<false>(
-                        (__ifengine_page_state.id(), #key),
-                        __ifengine_tmp_strings
-                    )
-                )
-            );
-        )*
-
-        ret
-    }};
-
-    expanded.into()
-}
-
-/// Create a paragraph with interactive elements from a string.
-///
-/// Interactive text sections are automatically added from text delimited by [[ and ]] (Also see: [`dparagraph`]).
-/// This macro tracks and returns which of the interactive elements had been clicked since page load as a `Vec<bool>`.
-///
-/// # Note
-/// The interactive elements must not change between renders.
-
-#[proc_macro]
-pub fn mparagraph(input: TokenStream) -> TokenStream {
-    let KeyExpr { maybe_key, expr } = syn::parse_macro_input!(input as KeyExpr);
-
-    let key = maybe_key.into_tokens();
-
-    let expanded = quote! {{
-        let strings =
-        ifengine::utils::split_braced(&ifengine::utils::trim_lines(&#expr));
-        let count = strings.len() / 2;
-
-        __ifengine_page_state.push(
-            ifengine::view::Object::Paragraph(
-                ifengine::view::Line::from_interleaved_actions::<true>(
-                    (__ifengine_page_state.id(), #key),
-                    strings
-                )
-            )
-        );
-
-        __ifengine_page_state.get_mask::<64>(#key)[..count].to_vec()
-    }};
-
-    expanded.into()
-}
-
-// ----------------- ELEMENTS -------------------
-
-/// Push a (Object)[ifengine::view::Object] to the current (View)[ifengine::View]
-#[proc_macro]
-pub fn push(input: TokenStream) -> TokenStream {
-    let expr = parse_macro_input!(input as Expr);
-
-    let expanded = quote! {
-        __ifengine_page_state.push(
-            #expr
-        );
-    };
-
-    expanded.into()
-}
-
-struct LineArgs {
-    exprs: Vec<Expr>,
-    trailer: Option<LitStr>,
-}
-
-impl syn::parse::Parse for LineArgs {
-    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
-        let mut exprs = Vec::new();
-        let mut trailer = None;
-
-        while !input.is_empty() {
-            if input.peek(Token![::]) {
-                let _coloncolon: Token![::] = input.parse()?;
-                let lit: LitStr = input.parse()?;
-                trailer = Some(lit);
-                break;
-            }
-
-            exprs.push(input.parse()?);
-
-            if input.peek(Token![,]) {
-                let _ = input.parse::<Token![,]>()?;
-            } else {
-                break;
-            }
-        }
-
-        Ok(LineArgs { exprs, trailer })
-    }
-}
-
-/// Pure text element, constructed from a sequence of spans.
-///
-/// # Additional
-/// A trailing [`ifengine::view::RenderData`] can be specified following `::`.
+/// dparagraph!((maybe_key), expr1, expr2, ..., exprN)
+/// ```
 ///
 /// # Example
-/// ```rust
+/// ```rust,ignore
+/// if let Some(target) = dparagraph!("Go to [[forest]] or [[inn|the cozy inn]].") {
+///     match target.as_str() {
+///         "forest" => NEXT!(p_forest),
+///         "inn" => NEXT!(p_inn),
+///         _ => {}
+///     }
+/// }
+/// ```
+#[proc_macro]
+pub fn dparagraph(input: TokenStream) -> TokenStream {
+    choices::dparagraph(input)
+}
+
+/// Create an interactive paragraph parsing wiki-style links with multi-selection tracking.
+///
+/// Interactive text sections are automatically added from text delimited by `[[target]]` (Also see: [`dparagraph!`]).
+/// Multiple links can be clicked across interactions; their clicked states are tracked concurrently via a bitmask in page state.
+///
+/// On render, this macro returns a `Vec<bool>` where each boolean reflects whether the corresponding
+/// bracketed link has been clicked since page load.
+///
+/// # Syntax
+/// ```text
+/// mparagraph!((maybe_key), expr)
+/// ```
+///
+/// # Example
+/// ```rust,ignore
+/// let clicked = mparagraph!("You see a [[lantern]], a [[rope]], and a [[dagger]].");
+/// if clicked.get(0) == Some(&true) {
+///     // lantern was clicked
+/// }
+/// ```
+#[proc_macro]
+pub fn mparagraph(input: TokenStream) -> TokenStream {
+    choices::mparagraph(input)
+}
+
+// =========================================================================
+// Elements
+// =========================================================================
+
+/// Push an [`Object`](ifengine::view::Object) to the current [`View`](ifengine::View).
+#[proc_macro]
+pub fn push(input: TokenStream) -> TokenStream {
+    elements::push(input)
+}
+
+/// Push an unspaced plain text line ([`Object::Text`](ifengine::view::Object::Text)) to the view without paragraph margins.
+///
+/// Constructed from one or more spans or lingual string expressions.
+///
+/// # Custom Styling Metadata
+/// A trailing [`RenderData`](ifengine::view::RenderData) (`&'static str`) can be specified following `::`.
+///
+/// # Example
+/// ```rust,ignore
 /// text!("Hello, world!");
 /// text!("Hello, ", "world!" :: "my_render_data");
 /// ```
 #[proc_macro]
 pub fn text(input: TokenStream) -> TokenStream {
-    let LineArgs { exprs, trailer } = syn::parse_macro_input!(input as LineArgs);
-
-    let string_expr = match trailer {
-        Some(s) => quote!(#s),
-        None => quote!(""),
-    };
-
-    let expanded = quote! {
-        __ifengine_page_state.push(
-            ifengine::view::Object::Text(
-                ifengine::view::Line::from_spans(
-                    vec![#(#exprs.into()),*]
-                ),
-                #string_expr
-            )
-        );
-    };
-
-    TokenStream::from(expanded)
+    elements::text(input)
 }
 
-/// A sequence of text elements. See [`text`].
+/// Push multiple unspaced plain text lines ([`Object::Text`](ifengine::view::Object::Text)) in sequence to the view.
 ///
-/// # Additional
-/// A trailing [`ifengine::view::RenderData`] can be specified following `::`.
-///
-/// Note that text and choice styling may differ depending on the renderer, particularly with respect to vertical item spacing.
-/// When you want to display choices without handling their effects seperately from actions attached to their spans, prefer [`dchoice`].
+/// Each argument is added as a separate line without paragraph vertical margins. See [`text!`].
 ///
 /// # Example
-/// ```rust
+/// ```rust,ignore
 /// texts!("Line 1", "Line 2");
 /// ```
 #[proc_macro]
 pub fn texts(input: TokenStream) -> TokenStream {
-    let LineArgs { exprs, trailer } = syn::parse_macro_input!(input as LineArgs);
-
-    let string_expr = match trailer {
-        Some(s) => quote!(#s),
-        None => quote!(""),
-    };
-
-    let expanded = quote! {
-        #(
-            __ifengine_page_state.push(
-                ifengine::view::Object::Text(
-                    ifengine::view::Line::from(#exprs),
-                    #string_expr
-                )
-            );
-        )*
-    };
-
-    TokenStream::from(expanded)
+    elements::texts(input)
 }
 
-/// Create a paragraph from a sequence of spans.
+/// Push a single paragraph block ([`Object::Paragraph`](ifengine::view::Object::Paragraph)) to the view with standard vertical paragraph margins.
+///
+/// Constructed from one or more spans or lingual string expressions.
 ///
 /// # Example
-/// ```rust
-/// paragraph!(span1, span2, span3);
+/// ```rust,ignore
+/// paragraph!("A dark hallway stretches before you.");
+/// paragraph!(s!("Gold: "), s!(player.gold));
 /// ```
 #[proc_macro]
 pub fn paragraph(input: TokenStream) -> TokenStream {
-    let exprs_parsed = parse_macro_input!(input with Punctuated<Expr, Token![,]>::parse_terminated);
-    let exprs: Vec<Expr> = exprs_parsed.into_iter().collect();
-
-    let expanded = quote! {
-        __ifengine_page_state.push(
-            ifengine::view::Object::Paragraph(
-                ifengine::view::Line::from_spans(vec![#(ifengine::view::Span::from_lingual(#exprs)),*])
-            )
-        );
-    };
-
-    TokenStream::from(expanded)
+    elements::paragraph(input)
 }
 
-/// Shorthand for creating multiple paragraphs from a sequence of [`crate::view::Line`]'s.
+/// Push multiple separate paragraph blocks ([`Object::Paragraph`](ifengine::view::Object::Paragraph)) to the view.
+///
+/// Each argument is pushed as its own paragraph block with standard vertical spacing between blocks.
 ///
 /// # Example
-/// ```rust
-/// paragraphs!(line1, line2, line3);
+/// ```rust,ignore
+/// paragraphs!(
+///     "First paragraph of the scene.",
+///     "Second paragraph following a vertical margin.",
+/// );
 /// ```
-///
-/// # Additional
-/// Any type implementing `Into<Line>` is accepted.
 #[proc_macro]
 pub fn paragraphs(input: TokenStream) -> TokenStream {
-    use quote::quote;
-    use syn::punctuated::Punctuated;
-    use syn::{Expr, Token, parse_macro_input};
-
-    let exprs_parsed = parse_macro_input!(input with Punctuated<Expr, Token![,]>::parse_terminated);
-    let exprs: Vec<Expr> = exprs_parsed.into_iter().collect();
-
-    let expanded = quote! {
-        #(
-            __ifengine_page_state.push(
-                ifengine::view::Object::Paragraph(
-                    ifengine::view::Line::from_lingual(#exprs)
-                )
-            );
-        )*
-    };
-
-    TokenStream::from(expanded)
+    elements::paragraphs(input)
 }
+
+/// Create a [`Span`](ifengine::view::Span) with an automatic element key.
+#[proc_macro]
+pub fn s(input: TokenStream) -> TokenStream {
+    elements::s(input)
+}
+
+/// Create a [`Line`](ifengine::view::Line) from one or more [`Span`](ifengine::view::Span)s with an automatic element key.
+#[proc_macro]
+pub fn l(input: TokenStream) -> TokenStream {
+    elements::l(input)
+}
+
+/// Create a clickable link [`Span`](ifengine::view::Span) with an automatic element key.
+///
+/// - `link!("Click me", NextPage)`
+/// - `link!("Click me")`
+#[proc_macro]
+pub fn link(input: TokenStream) -> TokenStream {
+    elements::link(input)
+}
+
+/// Create a tunnel or exit link [`Span`](ifengine::view::Span) with an automatic element key.
+///
+/// - `tun!("Next", TargetPage)`
+/// - `tun!("Exit")`
+#[proc_macro]
+pub fn tun(input: TokenStream) -> TokenStream {
+    elements::tun(input)
+}
+
+// =========================================================================
+// View Elements
+// =========================================================================
 
 /// Push an image from a string literal.
 ///
 /// # Example
-/// ```rust
+/// ```rust,ignore
 /// img!("assets/logo.png");
 /// img!("https://example.com/logo.png", (100, 50));
 /// ```
 #[proc_macro]
 pub fn img(input: TokenStream) -> TokenStream {
-    use quote::quote;
-    use syn::punctuated::Punctuated;
-    use syn::{Expr, Lit, Token, parse_macro_input};
-
-    let exprs_parsed = parse_macro_input!(input with Punctuated<Expr, Token![,]>::parse_terminated);
-    let exprs: Vec<&Expr> = exprs_parsed.iter().collect();
-
-    let (path_expr, size_expr) = match exprs.len() {
-        1 => (exprs[0], None),
-        2 => (exprs[0], Some(exprs[1])),
-        _ => {
-            return syn::Error::new_spanned(exprs_parsed, "image! macro expects 1 or 2 arguments")
-                .to_compile_error()
-                .into();
-        }
-    };
-
-    let image_tokens = if let Expr::Lit(lit) = path_expr
-        && let Lit::Str(s) = &lit.lit
-    {
-        let path = s.value();
-        if path.starts_with("http://") || path.starts_with("https://") {
-            if let Some(size) = size_expr {
-                quote! { ifengine::view::Image::new_url(#path).with_size(#size) }
-            } else {
-                quote! { ifengine::view::Image::new_url(#path) }
-            }
-        } else {
-            if let Some(size) = size_expr {
-                quote! { ifengine::view::Image::new_local(#path, include_bytes!(#path)).with_size(#size) }
-            } else {
-                quote! { ifengine::view::Image::new_local(#path, include_bytes!(#path)) }
-            }
-        }
-    } else {
-        return syn::Error::new_spanned(path_expr, "expected string literal")
-            .to_compile_error()
-            .into();
-    };
-
-    let expanded = quote! {
-        __ifengine_page_state.push(ifengine::view::Object::Image(#image_tokens));
-    };
-
-    TokenStream::from(expanded)
+    elements::img(input)
 }
 
 /// Markdown heading.
 ///
 /// # Example
-/// ```rust
-/// h!("Title", 2)
+/// ```rust,ignore
+/// h!("Title", 2);
 /// ```
 #[proc_macro]
 pub fn h(input: TokenStream) -> TokenStream {
-    let exprs_parsed = parse_macro_input!(input with Punctuated<Expr, Token![,]>::parse_terminated);
-    let exprs: Vec<&Expr> = exprs_parsed.iter().collect();
-
-    if exprs.len() != 2 {
-        return syn::Error::new_spanned(
-            exprs_parsed,
-            "macro expects exactly 2 arguments: text and level",
-        )
-        .to_compile_error()
-        .into();
-    }
-
-    let text = exprs[0];
-    let level = exprs[1];
-
-    let expanded = quote! {
-        __ifengine_page_state.push(
-            ifengine::view::Object::Heading(ifengine::view::Span::from_lingual(#text), #level)
-        );
-    };
-
-    TokenStream::from(expanded)
+    elements::h(input)
 }
 
 /// Horizontal rule (`<hr/>`).
 ///
 /// # Example
-/// ```rust
-/// hr!()
+/// ```rust,ignore
+/// hr!();
 /// ```
 #[proc_macro]
-pub fn hr(_input: TokenStream) -> TokenStream {
-    let expanded = quote! {
-        __ifengine_page_state.push(ifengine::view::Object::Break);
-    };
-
-    TokenStream::from(expanded)
+pub fn hr(input: TokenStream) -> TokenStream {
+    elements::hr(input)
 }
 
-// --------------- ALTS -------------------------
-
-#[derive(Clone)]
-enum AltVariant {
-    Stop,
-    Shuffle,
-    Cycle,
-}
-
-impl Default for AltVariant {
-    fn default() -> Self {
-        AltVariant::Stop
-    }
-}
-
-impl Parse for AltVariant {
-    fn parse(input: ParseStream<'_>) -> syn::Result<Self> {
-        let ident: syn::Ident = input.parse()?;
-        match ident.to_string().as_str() {
-            "Stop" => Ok(AltVariant::Stop),
-            "Shuffle" => Ok(AltVariant::Shuffle),
-            "Cycle" => Ok(AltVariant::Cycle),
-            _ => Err(syn::Error::new(
-                ident.span(),
-                "expected AltVariant: Stop | Shuffle | Cycle",
-            )),
-        }
-    }
-}
-
-struct AltsInput {
-    maybe_key: MaybeKey,
-    list: Vec<Expr>,
-    variant: Option<AltVariant>,
-}
-
-impl Parse for AltsInput {
-    fn parse(input: ParseStream<'_>) -> syn::Result<Self> {
-        let content;
-        syn::bracketed!(content in input);
-
-        let maybe_key = input.parse()?;
-
-        let mut list = Vec::new();
-        while !content.is_empty() {
-            list.push(content.parse()?);
-            if content.peek(Token![,]) {
-                let _: Token![,] = content.parse()?;
-            }
-        }
-
-        // optional variant
-        let variant = if !input.is_empty() {
-            input.parse::<Token![,]>()?;
-            Some(input.parse()?)
-        } else {
-            None
-        };
-
-        Ok(Self {
-            maybe_key,
-            list,
-            variant,
-        })
-    }
-}
+// =========================================================================
+// State & Navigation
+// =========================================================================
 
 /// Cycle between multiple alternative spans on click.
 ///
-/// ## Behavior
-///
-/// - The first span is shown when no prior state exists.
-/// - The active index is stored in page state under the provided key.
-///
-/// ## Variants
-///
-/// ### `stop` (default)
-/// Advances until the last span, then stops:
-///
-/// ```text
-/// A → B → C (stops)
-/// ```
-///
-/// ### `cycle`
-/// Advances to the next span on activation, wrapping around:
-///
-/// ```text
-/// A → B → C → A → …
-/// ```
-///
-/// ### `shuffle`
-/// Chooses a random span each time, avoiding immediate repetition.
-/// The internal state uses the low bit as a regeneration flag.
-///
-/// ## Syntax
-///
-/// ```ignore
-/// alts!(key?, variant?, [expr, expr, ...])
-/// ```
-///
-/// - `key` (optional): Explicit state key
-/// - `variant` (optional): `cycle`, `stop`, or `shuffle`
-/// - `expr`: Any value convertible into a `Span`
-///
-/// ## Examples
-///
-/// Basic cycling:
-///
+/// # Examples
 /// ```ignore
 /// alts!([
 ///     "Look around",
@@ -954,603 +367,176 @@ impl Parse for AltsInput {
 ///     "Wait",
 /// ])
 /// ```
-///
-/// With an explicit key and variant:
-///
-/// ```ignore
-/// alts!(
-///     (5),
-///     shuffle,
-///     [
-///         "Attack",
-///         "Defend",
-///         "Flee",
-///     ]
-/// )
-/// ```
-///
-/// ## Notes
-///
-/// - State is updated via [`ifengine::Action::Inc`] or [`ifengine::Action::Set`].
-/// - Random selection uses the page state's RNG.
-/// - The macro expands to an expression producing a `Span`.
-/// - Shuffle and Cycle are hidden during simulation.
 #[proc_macro]
 pub fn alts(input: TokenStream) -> TokenStream {
-    let AltsInput {
-        maybe_key,
-        list,
-        variant,
-    } = parse_macro_input!(input as AltsInput);
-
-    let key = maybe_key.into_tokens();
-
-    let variant = variant.unwrap_or_default();
-    let list_init = quote! { &[ #(#list),* ] };
-
-    let expanded = match variant {
-        AltVariant::Stop => {
-            quote! {{
-                let alts = #list_init;
-
-                if let Some(idx) = __ifengine_page_state.get(#key) {
-                    ifengine::view::Span::from(
-                        alts[(idx as usize + 1).min(alts.len() - 1)]
-                    )
-                    .with_action(ifengine::Action::Inc((__ifengine_page_state.id(), #key)))
-                } else {
-                    ifengine::view::Span::from(
-                        alts[0]
-                    )
-                    .with_action(ifengine::Action::Inc((__ifengine_page_state.id(), #key)))
-                }
-            }}
-        }
-
-        AltVariant::Shuffle => {
-            quote! {{
-                let alts = #list_init;
-
-                // Determine tmp index
-                let idx = if let Some(prev) = __ifengine_page_state.get(#key) {
-                    if prev & 1 == 0 {
-                        (prev as usize) >> 1
-                    } else {
-                        // regenerate, excluding previous index
-                        let new_idx = __ifengine_page_state.rand(alts.len(), &[(prev as usize) >> 1]);
-                        __ifengine_page_state.insert(#key, (new_idx as u64) << 1);
-                        new_idx
-                    }
-                } else {
-                    let new_idx = __ifengine_page_state.rand(alts.len(), &[]);
-                    __ifengine_page_state.insert(#key, (new_idx as u64) << 1);
-                    new_idx
-                } ;
-
-                // Use it and store back with last bit set
-                ifengine::view::Span::from(alts[idx])
-                .with_action(ifengine::Action::Set(
-                    (__ifengine_page_state.id(), #key),
-                    ((idx as u64) << 1) + 1
-                ))
-                .no_sim()
-            }}
-        }
-
-        AltVariant::Cycle => {
-            quote! {{
-                let alts = #list_init;
-
-                if let Some(idx) = __ifengine_page_state.get(#key) {
-                    ifengine::view::Span::from(
-                        alts[(idx as usize) % alts.len()]
-                    )
-                    .with_action(ifengine::Action::Inc((__ifengine_page_state.id(), #key)))
-                    .no_sim()
-                } else {
-                    ifengine::view::Span::from(
-                        alts[0]
-                    )
-                    .with_action(ifengine::Action::Inc((__ifengine_page_state.id(), #key)))
-                    .no_sim()
-                }
-            }}
-        }
-    };
-
-    expanded.into()
-}
-//
-
-// ------------- SPANS/CLOSURES ----------------------
-
-struct CountInput {
-    maybe_key: MaybeKey,
-    closure: ExprClosure,
-}
-
-impl Parse for CountInput {
-    fn parse(input: ParseStream) -> Result<Self> {
-        let maybe_key = input.parse()?;
-        let closure = input.parse()?;
-
-        Ok(CountInput { maybe_key, closure })
-    }
+    state::alts(input)
 }
 
 /// Use a closure to compute a span based on how many times the span has been clicked.
 ///
 /// # Syntax
-/// ```rust
-/// let span_count = read_key!(6); // Can be called before
+/// ```rust,ignore
+/// let span_count = read_key!(6);
 /// let span = count!((6), |val| "span");
 /// ```
-///
-/// # Arguments
-/// - [`MaybeKey`]
-/// - `closure`: A closure taking the current value and returning a `Span`.
 #[proc_macro]
 pub fn count(input: TokenStream) -> TokenStream {
-    let CountInput { maybe_key, closure } = syn::parse_macro_input!(input as CountInput);
-    let key = maybe_key.into_tokens();
-
-    let expanded = quote! {{
-        ifengine::view::Span::from(
-            (#closure)(__ifengine_page_state.get(#key).unwrap_or_default())
-        )
-        .with_action(ifengine::Action::Inc((__ifengine_page_state.id(), #key)))
-        .no_sim()
-    }};
-
-    expanded.into()
-}
-
-struct ClickInput {
-    maybe_key: MaybeKey,
-    expr: Expr,
-    block: Expr,
-}
-
-impl Parse for ClickInput {
-    fn parse(input: ParseStream) -> Result<Self> {
-        let maybe_key = input.parse()?;
-
-        let expr: Expr = input.parse()?;
-
-        let block = if input.peek(Token![,]) {
-            input.parse::<Token![,]>()?;
-            input.parse::<Expr>()?
-        } else {
-            syn::parse_quote!({})
-        };
-
-        Ok(ClickInput {
-            maybe_key,
-            expr,
-            block,
-        })
-    }
+    state::count(input)
 }
 
 /// Run code on click.
 ///
 /// # Syntax
-/// ```rust
-/// p!(click!(span, expr ))
+/// ```rust,ignore
+/// p!(click!(span, block))
 /// ```
-///
-/// # Arguments
-/// - [`MaybeKey`]
-/// - `span`: The element to display. The link style is automatically applied.
-/// - `block`: Executed exactly once whenever the key is clicked.
-///
-/// # Note
-/// The handler is evaluated before the span is.
 #[proc_macro]
 pub fn click(input: TokenStream) -> TokenStream {
-    let ClickInput {
-        maybe_key,
-        expr,
-        block,
-    } = syn::parse_macro_input!(input as ClickInput);
-    let key = maybe_key.into_tokens();
-
-    let expanded = quote! {{
-        if __ifengine_page_state.was_zero(#key) {
-            let _ = #block;
-        };
-
-        let span = ifengine::view::Span::from(
-            #expr
-        )
-        .with_action(ifengine::Action::Inc((__ifengine_page_state.id(), #key)))
-        .as_link();
-
-        // sim the handler once
-        if __ifengine_page_state.get(#key).is_some() {
-            span.no_sim()
-        } else {
-            span
-        }
-    }};
-
-    expanded.into()
+    state::click(input)
 }
 
 /// Run a function only once when the page is first loaded.
 ///
 /// # Syntax
-/// ```rust
-/// fresh!(|| { /* code */ })
+/// ```rust,ignore
+/// fresh!(|| { /* code */ });
 /// ```
 #[proc_macro]
 pub fn fresh(input: TokenStream) -> TokenStream {
-    let closure = parse_macro_input!(input as ExprClosure);
-
-    let expanded = quote! {{
-        if __ifengine_page_state.fresh() {
-            (#closure)();
-        }
-    }};
-
-    expanded.into()
+    state::fresh(input)
 }
 
-// -------------- SPANS -------------------------
-
-/// Create a link [`Span`] that navigates backward.
+/// Create a link [`Span`](ifengine::view::Span) that navigates backward.
 ///
 /// - `$e`: Display text.
 /// - `$n`: Optional number of steps to go back (defaults to 1).
-///
-/// # Additional
-/// This option will be hidden during simulation if no number is specified
 #[proc_macro]
 pub fn back(input: TokenStream) -> TokenStream {
-    let ExprAndOptional { expr, n } = parse_macro_input!(input as ExprAndOptional);
-
-    let expanded = if let Some(n_expr) = n {
-        quote! {
-            ifengine::view::Span::from(#expr)
-            .as_link()
-            .with_action(ifengine::Action::Back(#n_expr))
-        }
-    } else {
-        quote! {
-            ifengine::view::Span::from(#expr)
-            .as_link()
-            .with_action(ifengine::Action::Back(1))
-            .no_sim()
-        }
-    };
-
-    TokenStream::from(expanded)
+    state::back(input)
 }
 
-/// Immediately yield a [`Response::View`] with the current [`View`].
+/// Immediately yield a [`Response::View`](ifengine::core::Response::View) with the current [`View`](ifengine::View).
 ///
 /// This returns `!`, exiting the current function.
 #[proc_macro]
 #[allow(non_snake_case)]
-pub fn r#YIELD(_input: TokenStream) -> TokenStream {
-    let expanded = quote! {
-        return __ifengine_page_state.into_response()
-    };
-    expanded.into()
+pub fn r#YIELD(input: TokenStream) -> TokenStream {
+    state::r#YIELD(input)
 }
 
-// ------------ KEY OPERATIONS -------------------
-/// Read the value of a key of the internal [`PageState`]
-///
-/// Elements push to the view in the order they are called.
-/// This can be used to query their state out of order.
-///
-/// Beware that the implementation details of the internal page state that these keys index is internal and should not be relied on!
+/// Read the value of a key in the internal [`PageState`](ifengine::core::PageState).
 ///
 /// # Example
-/// ```rust
+/// ```rust,ignore
 /// let value = read_key!(my_key);
 /// ```
 #[proc_macro]
 pub fn read_key(input: TokenStream) -> TokenStream {
-    let expr = syn::parse_macro_input!(input as syn::Expr);
-
-    let expanded = quote! {
-        __ifengine_page_state.get(#expr)
-    };
-
-    expanded.into()
+    state::read_key(input)
 }
 
-/// Read a key as a bitmask. See [`read_key`].
+/// Read a key as a bitmask. See [`read_key!`].
 ///
 /// # Example
-/// ```rust
+/// ```rust,ignore
 /// let mask = read_key_mask!(my_key); // [bool; 64]
 /// let mask = read_key_mask!(my_key, 5); // [bool; 5]
 /// ```
 #[proc_macro]
 pub fn read_key_mask(input: TokenStream) -> TokenStream {
-    let ExprAndOptional { expr: key, n } = syn::parse_macro_input!(input as ExprAndOptional);
-
-    let n = n.unwrap_or_else(|| syn::parse_quote!(64));
-
-    quote! {
-        __ifengine_page_state.get_mask::<#n>(#key)
-    }
-    .into()
+    state::read_key_mask(input)
 }
 
-/// Set a key to a value. See [`read_key`].
+/// Set a key to a value. See [`read_key!`].
 ///
 /// # Example
-/// ```rust
+/// ```rust,ignore
 /// set_key!(my_key, 42);
 /// ```
 #[proc_macro]
 pub fn set_key(input: TokenStream) -> TokenStream {
-    let expr = syn::parse_macro_input!(input as syn::Expr);
-
-    let expanded = quote! {
-        __ifengine_page_state.insert(#expr.0, #expr.1)
-    };
-
-    expanded.into()
+    state::set_key(input)
 }
 
-/// Set individual bits of a key to true. See [`read_key_mask`].
+/// Set individual bits of a key to true. See [`read_key_mask!`].
 ///
 /// # Example
-/// ```rust
+/// ```rust,ignore
 /// set_key_mask!(my_key, 0, 2, 4);
 /// ```
 #[proc_macro]
 pub fn set_key_mask(input: TokenStream) -> TokenStream {
-    use syn::{Expr, Token, parse::Parser, punctuated::Punctuated};
-
-    let parts = match Punctuated::<Expr, Token![,]>::parse_terminated.parse(input) {
-        Ok(parts) => parts,
-        Err(e) => return e.to_compile_error().into(),
-    };
-
-    let mut iter = parts.iter();
-    let key = if let Some(key) = iter.next() {
-        key
-    } else {
-        return syn::Error::new_spanned(parts, "expected key")
-            .to_compile_error()
-            .into();
-    };
-    let bits: Vec<&Expr> = iter.collect();
-
-    let mut mask = 0u64;
-    for expr in &bits {
-        if let Expr::Lit(syn::ExprLit {
-            lit: syn::Lit::Int(i),
-            ..
-        }) = expr
-        {
-            match i.base10_parse::<usize>() {
-                Ok(bit) => mask |= 1u64 << bit,
-                Err(_) => {
-                    return syn::Error::new_spanned(i, "failed to parse bit position")
-                        .to_compile_error()
-                        .into();
-                }
-            }
-        } else {
-            return syn::Error::new_spanned(expr, "bit positions must be integer literals")
-                .to_compile_error()
-                .into();
-        }
-    }
-
-    let expanded = quote! {
-        {
-            let old = __ifengine_page_state.get(#key).unwrap_or(0u64);
-            __ifengine_page_state.insert(#key, old | #mask);
-        }
-    };
-
-    expanded.into()
+    state::set_key_mask(input)
 }
 
-/// Clear individual bits of a key. See [`read_key_mask`].
+/// Clear individual bits of a key. See [`read_key_mask!`].
 ///
 /// # Example
-/// ```rust
+/// ```rust,ignore
 /// unset_key_mask!(my_key, 1, 3);
 /// ```
 #[proc_macro]
 pub fn unset_key_mask(input: TokenStream) -> TokenStream {
-    use syn::{Expr, Token, parse::Parser, punctuated::Punctuated};
-
-    let parts = match Punctuated::<Expr, Token![,]>::parse_terminated.parse(input) {
-        Ok(parts) => parts,
-        Err(e) => return e.to_compile_error().into(),
-    };
-
-    let mut iter = parts.iter();
-    let key = if let Some(key) = iter.next() {
-        key
-    } else {
-        return syn::Error::new_spanned(parts, "expected key")
-            .to_compile_error()
-            .into();
-    };
-    let bits: Vec<&Expr> = iter.collect();
-
-    let mut mask = 0u64;
-    for expr in &bits {
-        if let Expr::Lit(syn::ExprLit {
-            lit: syn::Lit::Int(i),
-            ..
-        }) = expr
-        {
-            match i.base10_parse::<usize>() {
-                Ok(bit) => mask |= 1u64 << bit,
-                Err(_) => {
-                    return syn::Error::new_spanned(i, "failed to parse bit position")
-                        .to_compile_error()
-                        .into();
-                }
-            }
-        } else {
-            return syn::Error::new_spanned(expr, "bit positions must be integer literals")
-                .to_compile_error()
-                .into();
-        }
-    }
-
-    let expanded = quote! {
-        {
-            let old = __ifengine_page_state.get(#key).unwrap_or(0u64);
-            __ifengine_page_state.insert(#key, old & !#mask);
-        }
-    };
-
-    expanded.into()
+    state::unset_key_mask(input)
 }
 
-/// Increment the value of a key. See [`read_key`].
+/// Increment the value of a key. See [`read_key!`].
 ///
 /// # Example
-/// ```rust
+/// ```rust,ignore
 /// inc_key!(my_key);
 /// ```
 #[proc_macro]
 pub fn inc_key(input: TokenStream) -> TokenStream {
-    let expr = syn::parse_macro_input!(input as syn::Expr);
-
-    let expanded = quote! {
-        {
-            let k = #expr;
-            let v = __ifengine_page_state.get(k).unwrap_or(0);
-            __ifengine_page_state.insert(k, v.wrapping_add(1));
-        }
-    };
-
-    expanded.into()
+    state::inc_key(input)
 }
 
-/// Reset (remove) a key from state. See [`read_key`].
+/// Reset (remove) a key from state. See [`read_key!`].
 ///
 /// # Example
-/// ```rust
+/// ```rust,ignore
 /// reset_key!(my_key);
 /// ```
 #[proc_macro]
 pub fn reset_key(input: TokenStream) -> TokenStream {
-    let expr = syn::parse_macro_input!(input as syn::Expr);
-
-    let expanded = quote! {
-        __ifengine_page_state.remove(#expr)
-    };
-
-    expanded.into()
+    state::reset_key(input)
 }
 
-// ------------ TAGS ------------------
-
-// note: this doesn't work
-/// [Tags](crate::core::GameTags) the current page.
+/// Tags the current page (see [`GameTags`](ifengine::core::GameTags)).
 ///
 /// Pass `Sticky` to persist the tag between pages.
 ///
 /// # Examples
-///
-/// ```rust
+/// ```rust,ignore
 /// tag!(my_value);          // non-sticky tag
 /// tag!(my_value, Sticky);  // sticky tag
 /// tag!(my_value, Once);    // apply only once
 /// ```
 #[proc_macro]
 pub fn tag(input: TokenStream) -> TokenStream {
-    use quote::quote;
-    use syn::parse::{Parse, ParseStream, Result};
-    use syn::{Expr, Ident, Token, parse_macro_input};
-
-    struct TagInput {
-        expr: Expr,
-        mode: Option<Ident>,
-    }
-
-    impl Parse for TagInput {
-        fn parse(input: ParseStream) -> Result<Self> {
-            let expr: Expr = input.parse()?;
-            let mode: Option<Ident> = if input.peek(Token![,]) {
-                input.parse::<Token![,]>()?;
-                Some(input.parse()?)
-            } else if !input.is_empty() {
-                Some(input.parse()?)
-            } else {
-                None
-            };
-            Ok(TagInput { expr, mode })
-        }
-    }
-
-    let TagInput { expr, mode } = parse_macro_input!(input as TagInput);
-
-    let sticky = match mode {
-        Some(id) => match id.to_string().as_str() {
-            "Sticky" => true,
-            "Once" => false,
-            _ => {
-                return syn::Error::new_spanned(&id, "Expected `Sticky` or `Once`")
-                    .to_compile_error()
-                    .into();
-            }
-        },
-        None => false,
-    };
-
-    let expanded = quote! {
-        __ifengine_page_state.tag(#expr, #sticky)
-    };
-
-    expanded.into()
+    state::tag(input)
 }
 
-/// Removes a [tag](`crate::core::GameTags`)
+/// Removes a tag from [`GameTags`](ifengine::core::GameTags).
 #[proc_macro]
 pub fn untag(input: TokenStream) -> TokenStream {
-    let expr = syn::parse_macro_input!(input as syn::Expr);
-
-    let expanded = quote! {
-        __ifengine_page_state.untag(#expr)
-    };
-
-    expanded.into()
+    state::untag(input)
 }
 
-/// Returns whether the current function is running in a [`crate::run::Simulation`].
+/// Returns whether the current function is running in a [`Simulation`](ifengine::run::Simulation).
 #[proc_macro]
-pub fn in_sim(_: TokenStream) -> TokenStream {
-    let expanded = quote! {
-        __ifengine_page_state.simulating
-    };
-
-    expanded.into()
+pub fn in_sim(input: TokenStream) -> TokenStream {
+    state::in_sim(input)
 }
 
-// ------------ UTILS ------------------
-
-/// Debug display the current [`PageState`]
+/// Debug display the current [`PageState`](ifengine::core::PageState).
 #[proc_macro]
-pub fn page_dbg(_input: TokenStream) -> TokenStream {
-    let expanded = quote! {
-        // #[cfg(debug_assertions)]
-        dbg!(&__ifengine_page_state)
-    };
-    expanded.into()
+pub fn page_dbg(input: TokenStream) -> TokenStream {
+    state::page_dbg(input)
 }
 
-/// Debug display the current view
+/// Debug display the current view.
 #[proc_macro]
-pub fn view_dbg(_input: TokenStream) -> TokenStream {
-    let expanded = quote! {
-        dbg!(&__ifengine_page_state.view)
-    };
-    expanded.into()
+pub fn view_dbg(input: TokenStream) -> TokenStream {
+    state::view_dbg(input)
 }

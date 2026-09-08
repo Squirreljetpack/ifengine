@@ -5,10 +5,11 @@ use std::{
 
 use crate::core::PageId;
 
-/// Used by ifengine to track component states
-/// It's methods should not be called directly in code
-/// During rendering, the ui should register hooks on Spans with actions,
-/// and call [`crate::core::GameInner::handle_action`] on click
+/// Internal key-value state store for all pages in the game.
+///
+/// Manages persistent component state across re-renders. Frontend renderers
+/// register click handlers on interactive elements and apply user input via
+/// [`Game::interact`](crate::core::Game::interact).
 #[derive(Debug, Default, Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct GameState {
@@ -18,7 +19,7 @@ pub struct GameState {
 impl GameState {
     /// Increment the value at the given key by 1.
     /// Initializes the chapter or entry to 0 if it does not exist.
-    /// The click action uses [`crate::PageState::was_zero`] to run its closure exactly once.
+    /// The click action uses [`was_zero`](crate::core::PageState::was_zero) to run its closure exactly once.
     pub fn inc(&mut self, key: &InternalKey) {
         let (chapter_id, entry_key) = key;
         let chapter = self
@@ -87,7 +88,7 @@ impl GameState {
 
 // --------------------------------------------------------
 
-/// Nothing more than a Hashmap
+/// Persistent key-value store for an individual page, mapping each [`PageKey`] to a `u64` state value.
 #[derive(Debug, Default, Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct PageMap {
@@ -95,7 +96,7 @@ pub struct PageMap {
 }
 
 pub type InternalKey = (PageId, PageKey);
-/// The key used by [`crate::core::PageState`] to track state
+/// The key used by [`PageState`](crate::core::PageState) to track state
 pub type PageKey = u64;
 
 // ---------------- BOILERPLATE ----------------------------

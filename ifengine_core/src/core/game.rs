@@ -7,7 +7,7 @@ use crate::{Action, GameError};
 
 /// Used to manage custom state
 pub type StringMap = HashMap<String, String>;
-/// Stores tags (See [`crate::core::PageState`])
+/// Stores tags (See [`PageState`](crate::core::PageState))
 pub type GameTags = HashSet<PageId>; // just want the Arc<str>
 
 pub trait GameContext: Default + Clone + std::fmt::Debug + 'static {}
@@ -25,30 +25,44 @@ pub struct GameInner {
     pub(crate) iterations: usize, // todo
 }
 
-/// Wraps [`GameInner`] with customizable a context used to represent the game-specific state.
+/// Wraps [`GameInner`] with a customizable context used to represent game-specific state.
 ///
 /// The context is exposed to your [pages](crate::core::Page), allowing you to interact with your game state within them.
 ///
+/// # Rendering and Processing Views
+/// To render the current page, call [`Game::view`] to evaluate the active page and obtain a [`View`].
+/// You can then iterate over its [`Object`](crate::view::Object) elements (either by iterating over `&view`
+/// or accessing `view.inner` directly) to feed them into your UI framework.
+///
 /// # Example
 /// ```rust,ignore
-/// use ifengine::{GameError, View};
+/// use ifengine::{Game, view::{Object, View}};
 /// use story::chap1;
 ///
-/// let game = ifengine::Game!(chap1::p1);
+/// let mut game = ifengine::Game!(chap1::p1);
 ///
-/// let view = match game.view() {
-///    Ok(view) => view,
-///    Err(e) => {
-///        panic!("Unhandled err: {e}");
-///    }
-/// };
+/// // Obtain the current page view:
+/// let view: View = game.view().expect("failed to render view");
+/// println!("Active page: {}", view.pageid.0);
 ///
-/// ui.render(view, &mut game);
-///
+/// // Iterate over the view elements directly:
+/// for object in &view {
+///     match object {
+///         Object::Paragraph(line) => {
+///             println!("{}", line.content());
+///         }
+///         Object::Choice(key, choices) => {
+///             for (index, line) in choices {
+///                 println!("Choice [{index}]: {}", line.content());
+///             }
+///         }
+///         Object::Heading(span, level) => {
+///             println!("<h{level}>{}</h{level}>", span.content);
+///         }
+///         _ => {}
+///     }
+/// }
 /// ```
-///
-/// # Additional
-/// When processing for rendering, you can use the inner field directly.
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Game<C = StringMap> {
@@ -194,7 +208,7 @@ impl GameInner {
     }
 }
 
-/// Instantiate a [`Game`] from a function decorated with [`crate::ifview`].
+/// Instantiate a [`Game`] from a function decorated with `#[ifview]`.
 ///
 /// # Example
 /// ```rust,ignore

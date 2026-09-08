@@ -3,7 +3,7 @@ use std::borrow::Cow;
 use crate::core::Action;
 
 /// Image type.
-/// See [`crate::view::Object`].
+/// See [`Object`](crate::view::Object).
 #[derive(Debug, Clone)]
 pub struct Image {
     pub size: [usize; 2],

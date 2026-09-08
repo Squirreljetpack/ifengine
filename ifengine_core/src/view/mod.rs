@@ -6,13 +6,9 @@ mod line;
 pub use image::*;
 pub use line::*;
 
-#[allow(unused)]
-use crate::core::{Page, PageId, game_state::PageKey};
+use crate::core::{PageId, game_state::PageKey};
 
-/// Some [`Object`] variants may want additional data to specify custom styles for the frontend.
-/// That can be specified here.
-///
-/// Most variants don't include this in order to encourage a more unified ui experience.
+/// Optional styling or layout metadata attached to an [`Object`] for consumption by custom frontends.
 pub type RenderData = &'static str;
 
 /// An object within a [`View`].
@@ -26,18 +22,17 @@ pub enum Object {
     Text(Line, RenderData),
     /// Text with a single-spaced y-margin.
     Paragraph(Line),
-    /// A list of selectable texts which stores the selected index on click.
+    /// A list of selectable choices which stores the selected index on click.
     ///
-    /// Like the paragraph variant, this includes a single-spaced y-margin
+    /// Like the paragraph variant, this includes a single-spaced y-margin.
     Choice(PageKey, Vec<(u8, Line)>),
-    /// See [`Image`]
+    /// An embedded image object.
     Image(Image),
-    /// Markdown heading
+    /// Markdown heading with text content and level (1-6).
     Heading(Span, u8),
-    /// Horizontal line
-    /// `<hr/>`
+    /// Horizontal divider line (`<hr/>`).
     Break,
-    /// empty lines.
+    /// Vertical whitespace consisting of `n` empty lines.
     Empty(u8),
     /// Represents different types of notes.
     ///
@@ -45,19 +40,36 @@ pub enum Object {
     ///   - `Line`: The content to display.
     ///   - `(u8, u8)`: Indices into a `Span` from `View[Line[Span]]`, e.g., for annotations.
     Note(Line, (u8, u8)),
-    /// Quote style.
+    /// Quoted block style.
     Quote(Line, RenderData),
     /// Custom marker.
-    /// For example, can be used signal to the frontend to play music when this object enters the screen.
+    /// For example, can be used to signal the frontend to play music when this object enters the screen.
     Custom(RenderData),
 }
 
-/// The view returned by a [`Page`].
+/// The resolved visual representation of a page returned by [`Game::view`](crate::Game::view).
 ///
-/// The job of the ui library is to process its objects (i.e. by rendering).
+/// A `View` contains an ordered list of [`Object`]s to be rendered by the frontend,
+/// along with the active page's [`PageId`] and any associated tags.
 ///
-/// # Additional
-/// Produced [`crate::Game::view`].
+/// `View` implements [`Deref<Target = [Object]>`](std::ops::Deref) and [`IntoIterator`],
+/// allowing direct iteration over its elements.
+///
+/// # Example
+/// ```rust,ignore
+/// let view = game.view()?;
+/// println!("Page: {}", view.pageid.0);
+///
+/// for object in &view {
+///     match object {
+///         Object::Paragraph(line) => render_line(line),
+///         Object::Choice(key, choices) => render_choices(key, choices),
+///         Object::Heading(span, level) => render_heading(span, *level),
+///         Object::Break => render_divider(),
+///         _ => {}
+///     }
+/// }
+/// ```
 #[derive(Default, Debug, Clone)]
 pub struct View {
     pub inner: Vec<Object>,

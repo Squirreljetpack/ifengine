@@ -1,5 +1,6 @@
 [workspace]
 members = [
+    "ifengine_core",
     "ifengine",
     "egui",
     "ifengine_macros",

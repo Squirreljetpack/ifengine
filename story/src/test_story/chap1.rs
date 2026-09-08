@@ -1,8 +1,7 @@
-use ifengine::elements::img;
 #[allow(unused_imports)]
 use ifengine::{
-    elements::{alts, choice, count, dchoice, dynamic_choice, fresh, mchoice, p, page_dbg, text},
-    ifview, link,
+    elements::{alts, choice, count, dchoice, dynamic_choice, fresh, img, link, mchoice, p, page_dbg, text},
+    ifview,
 };
 
 #[derive(Clone)]

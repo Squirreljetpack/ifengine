@@ -1,23 +1,38 @@
-use std::{
-    collections::{HashMap, HashSet},
-    thread::current,
-};
+use std::collections::{HashMap, HashSet};
 
 use iddqd::{IdHashMap, id_hash_map::Entry};
 
 use crate::{
     Action, Game, GameError, SimEnd, View,
-    core::{GameContext, GameTags, PageHandle, PageId, PageStack, Response, game_state::GameState},
+    core::{GameContext, GameTags, PageId, PageStack, Response},
     utils::_dbg,
-    view::Object,
 };
 
 use super::Interactable;
 
 impl<C: GameContext> Game<C> {
-    /// The user must ensure that all cycles must be modelled by tunnels. We guarantee to never visit the same tunnel from the same location twice, but the presence of other loops will result in failure to halt. Although certain types of elements generated from proc_macros
-    /// Panics if current game state is not a view
-    /// F:
+    /// Performs a depth-first traversal of story branches starting from the current page.
+    ///
+    /// # Algorithm
+    /// 1. Clones the initial game state with `simulating = true`.
+    /// 2. Executes each reachable branch in depth-first order by enumerating all
+    ///    simulatable interactables ([`interactables_sim`](View::interactables_sim)).
+    /// 3. When a tunnel boundary is encountered ([`Action::Tunnel`] or [`Response::Tunnel`]),
+    ///    the tunnel's target is queued for a separate traversal pass in [`runs`](Simulation::runs).
+    /// 4. Records visited pages, incoming transitions, collected tags, and terminal conditions
+    ///    ([`SimEnd`]) in [`PageRecords`].
+    ///
+    /// # Halting and Cycles
+    /// Traversal relies on story branches being acyclic outside of tunnels, or on the `visitor`
+    /// callback returning `false` to prune branches. Unbounded loops without tunnels or visitor
+    /// pruning will not terminate.
+    ///
+    /// # Arguments
+    /// - `visitor`: Called before expanding each [`SimulationState`]. Returning `false` halts
+    ///   further exploration along that branch.
+    ///
+    /// # Panics
+    /// Panics if the current game state has no active page on the stack.
     pub fn simulate<F>(&self, mut visitor: F) -> Simulation
     where
         F: FnMut(&mut SimulationState<C>) -> bool,
@@ -168,12 +183,14 @@ impl<C: GameContext> Game<C> {
 
 // need a way to collapse paths which lead to the same result
 
+/// Output of a simulation pass across reachable story branches.
 #[derive(Debug, Clone)]
 pub struct Simulation {
-    /// A history of runs, one for each starting point. Starts consist of tunnel entrances and the initial game start.
+    /// History of runs, keyed by entry point name (the initial start or tunnel target basename).
     pub runs: HashMap<String, PageRecords>,
 }
 
+/// The active traversal state along an in-flight branch during simulation.
 #[derive(Debug, Clone)]
 pub struct SimulationState<C> {
     pub game: Game<C>,
@@ -198,7 +215,7 @@ impl<C: Clone> SimulationState<C> {
     }
 }
 
-// note: outgoing_tunnels not currently implemented
+/// Static analysis record for an individual page encountered during simulation.
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct PageRecord {
@@ -210,6 +227,7 @@ pub struct PageRecord {
     pub outgoing_tunnels: HashSet<PageId>,
 }
 
+/// Fast lookup table mapping [`PageId`] to its [`PageRecord`].
 #[derive(Debug, Clone)]
 pub struct PageRecords(pub IdHashMap<PageRecord>);
 

@@ -16,7 +16,4 @@
     syn         = { version = "2", features = [ "full" ] }
     quote       = "1"
     proc-macro2 = "1"
-
-    # splitting a third crate would resolve this cyclic dependency
-    # [target.'cfg(doc)'.dependencies]
-    # ifengine = { version = "0.*", path = "../ifengine" }
+    ifengine_core = { version = "0.0.6", path = "../ifengine_core" }

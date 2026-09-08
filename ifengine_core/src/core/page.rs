@@ -6,8 +6,8 @@ use crate::Game;
 use crate::core::GameContext;
 use crate::view::View;
 
-/// Static functions. These implement [`PageErased`]
-/// You can create one by annotating a bare fn(&mut C) with (`[#ifview]`)[crate::ifview]
+/// Static functions. These implement [`PageErased`].
+/// You can create one by annotating a bare fn(&mut C) with `#[ifview]`.
 pub type Page<C> = fn(&mut Game<C>) -> Response;
 
 /// The trait which defines a page
@@ -38,15 +38,22 @@ impl PageId {
     }
 }
 
-/// The type returned by a [`PageErased`]
-/// [`Game::view`] will repeatedly call the active [page](PageHandle), until a [`View`] is produced.
+/// The transition or output produced by a [`Page`].
+///
+/// [`Game::view`] will repeatedly execute transitions until a [`Response::View`] is produced.
 pub enum Response {
+    /// Yields the rendered [`View`] for the page.
     View(View),
+    /// Immediately transitions to the specified destination page.
     Switch(PageHandle),
+    /// Navigates back `n` steps in navigation history.
     Back(usize),
+    /// Calls another page as a subroutine / tunnel, returning here when finished.
     Tunnel(PageHandle),
+    /// Exits the current tunnel and resumes the calling page.
     Exit,
-    End, // thread?
+    /// Terminates story execution.
+    End,
 }
 
 /// Capable of (eventually) producing a [`View`]

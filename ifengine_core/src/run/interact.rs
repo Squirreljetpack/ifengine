@@ -1,18 +1,22 @@
 use std::borrow::Cow;
 
 use crate::{
-    Action, Game, GameError, SimEnd, View,
-    core::{GameContext, PageHandle, PageId, PageStack, game_state::PageKey},
+    Action, Game, GameError, View,
+    core::{GameContext, PageId, game_state::PageKey},
     view::{Line, Object, Span},
 };
 
+/// An interactive target extracted from a [`View`] that can trigger a state mutation or navigation.
 #[derive(Debug, Clone, Copy)]
 pub enum Interactable<'a> {
-    Choice(&'a PageKey, &'a Vec<(u8, Line)>, u8), // parent, index of the choice
-    Span(&'a Object, &'a Span),                   // parent, the span
+    /// A choice item identified by its parent [`PageKey`], the full choice line list, and the choice index.
+    Choice(&'a PageKey, &'a Vec<(u8, Line)>, u8),
+    /// A clickable span within an [`Object`].
+    Span(&'a Object, &'a Span),
 }
 
 impl<'a> Interactable<'a> {
+    /// Returns the text content of the interactable element.
     pub fn content(&self) -> Cow<'a, str> {
         match self {
             Interactable::Choice(_, lines, idx) => lines
@@ -115,6 +119,7 @@ impl View {
 }
 
 impl<C: GameContext> Game<C> {
+    /// Applies an interaction event on the game state for the given page ID.
     pub fn interact(&mut self, e: Interactable<'_>, pageid: &PageId) -> Result<(), GameError> {
         match e {
             Interactable::Choice(key, _, index) => {
@@ -128,6 +133,7 @@ impl<C: GameContext> Game<C> {
         }
     }
 
+    /// Forks the game state for each interactable in the view and applies it.
     pub fn interact_all<F>(&self, view: View) -> Vec<Result<Self, GameError>> {
         view.interactables_sim()
             .into_iter()

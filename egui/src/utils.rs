@@ -152,7 +152,7 @@ impl Ui {
                     Pos2::new(rect.left(), underline_y),
                     Pos2::new(rect.right(), underline_y),
                 ],
-                egui::Stroke::new(1.0, self.visuals().hyperlink_color),
+                egui::Stroke::new(1.0_f32, self.visuals().hyperlink_color),
             );
             self.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
         }

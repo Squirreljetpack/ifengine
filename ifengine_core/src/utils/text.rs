@@ -1,4 +1,4 @@
-/// - Replaces {digit} with words
+/// - (Does not) replace {digit} with words
 /// - Converts straight quotes to curly quotes
 /// - Converts -- to em-dash (—)
 /// - Converts ... to ellipsis (…)

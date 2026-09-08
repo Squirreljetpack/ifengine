@@ -92,23 +92,9 @@ pub struct State {
 `story/src/chap1.rs`:
 ```rust
 #[allow(unused_imports)]
-use ifengine::{
-    elements::{
-        ChoiceVariant::*,
-        choice,
-        click,
-        dp,
-        h,
-        choice,
-        mchoice,
-        p,
-    },
-    utils::MaskExt,
-    GO,
-    ifview,
-    link,
-};
-use crate::{State};
+use ifengine::elements::*;
+use ifengine::ifview;
+use crate::State;
 
 #[ifview]
 pub fn p1(s: &mut State) {

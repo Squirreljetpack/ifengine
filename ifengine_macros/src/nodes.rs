@@ -5,16 +5,11 @@ use syn::{
     punctuated::Punctuated,
 };
 
-fn unique_id() -> u64 {
-    let span = proc_macro::Span::call_site();
-    let start = span.start();
-    ((start.line() as u64) << 32) | (start.column() as u64)
-}
 
 /// Optional u64 key specified in the first position, surrounded in brackets.
 /// The internal data describing an element is stored under this key in the page state and can be retrieved for full fine-grained control.
 /// # Syntax
-/// ```rust
+/// ```rust,ignore
 /// let span_count = read_key!(6); // Can be called before
 /// let span = count!((6), |val| "span");
 /// ```
@@ -26,10 +21,11 @@ pub enum MaybeKey {
 impl MaybeKey {
     pub fn into_tokens(self) -> proc_macro2::TokenStream {
         match self {
-            MaybeKey::Key(key_expr) => quote!(#key_expr),
+            MaybeKey::Key(key_expr) => quote!(((#key_expr) as u64 & 0x0000_FFFF_FFFF_FFFF)),
             MaybeKey::Auto => {
-                let uid = unique_id();
-                quote!(#uid)
+                quote! {
+                    __ifengine_page_state.auto_key()
+                }
             }
         }
     }

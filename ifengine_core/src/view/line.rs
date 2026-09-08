@@ -2,13 +2,17 @@ use bitflags::bitflags;
 use std::collections::HashMap;
 
 use crate::{
-    core::{Action, game_state::InternalKey},
+    core::{
+        Action,
+        game_state::{InternalKey, PageKey},
+    },
     utils::linguate,
 };
 
 /// Abstract span. Similar in principle to an HTML element/egui TextFormat.
 #[derive(Debug, Clone, Default)]
 pub struct Span {
+    pub id: Option<PageKey>,
     pub action: Option<Action>,
     pub content: String,
 
@@ -39,6 +43,7 @@ pub enum SpanVariant {
 impl Span {
     pub fn new(s: String) -> Self {
         Self {
+            id: None,
             action: None,
             content: s,
             variant: SpanVariant::None,
@@ -47,6 +52,36 @@ impl Span {
             classes: Vec::new(),
             no_sim: false,
         }
+    }
+
+    pub fn with_id(mut self, id: PageKey) -> Self {
+        self.id = Some(id);
+        self
+    }
+
+    pub fn cls(mut self, class: impl Into<String>) -> Self {
+        self.classes.push(class.into());
+        self
+    }
+
+    pub fn classes(mut self, classes: impl IntoIterator<Item = impl Into<String>>) -> Self {
+        self.classes.extend(classes.into_iter().map(Into::into));
+        self
+    }
+
+    pub fn style(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
+        self.style.insert(key.into(), value.into());
+        self
+    }
+
+    pub fn styles(
+        mut self,
+        styles: impl IntoIterator<Item = (impl Into<String>, impl Into<String>)>,
+    ) -> Self {
+        for (k, v) in styles {
+            self.style.insert(k.into(), v.into());
+        }
+        self
     }
 
     pub fn from_lingual(v: impl Into<Self>) -> Self {
@@ -95,14 +130,35 @@ impl Span {
 }
 
 /// A collection of [`Span`]'s, rendered in a wrapped line, joined without spacing.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct Line {
+    pub id: Option<PageKey>,
     pub spans: Vec<Span>,
+    pub classes: Vec<String>,
 }
 
 impl Line {
     pub fn new() -> Self {
-        Self { spans: Vec::new() }
+        Self {
+            id: None,
+            spans: Vec::new(),
+            classes: Vec::new(),
+        }
+    }
+
+    pub fn with_id(mut self, id: PageKey) -> Self {
+        self.id = Some(id);
+        self
+    }
+
+    pub fn cls(mut self, class: impl Into<String>) -> Self {
+        self.classes.push(class.into());
+        self
+    }
+
+    pub fn classes(mut self, classes: impl IntoIterator<Item = impl Into<String>>) -> Self {
+        self.classes.extend(classes.into_iter().map(Into::into));
+        self
     }
 
     pub fn content(&self) -> String {
@@ -123,12 +179,18 @@ impl Line {
 
     pub fn from_iter<I: IntoIterator<Item = impl Into<Span>>>(iter: I) -> Self {
         Self {
+            id: None,
             spans: iter.into_iter().map(|x| x.into()).collect(),
+            classes: Vec::new(),
         }
     }
 
     pub fn from_spans(spans: Vec<Span>) -> Self {
-        Self { spans }
+        Self {
+            id: None,
+            spans,
+            classes: Vec::new(),
+        }
     }
 
     pub fn from_interleaved_actions<const MASK: bool>(
@@ -169,7 +231,11 @@ impl Line {
             }
         }
 
-        Line { spans }
+        Line {
+            id: None,
+            spans,
+            classes: Vec::new(),
+        }
     }
 }
 
@@ -306,3 +372,38 @@ impl<const N: usize> From<[Span; N]> for Line {
 //         Line::from_iter(items)
 //     }
 // }
+//
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_span_builders() {
+        let span = Span::new("hello".into())
+            .with_id(42)
+            .cls("fade")
+            .classes(["delay-100", "bold"])
+            .style("color", "red")
+            .styles([("font-size", "14px"), ("opacity", "0.8")]);
+
+        assert_eq!(span.id, Some(42));
+        assert_eq!(span.classes, vec!["fade", "delay-100", "bold"]);
+        assert_eq!(span.style.get("color").map(|s| s.as_str()), Some("red"));
+        assert_eq!(
+            span.style.get("font-size").map(|s| s.as_str()),
+            Some("14px")
+        );
+        assert_eq!(span.style.get("opacity").map(|s| s.as_str()), Some("0.8"));
+    }
+
+    #[test]
+    fn test_line_builders() {
+        let line = Line::new()
+            .with_id(100)
+            .cls("my-line")
+            .classes(["line-fade"]);
+
+        assert_eq!(line.id, Some(100));
+        assert_eq!(line.classes, vec!["my-line", "line-fade"]);
+    }
+}
