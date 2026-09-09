@@ -1,6 +1,6 @@
 [package]
 name = "ifengine"
-version = "0.0.6"
+version = "0.1.0"
 authors = ["Squirreljetpack"]
 edition = "2024"
 include = ["LICENSE-APACHE", "LICENSE-MIT", "**/*.rs", "Cargo.toml"]
@@ -18,7 +18,7 @@ all-features = true
 workspace = true
 
 [dependencies]
-ifengine_core = { version = "0.0.6", path = "../ifengine_core" }
+ifengine_core = { version = "0.1.0", path = "../ifengine_core" }
 ifengine_macros = { version = "0.*", path = "../ifengine_macros", optional = true }
 
 [features]

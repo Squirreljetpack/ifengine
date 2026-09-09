@@ -9,8 +9,9 @@ The goal is to enjoy an effortless writing experience, together with all the ben
 
 - [leptos](https://ifengine.pages.dev/)
 - [egui](https://ifengine.netlify.app/)
+- [leptos test](https://test.ifengine.pages.dev/)
 
-Note: The firefox cache may cause the page to load forever after the first visit. Press ctrl-shift-r to fix this. If you know a fix, please let me know!
+Note: The firefox cache for the egui frontend may cause the page to load forever after the first visit. Press ctrl-shift-r to fix this. If you know a fix, please let me know!
 story credit: https://antemaion.itch.io/saltwrack (Sorry I haven't asked permission yet as im just using it for testing this project is still just experimental!)
 
 ## Why Rust?

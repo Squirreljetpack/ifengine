@@ -24,10 +24,10 @@ pub mod elements {
     //!
     //! This module exports all authoring macros and element constructors used to compose interactive fiction pages.
     //!
-    //! ## `{var}` Interpolation
+    //! ## Note: `{var}` Interpolation
     //!
     //! String literal arguments in element macros support inline variable interpolation.
-    //! Write `{expr}` inside any string to expand it at compile time:
+    //! Write `{expr}` inside any &'static str to expand it:
     //!
     //! ```rust,ignore
     //! p!("Welcome, {player.name}! You have {gold} gold.");
@@ -35,9 +35,8 @@ pub mod elements {
     //! replace!("The [[{item.name}]] glows faintly.", "You take it.");
     //! ```
     //!
-    //! - Values are borrowed (`&expr`), so non-`Copy` types like `String` can be used multiple times.
-    //! - Invalid expressions inside `{}` are compile errors pointing to the template string.
-    //! - `{{` and `}}` can be used to emit literal braces (via the underlying `format!` call).
+    //! - Values are borrowed (`&expr`).
+    //! - `{{` and `}}` can be used to emit literal braces.
     //!
     //! # Quick Reference / Cheat Sheet
     //!

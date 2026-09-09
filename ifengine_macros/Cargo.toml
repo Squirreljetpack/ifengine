@@ -1,6 +1,6 @@
 [package]
     name        = "ifengine_macros"
-    version     = "0.0.6"
+    version     = "0.1.0"
     authors     = [ "Squirreljetpack" ]
     edition     = "2024"
     description = "Procedural macros for ifengine"
@@ -16,4 +16,4 @@
     syn         = { version = "2", features = [ "full", "visit-mut" ] }
     quote       = "1"
     proc-macro2 = "1"
-    ifengine_core = { version = "0.0.6", path = "../ifengine_core" }
+    ifengine_core = { version = "0.1.0", path = "../ifengine_core" }
