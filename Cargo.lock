@@ -2117,7 +2117,7 @@ dependencies = [
 
 [[package]]
 name = "ifengine"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "ifengine_core",
  "ifengine_macros",
@@ -2126,7 +2126,7 @@ dependencies = [
 
 [[package]]
 name = "ifengine_core"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "bitflags 2.13.1",
  "const-fnv1a-hash",
@@ -2182,7 +2182,7 @@ dependencies = [
 
 [[package]]
 name = "ifengine_macros"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "ifengine_core",
  "proc-macro2",
