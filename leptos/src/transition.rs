@@ -7,6 +7,7 @@
 use std::collections::HashMap;
 
 use ifengine::core::{PageId, game_state::PageKey};
+use leptos::prelude::*;
 
 use crate::consts::{DEFAULT_FADE_IN_MS, DEFAULT_FADE_OUT_MS};
 
@@ -178,6 +179,157 @@ impl TransitionManager {
     }
 }
 
+/// Lifecycle phase for elements with delayed entrance or exit transitions.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TransitionPhase {
+    /// Before entrance delay expires: element must not take up any space (display: none).
+    Pending,
+    /// Actively animating or visible.
+    Active,
+    /// Finished fading out or already faded out in a prior iteration: element removed (display: none).
+    Removed,
+}
+
+/// Returns true if a CSS class name corresponds to an entrance or exit transition.
+pub fn is_transition_class(class: &str) -> bool {
+    let c = class.trim();
+    c == "in" || c == "out" || c.starts_with("in-") || c.starts_with("out-")
+}
+
+/// Extracts transition timing configuration from a Line, checking `line.classes`
+/// and falling back to its spans if the line itself has no transition classes.
+pub fn extract_line_transition(line: &ifengine::view::Line) -> TransitionConfig {
+    let config = parse_transition_classes(&line.classes);
+    if config.has_transition() {
+        return config;
+    }
+    for span in &line.spans {
+        let span_config = parse_transition_classes(&span.classes);
+        if span_config.has_transition() {
+            return span_config;
+        }
+    }
+    TransitionConfig::default()
+}
+
+/// Creates a clone of a Line with transition classes stripped so child elements
+/// don't duplicate animations managed by parent wrappers.
+pub fn strip_transitions_from_line(mut line: ifengine::view::Line) -> ifengine::view::Line {
+    line.classes.retain(|c| !is_transition_class(c));
+    for span in &mut line.spans {
+        span.classes.retain(|c| !is_transition_class(c));
+    }
+    line
+}
+
+/// Determines the initial transition phase for an element.
+pub fn compute_initial_phase(config: &TransitionConfig, should_animate: bool) -> TransitionPhase {
+    if !config.has_transition() {
+        return TransitionPhase::Active;
+    }
+
+    if !should_animate {
+        if config.fade_out.is_some() {
+            TransitionPhase::Removed
+        } else {
+            TransitionPhase::Active
+        }
+    } else {
+        let in_delay = config.in_delay.unwrap_or(0);
+        if in_delay > 0 {
+            TransitionPhase::Pending
+        } else {
+            TransitionPhase::Active
+        }
+    }
+}
+
+/// Schedules timeouts to transition an element from `Pending` -> `Active` (after in_delay),
+/// and from `Active` -> `Removed` (after fading out completes).
+pub fn setup_transition_timers(
+    config: &TransitionConfig,
+    set_phase: leptos::prelude::WriteSignal<TransitionPhase>,
+) {
+    let in_delay = config.in_delay.unwrap_or(0);
+    let in_duration = config.fade_in.unwrap_or(DEFAULT_FADE_IN_MS);
+    let out_delay = config.out_delay.unwrap_or(0);
+    let out_duration = config.fade_out.unwrap_or(DEFAULT_FADE_OUT_MS);
+
+    if in_delay > 0 {
+        leptos::prelude::set_timeout(
+            move || {
+                set_phase.set(TransitionPhase::Active);
+            },
+            std::time::Duration::from_millis(in_delay),
+        );
+    }
+
+    if config.fade_out.is_some() {
+        let total_ms = if config.fade_in.is_some() || in_delay > 0 {
+            in_delay + in_duration + out_delay + out_duration
+        } else {
+            out_delay + out_duration
+        };
+
+        leptos::prelude::set_timeout(
+            move || {
+                set_phase.set(TransitionPhase::Removed);
+            },
+            std::time::Duration::from_millis(total_ms),
+        );
+    }
+}
+
+/// Generates active transition styles when an element is in the `Active` phase.
+///
+/// Because `in_delay` was already waited during `Pending`, the entrance fade-in starts immediately.
+pub fn generate_active_transition_style(
+    config: &TransitionConfig,
+    should_animate: bool,
+) -> (String, Vec<&'static str>) {
+    if !config.has_transition() {
+        return (String::new(), vec![]);
+    }
+
+    if !should_animate {
+        if config.fade_out.is_some() {
+            (
+                "display: none !important; animation: none !important;".to_string(),
+                vec!["skip-animation", "fade-out-removed"],
+            )
+        } else {
+            (
+                "opacity: 1; animation: none !important;".to_string(),
+                vec!["skip-animation"],
+            )
+        }
+    } else {
+        if config.fade_in.is_some() && config.fade_out.is_some() {
+            let in_duration = config.fade_in.unwrap_or(DEFAULT_FADE_IN_MS);
+            let out_delay = config.out_delay.unwrap_or(0);
+            let out_duration = config.fade_out.unwrap_or(DEFAULT_FADE_OUT_MS);
+            let start_out = in_duration + out_delay;
+
+            let style = format!(
+                "animation: fade-in {in_duration}ms ease-out both, fade-out {out_duration}ms ease-out {start_out}ms forwards;"
+            );
+            (style, vec!["transition-active"])
+        } else if let Some(fade_out_ms) = config.fade_out {
+            let out_delay = config.out_delay.unwrap_or(0);
+            let style = format!(
+                "animation-name: fade-out; animation-duration: {fade_out_ms}ms; animation-delay: {out_delay}ms; animation-fill-mode: both; animation-timing-function: ease-out;"
+            );
+            (style, vec!["transition-active"])
+        } else {
+            let in_duration = config.fade_in.unwrap_or(DEFAULT_FADE_IN_MS);
+            let style = format!(
+                "animation-name: fade-in; animation-duration: {in_duration}ms; animation-delay: 0ms; animation-fill-mode: both; animation-timing-function: ease-out;"
+            );
+            (style, vec!["transition-active"])
+        }
+    }
+}
+
 /// Generates the inline CSS styles and class list for an element based on its transition config.
 ///
 /// If `should_animate` is `false`, the element was already seen in a prior iteration,
@@ -194,8 +346,8 @@ pub fn generate_transition_style(
         // Element was already seen in a prior iteration: keep it visible or hidden and suppress re-trigger
         if config.fade_out.is_some() {
             (
-                "opacity: 0; animation: none !important;".to_string(),
-                vec!["skip-animation"],
+                "display: none !important; animation: none !important;".to_string(),
+                vec!["skip-animation", "fade-out-removed"],
             )
         } else {
             (
@@ -345,5 +497,56 @@ mod tests {
         tm.on_view_change(&page, true);
         // On a fresh visit to page_1, entrance animations trigger again
         assert!(tm.should_animate_item(&page, Some(item_id), 100, &config));
+    }
+
+    #[test]
+    fn test_transition_phase_and_helpers() {
+        assert!(is_transition_class("in"));
+        assert!(is_transition_class("in-500"));
+        assert!(is_transition_class("in-500-1000"));
+        assert!(is_transition_class("out"));
+        assert!(is_transition_class("out-200"));
+        assert!(!is_transition_class("my-custom-class"));
+        assert!(!is_transition_class("variant-secondary"));
+
+        // compute_initial_phase
+        let config_delayed = parse_transition_classes(&["in-500".to_string()]);
+        assert_eq!(compute_initial_phase(&config_delayed, true), TransitionPhase::Pending);
+        assert_eq!(compute_initial_phase(&config_delayed, false), TransitionPhase::Active);
+
+        let config_immediate = parse_transition_classes(&["in".to_string()]);
+        assert_eq!(compute_initial_phase(&config_immediate, true), TransitionPhase::Active);
+
+        let config_out = parse_transition_classes(&["out-500".to_string()]);
+        assert_eq!(compute_initial_phase(&config_out, true), TransitionPhase::Active);
+        assert_eq!(compute_initial_phase(&config_out, false), TransitionPhase::Removed);
+
+        // generate_active_transition_style
+        let (style, classes) = generate_active_transition_style(&config_delayed, true);
+        assert!(style.contains("animation-delay: 0ms"));
+        assert_eq!(classes, vec!["transition-active"]);
+
+        let (style_skip, classes_skip) = generate_active_transition_style(&config_out, false);
+        assert!(style_skip.contains("display: none !important"));
+        assert!(classes_skip.contains(&"fade-out-removed"));
+    }
+
+    #[test]
+    fn test_extract_and_strip_line_transition() {
+        use ifengine::view::{Line, Span};
+
+        let mut line = Line::from_spans(vec![
+            Span::from("Hello").cls("custom"),
+            Span::from("World").cls("in-500"),
+        ]);
+        line.classes.push("my-class".into());
+
+        let extracted = extract_line_transition(&line);
+        assert_eq!(extracted.in_delay, Some(500));
+
+        let stripped = strip_transitions_from_line(line);
+        assert_eq!(stripped.classes, vec!["my-class".to_string()]);
+        assert_eq!(stripped.spans[0].classes, vec!["custom".to_string()]);
+        assert!(stripped.spans[1].classes.is_empty());
     }
 }

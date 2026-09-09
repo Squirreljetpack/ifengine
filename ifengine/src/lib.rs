@@ -24,22 +24,38 @@ pub mod elements {
     //!
     //! This module exports all authoring macros and element constructors used to compose interactive fiction pages.
     //!
+    //! ## `{var}` Interpolation
+    //!
+    //! String literal arguments in element macros support inline variable interpolation.
+    //! Write `{expr}` inside any string to expand it at compile time:
+    //!
+    //! ```rust,ignore
+    //! p!("Welcome, {player.name}! You have {gold} gold.");
+    //! choice! { "Attack {enemy.name}" => { /* ... */ } }
+    //! replace!("The [[{item.name}]] glows faintly.", "You take it.");
+    //! ```
+    //!
+    //! - Values are borrowed (`&expr`), so non-`Copy` types like `String` can be used multiple times.
+    //! - Invalid expressions inside `{}` are compile errors pointing to the template string.
+    //! - `{{` and `}}` can be used to emit literal braces (via the underlying `format!` call).
+    //!
     //! # Quick Reference / Cheat Sheet
     //!
     //! | Macro / Element | Syntax Example | Description |
     //! | :--- | :--- | :--- |
-    //! | [`s!`](s) | `s!("Hello ", name)` | Creates a styled inline `Span` from strings or expressions. |
-    //! | [`l!`](l) | `l!(s!("Welcome: "), s!(user))` | Creates a `Line` composed of one or more `Span`s. |
-    //! | [`link!`](link) | `link!("Enter dungeon", dungeon_room)` | Creates an inline link `Span` that navigates to a destination page. |
-    //! | [`tun!`](tun) | `tun!("Ask for advice", mentor_tunnel)` | Creates an inline link `Span` that calls a page as a tunnel subroutine. |
-    //! | [`back!`](back) | `back!("Go back")` or `back!("Rewind", 2)` | Creates an inline link `Span` that steps back in navigation history. |
+    //! | [`s!`](s) | `s!("Badge: {name}")` | Creates a styled inline `Span` with `{var}` interpolation or from expressions. |
+    //! | [`l!`](l) | `l!("Player {name} (Level {level})")` | Creates a `Line` from `{var}` interpolation or multiple `Span`s. |
+    //! | [`link!`](link) | `link!("Visit {vendor}'s Shop", shop_room)` | Creates an inline link `Span` navigating to a destination page. |
+    //! | [`tun!`](tun) | `tun!("Consult with {mentor}", mentor_tunnel)` | Creates an inline link `Span` calling a page as a tunnel subroutine. |
+    //! | [`back!`](back) | `back!("Return to {room}")` or `back!("Rewind", 2)` | Creates an inline link `Span` stepping back in navigation history. |
+    //! | [`h!`](h) | `h!("Chapter {chap}: The Journey", 1)` | Adds a heading with `{var}` interpolation. |
     //! | [`click!`](click) | `click!("Search desk", { state.found_key = true; })` | Creates an interactive `Span` that triggers a callback when clicked. |
     //! | [`count!`](count) | `count!(\|n\| format!("Clicked {n} times"))` | Creates a dynamic counter `Span` incremented on each click. |
     //! | [`alts!`](alts) | `alts!(Cycle, ["North", "South", "East", "West"])` | Creates cycling, stopping, or shuffled text alternative spans. |
-    //! | [`p!`](p) | `p!("A dark hallway stretches before you.")` | Adds a single paragraph block with standard vertical margins. |
-    //! | [`ps!`](ps) | `ps!("First paragraph.", "Second paragraph.")` | Adds multiple separate paragraph blocks, each with vertical spacing. |
-    //! | [`text!`](text) | `text!("Plain string")` | Appends an unspaced text line without paragraph margins; supports optional trailing `:: "metadata"`. |
-    //! | [`ts!`](ts) | `ts!("Line 1", "Line 2")` | Appends multiple unspaced text lines in sequence without paragraph margins. |
+    //! | [`p!`](p) | `p!("Hello {name}, welcome back!")` | Adds a single paragraph block with `{var}` interpolation. |
+    //! | [`ps!`](ps) | `ps!("Welcome {name}.", "You have {gold} gold.")` | Adds multiple separate paragraph blocks with `{var}` interpolation. |
+    //! | [`text!`](text) | `text!("Status: {hp}/{max_hp} HP")` | Appends an unspaced text line with `{var}` interpolation and optional `:: "metadata"`. |
+    //! | [`ts!`](ts) | `ts!("Player: {name}", "Score: {score}")` | Appends multiple unspaced text lines with `{var}` interpolation. |
     //! | [`choice!`](choice) | `choice!(("Open door", p_door), ("Turn back", p_back))` | Displays a static list of clickable choices for page navigation or actions. |
     //! | [`dchoice!`](dchoice) | `dchoice!(items.into_iter().map(...))` | Displays a dynamic choice list generated at runtime from an iterator/collection. |
     //! | [`mchoice!`](mchoice) | `mchoice!((key), ...)` | Choice menu with an explicit state key override. |

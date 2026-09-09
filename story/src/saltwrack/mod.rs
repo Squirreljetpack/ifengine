@@ -2,6 +2,8 @@ use std::{borrow::Cow, collections::HashSet};
 
 pub mod chap1;
 pub mod chap1d;
+pub mod chap2;
+pub mod chap3;
 
 pub type Game = ifengine::Game<State>;
 pub fn new() -> Game {
@@ -15,6 +17,13 @@ pub enum Oracle {
     None,
     V,
     S,
+    Dead,
+}
+
+impl Oracle {
+    pub fn is_dead(&self) -> bool {
+        matches!(self, Oracle::Dead)
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -24,40 +33,32 @@ pub enum Walker {
     None,
     A,
     T,
+    Dead,
 }
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub enum Address {
-    #[default]
-    Sen,
-    Ammar,
-    Interpreter,
-}
-
-impl Address {
-    pub fn as_str(&self) -> &'static str {
+impl Walker {
+    fn p(self) -> &'static str {
         match self {
-            Address::Sen => "sen",
-            Address::Ammar => "ammar",
-            Address::Interpreter => "Interpreter",
+            Walker::A => "He",
+            _ => "She",
         }
+    }
+}
+
+impl Walker {
+    pub fn is_dead(&self) -> bool {
+        matches!(self, Walker::Dead)
     }
 }
 
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct State {
-    // Backwards-compatible fields
-    pub myname: String,
-    pub c1: Companion,
-    pub c2: Companion,
     pub days: usize,
     pub rations: usize,
     pub miles: usize,
 
     // Narrative & system state
-    pub address: Address,
+    pub addr: String,
     pub no_interpreter: bool,
     pub oracle: Oracle,
     pub relation_oracle: i32,
@@ -82,6 +83,15 @@ pub struct State {
     pub used_1w_city_ques: bool,
     pub used_dead_walkers: bool,
     pub used_scavenging: bool,
+    pub used_art: bool,
+    pub used_wick: bool,
+    pub used_history_ques: bool,
+    pub used_firmament_convo: bool,
+    pub used_occipit: bool,
+    pub used_first_dream: bool,
+    pub used_spire_forest: bool,
+    pub journal_nav: bool,
+    pub pool_death: bool,
 
     pub part1: Part1,
 }
@@ -89,13 +99,10 @@ pub struct State {
 impl Default for State {
     fn default() -> Self {
         Self {
-            myname: "sen".to_string(),
-            c1: Companion::default(),
-            c2: Companion::default(),
             days: 0,
             rations: 0,
             miles: 0,
-            address: Address::Sen,
+            addr: "sen".to_string(),
             no_interpreter: false,
             oracle: Oracle::None,
             relation_oracle: 20,
@@ -120,6 +127,15 @@ impl Default for State {
             used_1w_city_ques: false,
             used_dead_walkers: false,
             used_scavenging: false,
+            used_art: false,
+            used_wick: false,
+            used_history_ques: false,
+            used_firmament_convo: false,
+            used_occipit: false,
+            used_first_dream: false,
+            used_spire_forest: false,
+            journal_nav: false,
+            pool_death: false,
             part1: Part1::default(),
         }
     }
@@ -142,9 +158,23 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_sim() {
+    fn test_sim_chap1() {
         let game = new();
-        let _sim = game.simulate(|s| s.depth <= 20);
-        dbg!(&_sim);
+        let sim = game.simulate(|s| s.depth <= 20);
+        assert!(!sim.runs.is_empty());
+    }
+
+    #[test]
+    fn test_sim_chap2() {
+        let game = ifengine::Game!(chap2::day_four);
+        let sim = game.simulate(|s| s.depth <= 25);
+        assert!(!sim.runs.is_empty());
+    }
+
+    #[test]
+    fn test_sim_chap3() {
+        let game = ifengine::Game!(chap3::day_eight);
+        let sim = game.simulate(|s| s.depth <= 20);
+        assert!(!sim.runs.is_empty());
     }
 }

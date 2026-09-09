@@ -3,17 +3,7 @@ use quote::quote;
 use syn::punctuated::Punctuated;
 use syn::{Error, Expr, Lit, LitStr, Token, parse_macro_input};
 
-pub fn push(input: TokenStream) -> TokenStream {
-    let expr = parse_macro_input!(input as Expr);
-
-    let expanded = quote! {
-        __ifengine_page_state.push(
-            #expr
-        );
-    };
-
-    expanded.into()
-}
+pub use crate::helpers::{expand_line_expr, expand_spans, expand_string_expr};
 
 pub struct LineArgs {
     pub exprs: Vec<Expr>,
@@ -46,6 +36,20 @@ impl syn::parse::Parse for LineArgs {
     }
 }
 
+// ----------------
+
+pub fn push(input: TokenStream) -> TokenStream {
+    let expr = parse_macro_input!(input as Expr);
+
+    let expanded = quote! {
+        __ifengine_page_state.push(
+            #expr
+        );
+    };
+
+    expanded.into()
+}
+
 pub fn text(input: TokenStream) -> TokenStream {
     let LineArgs { exprs, trailer } = syn::parse_macro_input!(input as LineArgs);
 
@@ -54,11 +58,13 @@ pub fn text(input: TokenStream) -> TokenStream {
         None => quote!(""),
     };
 
+    let spans = expand_spans(exprs);
+
     let expanded = quote! {
         __ifengine_page_state.push(
             ifengine::view::Object::Text(
                 ifengine::view::Line::from_spans(
-                    vec![#(#exprs.into()),*]
+                    vec![#(#spans),*]
                 ),
                 #string_expr
             )
@@ -76,15 +82,20 @@ pub fn texts(input: TokenStream) -> TokenStream {
         None => quote!(""),
     };
 
-    let expanded = quote! {
-        #(
+    let push_lines = exprs.iter().map(|expr| {
+        let line = expand_line_expr(expr);
+        quote! {
             __ifengine_page_state.push(
                 ifengine::view::Object::Text(
-                    ifengine::view::Line::from(#exprs),
+                    #line,
                     #string_expr
                 )
             );
-        )*
+        }
+    });
+
+    let expanded = quote! {
+        #(#push_lines)*
     };
 
     TokenStream::from(expanded)
@@ -92,12 +103,12 @@ pub fn texts(input: TokenStream) -> TokenStream {
 
 pub fn paragraph(input: TokenStream) -> TokenStream {
     let exprs_parsed = parse_macro_input!(input with Punctuated<Expr, Token![,]>::parse_terminated);
-    let exprs: Vec<Expr> = exprs_parsed.into_iter().collect();
+    let spans = expand_spans(exprs_parsed);
 
     let expanded = quote! {
         __ifengine_page_state.push(
             ifengine::view::Object::Paragraph(
-                ifengine::view::Line::from_spans(vec![#(ifengine::view::Span::from_lingual(#exprs)),*])
+                ifengine::view::Line::from_spans(vec![#(#spans),*])
             )
         );
     };
@@ -107,16 +118,20 @@ pub fn paragraph(input: TokenStream) -> TokenStream {
 
 pub fn paragraphs(input: TokenStream) -> TokenStream {
     let exprs_parsed = parse_macro_input!(input with Punctuated<Expr, Token![,]>::parse_terminated);
-    let exprs: Vec<Expr> = exprs_parsed.into_iter().collect();
 
-    let expanded = quote! {
-        #(
+    let push_lines = exprs_parsed.iter().map(|expr| {
+        let line = expand_line_expr(expr);
+        quote! {
             __ifengine_page_state.push(
                 ifengine::view::Object::Paragraph(
-                    ifengine::view::Line::from_lingual(#exprs)
+                    #line
                 )
             );
-        )*
+        }
+    });
+
+    let expanded = quote! {
+        #(#push_lines)*
     };
 
     TokenStream::from(expanded)
@@ -132,15 +147,16 @@ pub fn s(input: TokenStream) -> TokenStream {
                 .with_id(__ifengine_page_state.auto_key())
         },
         1 => {
-            let expr = &exprs[0];
+            let expr = expand_string_expr(&exprs[0]);
             quote! {
                 ifengine::view::Span::from(#expr)
                     .with_id(__ifengine_page_state.auto_key())
             }
         }
         _ => {
+            let expanded_exprs: Vec<_> = exprs.iter().map(expand_string_expr).collect();
             quote! {
-                ifengine::view::Span::from([#( #exprs.to_string() ),*].join(""))
+                ifengine::view::Span::from([#( (#expanded_exprs).to_string() ),*].join(""))
                     .with_id(__ifengine_page_state.auto_key())
             }
         }
@@ -151,10 +167,10 @@ pub fn s(input: TokenStream) -> TokenStream {
 
 pub fn l(input: TokenStream) -> TokenStream {
     let exprs_parsed = parse_macro_input!(input with Punctuated<Expr, Token![,]>::parse_terminated);
-    let exprs: Vec<Expr> = exprs_parsed.into_iter().collect();
+    let spans = expand_spans(exprs_parsed);
 
     let expanded = quote! {
-        ifengine::view::Line::from_spans(vec![#(ifengine::view::Span::from(#exprs)),*])
+        ifengine::view::Line::from_spans(vec![#(#spans),*])
             .with_id(__ifengine_page_state.auto_key())
     };
 
@@ -167,7 +183,7 @@ pub fn link(input: TokenStream) -> TokenStream {
 
     let expanded = match exprs.len() {
         1 => {
-            let text = &exprs[0];
+            let text = expand_string_expr(&exprs[0]);
             quote! {
                 ifengine::view::Span::from(#text)
                     .as_link()
@@ -175,7 +191,7 @@ pub fn link(input: TokenStream) -> TokenStream {
             }
         }
         2 => {
-            let text = &exprs[0];
+            let text = expand_string_expr(&exprs[0]);
             let target = &exprs[1];
             quote! {
                 ifengine::view::Span::from(#text)
@@ -206,7 +222,7 @@ pub fn tun(input: TokenStream) -> TokenStream {
 
     let expanded = match exprs.len() {
         1 => {
-            let text = &exprs[0];
+            let text = expand_string_expr(&exprs[0]);
             quote! {
                 ifengine::view::Span::from(#text)
                     .as_link()
@@ -215,7 +231,7 @@ pub fn tun(input: TokenStream) -> TokenStream {
             }
         }
         2 => {
-            let text = &exprs[0];
+            let text = expand_string_expr(&exprs[0]);
             let target = &exprs[1];
             quote! {
                 ifengine::view::Span::from(#text)
@@ -253,7 +269,7 @@ pub fn h(input: TokenStream) -> TokenStream {
         .into();
     }
 
-    let text = exprs[0];
+    let text = expand_string_expr(exprs[0]);
     let level = exprs[1];
 
     let expanded = quote! {

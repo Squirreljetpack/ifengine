@@ -4,3 +4,7 @@ rustflags = ["--cfg", "getrandom_backend=\"wasm_js\""]
 [alias]
 "@saltwrack" = "exec trunk serve"
 "@test" = "exec trunk serve --no-default-features --features test"
+"@build" = "exec trunk build --release --filehash true"
+"@deploy" = ["exec", "-s", "trunk build --release --filehash true && npx wrangler pages deploy dist --project-name ifengine --branch main"]
+"@deploy-test" = ["exec", "-s", "trunk build --release --filehash true --no-default-features --features test && npx wrangler pages deploy dist --project-name ifengine --branch=test --commit-dirty=true"]
+"@deploy-only" = "exec npx wrangler pages deploy dist --project-name ifengine --branch main"

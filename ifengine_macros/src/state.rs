@@ -267,6 +267,7 @@ pub fn click(input: TokenStream) -> TokenStream {
         block,
     } = syn::parse_macro_input!(input as ClickInput);
     let key = maybe_key.into_tokens();
+    let expr_tokens = crate::helpers::expand_string_expr(&expr);
 
     let expanded = quote! {{
         let __ifengine_key = #key;
@@ -275,7 +276,7 @@ pub fn click(input: TokenStream) -> TokenStream {
         };
 
         let span = ifengine::view::Span::from(
-            #expr
+            #expr_tokens
         )
         .with_id(__ifengine_key)
         .with_action(ifengine::Action::Inc((__ifengine_page_state.id(), __ifengine_key)))
@@ -306,17 +307,18 @@ pub fn fresh(input: TokenStream) -> TokenStream {
 
 pub fn back(input: TokenStream) -> TokenStream {
     let ExprAndOptional { expr, n } = parse_macro_input!(input as ExprAndOptional);
+    let text = crate::helpers::expand_string_expr(&expr);
 
     let expanded = if let Some(n_expr) = n {
         quote! {
-            ifengine::view::Span::from(#expr)
+            ifengine::view::Span::from(#text)
             .as_link()
             .with_action(ifengine::Action::Back(#n_expr))
             .with_id(__ifengine_page_state.auto_key())
         }
     } else {
         quote! {
-            ifengine::view::Span::from(#expr)
+            ifengine::view::Span::from(#text)
             .as_link()
             .with_action(ifengine::Action::Back(1))
             .with_id(__ifengine_page_state.auto_key())

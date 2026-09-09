@@ -1,5 +1,5 @@
 use ifengine::{
-    elements::{back, p},
+    elements::{p, tun},
     ifview,
 };
 
@@ -19,7 +19,7 @@ pub fn _about(_s: &mut State) {
     p!(
         "Special thanks to Davey for providing testing and feedback! And my sincere apologies for any bugs that remain."
     );
-    p!(back!("Go back"));
+    p!(tun!("Go back"));
 }
 
 #[ifview]
@@ -29,7 +29,7 @@ pub fn _walker(_s: &mut State) {
     );
     p!(
         "The first salt snow, an inexplicable deathly miracle, occurred 239 years ago. Its effects were catastrophic: groundwater leaching, dead briny seas, the end of entire ecosystems. The earth's albedo raised, and its carbon diminished as though it were being siphoned. A swift ice age settled. By the time salt no longer sifted from the sky, six harrowed and desperate city-states remained in this corner of the world, isolated by a stretch of hostile white wasteland. Hearth, Clay, Noble, Wick, Firmament, and Rye. ",
-        back!("You recall their names even now in the format of a children's song.")
+        tun!("You recall their names even now in the format of a children's song.")
     );
 }
 
@@ -37,7 +37,7 @@ pub fn _walker(_s: &mut State) {
 pub fn _oracle(_s: &mut State) {
     p!(
         "Oracles are a strange class of people: those whose minds are touched by something outside the usual sphere. They are often androgynes, usually asocial or inclined towards solitude. They possess eerie abilities, unorthodox ways of thought, and more senses than humans generally have. Vivid, prophetic dreams, or visions of impossible shapes, or perpetual knowledge of where the poles are. Some oracles are highly respected researchers and theorists. Some are the object of cults. ",
-        back!("Some burn themselves alive.")
+        tun!("Some burn themselves alive.")
     );
 }
 
@@ -48,7 +48,7 @@ pub fn _interpreter(_s: &mut State) {
     );
     p!(
         "It was said, long ago, that the companions of some creator-deity were interpreters: they named the myriad creatures, dissected newly-made organ systems, tended carefully to the gardens of the heavens. ",
-        back!("Most people don't believe in gods anymore.")
+        tun!("Most people don't believe in gods anymore.")
     );
 }
 
@@ -66,5 +66,20 @@ pub fn _backstory(_s: &mut State) {
     p!(
         "But then the chair of the Observational Society, eager to make your acquaintance, invited you to a formal lunch. That meal is still linked in your mind with the first sights of Hearth, with Hearth as a whole, actually. Crisp bread, soft colorless melon. Some sort of warm savory beverage. Your new city seemed temperate, expansive, for a time."
     );
-    p!(back!("Continue..."));
+    p!(tun!("Continue..."));
+}
+
+#[ifview]
+pub fn _the_vehicle(s: &mut State) {
+    s.used_vehicle_thought = true;
+    p!(
+        "In the years after the salt snow, there were no such machines. Saltwalkers, and those they accompanied, travelled on foot. Mechanics from the city of Noble were the first to create a vessel that could carry passengers over the wrack. But there's a reason why saltwalkers are still walkers. The wrack does strange things to machinery: altered circuits, inexplicable failures, simple chemical corrosion. Engineers are never entirely dissuaded by this, and every year brings news of some attempt to solve the problem of travel once and for all. The vehicle that carries you is as experimental as your entire goal."
+    );
+    p!(
+        "Further north, on the great glacial ice sheet, you'll truly prove whether or not this model of machine can handle all the variable conditions of this wasteland. At least one mountain range stretches between you and the objective. In the worst case, you can make part of the journey on foot, the traditional way."
+    );
+    p!(
+        "Your expedition is supplied with far more fuel than you'll actually use. That, at least, will not be a point of failure."
+    );
+    p!(tun!("But why even think about failing?"));
 }

@@ -133,7 +133,11 @@ html, body {
     word-break: break-word;
 }
 
-.passage-paragraph:has(> .passage-line:empty) {
+.passage-paragraph:has(> .passage-line:empty),
+.passage-paragraph:has(> .passage-line.delayed-hidden),
+.passage-paragraph:has(> .passage-line.fade-out-removed),
+.passage-text:has(> .passage-line.delayed-hidden),
+.passage-text:has(> .passage-line.fade-out-removed) {
     margin: 0 !important;
     padding: 0 !important;
     min-height: 0 !important;
@@ -391,6 +395,18 @@ h6.passage-heading { font-size: 0.95rem; text-transform: uppercase; color: var(-
     animation: none !important;
     animation-duration: 0s !important;
     animation-delay: 0s !important;
+}
+
+.delayed-hidden {
+    display: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+.fade-out-removed {
+    display: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
 }
 
 .transition-active {

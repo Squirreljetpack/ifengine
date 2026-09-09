@@ -382,13 +382,6 @@ impl From<()> for Line {
     }
 }
 
-// note: as part of ! becoming a type, !; doesn't evaluate to ()
-// impl From<!> for Line {
-//     fn from(item: !) -> Self {
-//         unreachable!()
-//     }
-// }
-
 // From Vec of &str
 impl From<Vec<&str>> for Line {
     fn from(items: Vec<&str>) -> Self {

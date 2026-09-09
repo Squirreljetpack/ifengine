@@ -8,6 +8,7 @@ use proc_macro::TokenStream;
 
 mod choices;
 mod elements;
+pub(crate) mod helpers;
 mod nodes;
 mod state;
 mod view;
@@ -63,6 +64,8 @@ pub fn ifview(attr: TokenStream, item: TokenStream) -> TokenStream {
 /// By default, a deterministic key is automatically assigned.
 /// Multiple LHS values can be specified for the same RHS using `|`.
 ///
+/// LHS string literals support `{var}` interpolation.
+///
 /// # Example
 /// ```rust,ignore
 /// choice! {
@@ -88,6 +91,8 @@ pub fn choice(input: TokenStream) -> TokenStream {
 /// Any `Option<Into<Line>>` will coerce to `Choice::None` or `Choice::Always`.
 ///
 /// The return type is a `[bool; n]` representing which of the options were hidden (NOT displayed).
+///
+/// LHS string literals support `{var}` interpolation.
 ///
 /// # Example
 /// ```rust,ignore
@@ -222,10 +227,14 @@ pub fn mparagraph(input: TokenStream) -> TokenStream {
 /// When clicked, if a replacement block/expression is present, it is evaluated and rendered in place of the line;
 /// otherwise, an empty paragraph is rendered, collapsing the line with a smooth exit transition.
 ///
+/// Returns `true` if the line has been clicked and replaced, or `false` if it is still unclicked.
+///
 /// # Syntax
 /// ```text
 /// replace!((maybe_key), string_expr [, block])
 /// ```
+///
+/// The `string_expr` supports `{var}` interpolation.
 ///
 /// # Examples
 /// ```rust,ignore
@@ -234,6 +243,14 @@ pub fn mparagraph(input: TokenStream) -> TokenStream {
 ///
 /// // Replaces paragraph on click
 /// replace!("The gate is [[closed]].", "The gate swings open.");
+///
+/// // Chaining timed choices after replace
+/// if replace!("Click [[here]] to reveal options", "Options revealed:") {
+///     choice! {
+///         s!("Option A").cls("in-500") => "Chose A",
+///         s!("Option B").cls("in-500") => "Chose B",
+///     };
+/// }
 /// ```
 #[proc_macro]
 pub fn replace(input: TokenStream) -> TokenStream {
@@ -250,17 +267,17 @@ pub fn push(input: TokenStream) -> TokenStream {
     elements::push(input)
 }
 
-/// Push an unspaced plain text line ([`Object::Text`](ifengine::view::Object::Text)) to the view without paragraph margins.
+/// Push a single unspaced plain text line ([`Object::Text`](ifengine::view::Object::Text)) to the view without paragraph margins.
 ///
-/// Constructed from one or more spans or lingual string expressions.
+/// Constructed from one or more spans, or string literals with inline `{var}` interpolation.
 ///
 /// # Custom Styling Metadata
-/// A trailing [`RenderData`](ifengine::view::RenderData) (`&'static str`) can be specified following `::`.
+/// A trailing [`RenderData`](ifengine::view::RenderData) can be specified following `::`.
 ///
 /// # Example
 /// ```rust,ignore
 /// text!("Hello, world!");
-/// text!("Hello, ", "world!" :: "my_render_data");
+/// text!("HP: {hp}/{max_hp}" :: "stat-line");
 /// ```
 #[proc_macro]
 pub fn text(input: TokenStream) -> TokenStream {
@@ -269,7 +286,7 @@ pub fn text(input: TokenStream) -> TokenStream {
 
 /// Push multiple unspaced plain text lines ([`Object::Text`](ifengine::view::Object::Text)) in sequence to the view.
 ///
-/// Each argument is added as a separate line without paragraph vertical margins. See [`text!`].
+/// Each argument is a separate line without paragraph margins. Supports `{var}` interpolation. See [`text!`].
 ///
 /// # Example
 /// ```rust,ignore
@@ -280,14 +297,13 @@ pub fn texts(input: TokenStream) -> TokenStream {
     elements::texts(input)
 }
 
-/// Push a single paragraph block ([`Object::Paragraph`](ifengine::view::Object::Paragraph)) to the view with standard vertical paragraph margins.
+/// Push a single paragraph block ([`Object::Paragraph`](ifengine::view::Object::Paragraph)) to the view with standard vertical margins.
 ///
-/// Constructed from one or more spans or lingual string expressions.
+/// Constructed from one or more spans, or string literals with inline `{var}` interpolation.
 ///
 /// # Example
 /// ```rust,ignore
 /// paragraph!("A dark hallway stretches before you.");
-/// paragraph!(s!("Gold: "), s!(player.gold));
 /// ```
 #[proc_macro]
 pub fn paragraph(input: TokenStream) -> TokenStream {
@@ -296,13 +312,13 @@ pub fn paragraph(input: TokenStream) -> TokenStream {
 
 /// Push multiple separate paragraph blocks ([`Object::Paragraph`](ifengine::view::Object::Paragraph)) to the view.
 ///
-/// Each argument is pushed as its own paragraph block with standard vertical spacing between blocks.
+/// Each argument is its own block with standard vertical spacing. Supports `{var}` interpolation.
 ///
 /// # Example
 /// ```rust,ignore
 /// paragraphs!(
-///     "First paragraph of the scene.",
-///     "Second paragraph following a vertical margin.",
+///     "First paragraph.",
+///     "Second paragraph.",
 /// );
 /// ```
 #[proc_macro]
@@ -310,31 +326,55 @@ pub fn paragraphs(input: TokenStream) -> TokenStream {
     elements::paragraphs(input)
 }
 
-/// Create a [`Span`](ifengine::view::Span) with an automatic element key.
+/// Create a [`Span`](ifengine::view::Span). Supports `{var}` interpolation in string literals.
+///
+/// # Example
+/// ```rust,ignore
+/// s!("Gold: {player.gold}")
+/// ```
 #[proc_macro]
 pub fn s(input: TokenStream) -> TokenStream {
     elements::s(input)
 }
 
-/// Create a [`Line`](ifengine::view::Line) from one or more [`Span`](ifengine::view::Span)s with an automatic element key.
+/// Create a [`Line`](ifengine::view::Line) from one or more [`Span`](ifengine::view::Span)s. Supports `{var}` interpolation in string literals.
+///
+/// # Example
+/// ```rust,ignore
+/// l!("Player {name} (Level {level})")
+/// ```
 #[proc_macro]
 pub fn l(input: TokenStream) -> TokenStream {
     elements::l(input)
 }
 
-/// Create a clickable link [`Span`](ifengine::view::Span) with an automatic element key.
+/// Create a clickable link [`Span`](ifengine::view::Span) navigating to a destination page.
 ///
-/// - `link!("Click me", NextPage)`
-/// - `link!("Click me")`
+/// Supports `{var}` interpolation in the link text.
+///
+/// # Example
+/// ```rust,ignore
+/// link!("Visit {vendor}'s shop", shop_page)
+/// ```
+///
+/// - `link!("text", target_page)`
+/// - `link!("text")`
 #[proc_macro]
 pub fn link(input: TokenStream) -> TokenStream {
     elements::link(input)
 }
 
-/// Create a tunnel or exit link [`Span`](ifengine::view::Span) with an automatic element key.
+/// Create a tunnel or exit link [`Span`](ifengine::view::Span).
 ///
-/// - `tun!("Next", TargetPage)`
-/// - `tun!("Exit")`
+/// Supports `{var}` interpolation in the link text.
+///
+/// # Example
+/// ```rust,ignore
+/// tun!("Consult with {mentor}", mentor_tunnel)
+/// ```
+///
+/// - `tun!("text", target_page)` — push a new stack frame
+/// - `tun!("text")` — exit the current tunnel (pop the stack)
 #[proc_macro]
 pub fn tun(input: TokenStream) -> TokenStream {
     elements::tun(input)
@@ -356,11 +396,11 @@ pub fn img(input: TokenStream) -> TokenStream {
     elements::img(input)
 }
 
-/// Markdown heading.
+/// Markdown heading. Supports `{var}` interpolation in the heading text.
 ///
 /// # Example
 /// ```rust,ignore
-/// h!("Title", 2);
+/// h!("Chapter {chap}: The Journey Begins", 1);
 /// ```
 #[proc_macro]
 pub fn h(input: TokenStream) -> TokenStream {
@@ -368,11 +408,6 @@ pub fn h(input: TokenStream) -> TokenStream {
 }
 
 /// Horizontal rule (`<hr/>`).
-///
-/// # Example
-/// ```rust,ignore
-/// hr!();
-/// ```
 #[proc_macro]
 pub fn hr(input: TokenStream) -> TokenStream {
     elements::hr(input)
@@ -409,7 +444,7 @@ pub fn count(input: TokenStream) -> TokenStream {
     state::count(input)
 }
 
-/// Run code on click.
+/// Run code on click. Supports `{var}` interpolation in the span text.
 ///
 /// # Syntax
 /// ```rust,ignore
@@ -433,8 +468,15 @@ pub fn fresh(input: TokenStream) -> TokenStream {
 
 /// Create a link [`Span`](ifengine::view::Span) that navigates backward.
 ///
+/// Supports inline variable interpolation `{var}` in the display text.
+///
 /// - `$e`: Display text.
 /// - `$n`: Optional number of steps to go back (defaults to 1).
+///
+/// # Example
+/// ```rust,ignore
+/// back!("Return to {previous_room}")
+/// ```
 #[proc_macro]
 pub fn back(input: TokenStream) -> TokenStream {
     state::back(input)

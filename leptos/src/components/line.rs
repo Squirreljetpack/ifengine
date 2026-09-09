@@ -5,7 +5,8 @@ use leptos::prelude::*;
 use crate::components::span::SpanView;
 use crate::context::StoryContext;
 use crate::transition::{
-    generate_transition_style, generate_view_transition_style, parse_transition_classes,
+    compute_initial_phase, generate_active_transition_style, generate_view_transition_style,
+    parse_transition_classes, setup_transition_timers, TransitionPhase,
 };
 
 /// Renders a [`Line`] consisting of multiple spans, with line-level animation and class support.
@@ -19,29 +20,53 @@ pub fn LineView(line: Line, page_id: PageId) -> impl IntoView {
         .is_content_changed(&page_id, line.id, line.content_hash());
     let should_animate = config.has_transition() && is_changed;
 
-    let (transition_style, extra_classes) = generate_transition_style(&config, should_animate);
+    let (phase, set_phase) = signal(compute_initial_phase(&config, should_animate));
+    if should_animate {
+        setup_transition_timers(&config, set_phase);
+    }
+
     let vt_style = generate_view_transition_style(line.id, is_changed);
 
-    let mut styles = Vec::new();
-    if !transition_style.is_empty() {
-        styles.push(transition_style);
-    }
-    if !vt_style.is_empty() {
-        styles.push(vt_style);
-    }
-    let combined_style = styles.join(" ");
+    let line_config = config.clone();
+    let line_style = move || {
+        let mut styles = Vec::new();
+        if !vt_style.is_empty() {
+            styles.push(vt_style.clone());
+        }
+        match phase.get() {
+            TransitionPhase::Pending | TransitionPhase::Removed => {}
+            TransitionPhase::Active => {
+                let (trans_style, _) = generate_active_transition_style(&line_config, should_animate);
+                if !trans_style.is_empty() {
+                    styles.push(trans_style);
+                }
+            }
+        }
+        styles.join(" ")
+    };
 
-    let mut line_classes = line.classes.clone();
-    line_classes.push("passage-line".into());
-    for extra in extra_classes {
-        line_classes.push(extra.into());
-    }
-    let class_str = line_classes.join(" ");
+    let line_classes_base = line.classes.clone();
+    let class_str = move || {
+        let mut classes = line_classes_base.clone();
+        classes.push("passage-line".into());
+        match phase.get() {
+            TransitionPhase::Pending => classes.push("delayed-hidden".into()),
+            TransitionPhase::Removed => classes.push("fade-out-removed".into()),
+            TransitionPhase::Active => {
+                if should_animate {
+                    classes.push("transition-active".into());
+                } else {
+                    classes.push("skip-animation".into());
+                }
+            }
+        }
+        classes.join(" ")
+    };
 
     let spans = line.spans;
 
     view! {
-        <span class=class_str style=combined_style>
+        <span class=class_str style=line_style>
             {spans.into_iter().map(|span| {
                 let page_id_clone = page_id.clone();
                 view! {

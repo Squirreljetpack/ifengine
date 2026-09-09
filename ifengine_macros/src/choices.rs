@@ -3,6 +3,7 @@ use quote::quote;
 use syn::parse::{Parse, ParseStream};
 use syn::{Arm, Expr, Result, Token, parse_macro_input};
 
+use crate::helpers::{expand_line_expr, expand_string_expr};
 use crate::nodes::{KeyExpr, KeyExprs, MaybeKey};
 
 pub struct LineArm {
@@ -73,7 +74,8 @@ pub fn choice(input: TokenStream) -> TokenStream {
     for (i, LineArm { line, block }) in arms.iter().enumerate() {
         let i = i as u8;
 
-        lines.push(quote! { (#i, ifengine::view::Line::from(#line)) });
+        let line_tokens = expand_line_expr(line);
+        lines.push(quote! { (#i, #line_tokens) });
 
         let block_tokens = match block {
             Some(b) => quote! { ifengine::view::Line::from({ #b }) },
@@ -128,6 +130,15 @@ pub fn mchoice(input: TokenStream) -> TokenStream {
         .map(|(i, LineArm { line, block })| {
             let i = i as u8;
 
+            // Only expand string literals; other exprs (Option<Span>, etc.) pass through to
+            // ChoiceVariant::from which has the appropriate blanket impls.
+            let variant_tokens = if matches!(line, Expr::Lit(syn::ExprLit { lit: syn::Lit::Str(_), .. })) {
+                let line_tokens = expand_line_expr(line);
+                quote! { ifengine::elements::ChoiceVariant::from({ #line_tokens }) }
+            } else {
+                quote! { ifengine::elements::ChoiceVariant::from(#line) }
+            };
+
             let block_tokens = match block {
                 Some(b) => quote! { #b },
                 None => quote! {},
@@ -137,7 +148,7 @@ pub fn mchoice(input: TokenStream) -> TokenStream {
                 if (__ifengine_tmp_mask & (1u64 << #i)) != 0 {
                     #block_tokens
                 }
-                if let Some(l) = ifengine::elements::ChoiceVariant::from(#line)
+                if let Some(l) = #variant_tokens
                 .as_line((__ifengine_tmp_mask & (1u64 << #i)) != 0)
                 {
                     __ifengine_tmp_lines.push((#i, l));
@@ -366,6 +377,7 @@ pub fn replace(input: TokenStream) -> TokenStream {
     } = syn::parse_macro_input!(input as ReplaceInput);
 
     let key = maybe_key.into_tokens();
+    let expr_tokens = expand_string_expr(&expr);
 
     let block_token = match block {
         Some(b) => quote! { #b },
@@ -382,8 +394,9 @@ pub fn replace(input: TokenStream) -> TokenStream {
                     ifengine::view::Object::Paragraph(__ifengine_replacement.with_id(__ifengine_key))
                 );
             }
+            true
         } else {
-            let __ifengine_raw_str = #expr;
+            let __ifengine_raw_str = #expr_tokens;
             let __ifengine_trimmed = ifengine::utils::trim_lines(&__ifengine_raw_str);
             let mut __ifengine_spans = Vec::new();
 
@@ -417,6 +430,7 @@ pub fn replace(input: TokenStream) -> TokenStream {
             __ifengine_page_state.push(
                 ifengine::view::Object::Paragraph(__ifengine_line)
             );
+            false
         }
     }};
 

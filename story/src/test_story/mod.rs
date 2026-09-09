@@ -1,6 +1,15 @@
 pub mod chap1;
 
-pub type Game = ifengine::Game<()>;
+#[derive(Debug, Clone, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct State {
+    pub job: Option<String>,
+    pub miles: usize,
+    pub days: usize,
+    pub rations: usize,
+}
+
+pub type Game = ifengine::Game<State>;
 pub fn new() -> Game {
     ifengine::Game!(chap1::rainy_day)
 }
@@ -101,5 +110,91 @@ mod tests {
             }
         });
         assert!(has_replacement, "collapsed replacement text must be present in embedded view!");
+    }
+
+    #[test]
+    fn test_cover_story_replace_and_timed_choice() {
+        use ifengine::view::Object;
+
+        let mut game = new();
+        let view = game.view().expect("failed to render rainy_day");
+
+        // 1. Initial state: verify linkreplace is displayed as a link
+        let mut replace_link_action = None;
+        for obj in &view.inner {
+            if let Object::Paragraph(line) = obj {
+                if line.content().contains("wanted criminal") {
+                    for span in &line.spans {
+                        if span.content.contains("wanted criminal") {
+                            replace_link_action = span.action.clone();
+                        }
+                    }
+                }
+            }
+        }
+        assert!(replace_link_action.is_some(), "wanted criminal link must be present initially");
+
+        // Verify that the cover story choices are NOT visible yet
+        let has_treasure_hunter = view.inner.iter().any(|obj| match obj {
+            Object::Choice(_, choices) => choices.iter().any(|(_, l)| l.content().contains("treasure hunter")),
+            Object::Paragraph(l) => l.content().contains("treasure hunter"),
+            _ => false,
+        });
+        assert!(!has_treasure_hunter, "choices should not be visible before link is clicked");
+        assert_eq!(game.context.job, None);
+
+        // 2. Click the linkreplace action
+        game.inner.handle_action(replace_link_action.unwrap()).expect("action should succeed");
+        let view2 = game.view().expect("should render after clicking replace");
+
+        // Verify link was replaced with "Obviously you're not going to tell the truth..."
+        let has_obviously = view2.inner.iter().any(|obj| {
+            if let Object::Paragraph(line) = obj {
+                line.content().contains("Obviously you're not going to tell the truth")
+            } else {
+                false
+            }
+        });
+        assert!(has_obviously, "replacement paragraph must be visible");
+
+        // Verify choices are now present and have the "in-500" transition class
+        let cover_choice = view2.inner.iter().find_map(|obj| {
+            if let Object::Choice(key, choices) = obj {
+                if choices.iter().any(|(_, l)| l.content().contains("treasure hunter")) {
+                    Some((*key, choices.clone()))
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        }).expect("cover story choice must be present after replace");
+
+        let (choice_key, choice_lines) = cover_choice;
+        assert_eq!(choice_lines.len(), 3);
+
+        for (_, line) in &choice_lines {
+            // Check that the line or its span contains "in-500"
+            let has_in_500 = line.classes.iter().any(|c| c == "in-500")
+                || line.spans.iter().any(|s| s.classes.iter().any(|c| c == "in-500"));
+            assert!(has_in_500, "each choice option must have class 'in-500'");
+        }
+
+        // 3. Select choice 0 ("treasure hunter")
+        game.inner.handle_choice(choice_key, 0);
+        let view3 = game.view().expect("should render after choosing job");
+
+        // Verify state was updated
+        assert_eq!(game.context.job.as_deref(), Some("treasure hunter"));
+
+        // Verify job is displayed after the choice
+        let has_job_display = view3.inner.iter().any(|obj| {
+            if let Object::Paragraph(line) = obj {
+                line.content().contains("Job: treasure hunter")
+            } else {
+                false
+            }
+        });
+        assert!(has_job_display, "view must display 'Job: treasure hunter' after selection");
     }
 }

@@ -247,3 +247,109 @@ fn test_replace_macro() {
         panic!("expected Object::Paragraph for magic");
     }
 }
+
+#[ifengine::ifview]
+fn test_interpolation_page(_: &mut ()) {
+    use ifengine::elements::{h, l, link, p, ps, s, text, texts};
+
+    let name = "Sen";
+    let score = 42;
+    let gold = 100;
+
+    h!("Welcome to {name}'s Quest", 1);
+    p!("Hello {name}, you have {gold} gold.");
+    ps!("Score: {score}", "Player: {name}");
+    text!("Stats: {gold} gold");
+    texts!("Gold: {gold}", "Score: {score}");
+
+    let line = l!("Line with {name} and score {score}");
+    p!(line);
+
+    let span = s!("Badge: {name}");
+    let lnk = link!("Visit {name}");
+    p!(span, lnk);
+
+    let uncopied = String::from("Unmoved");
+    p!("First: {uncopied}");
+    p!("Second: {uncopied}");
+}
+
+#[test]
+fn test_variable_interpolation_macros() {
+    let mut game = ifengine::Game::new_with_page("test_interpolation_page", test_interpolation_page);
+    let view = game.view().expect("view should succeed");
+
+    // 0: h!
+    if let Object::Heading(span, 1) = &view.inner[0] {
+        assert_eq!(span.content, "Welcome to Sen’s Quest");
+    } else {
+        panic!("expected Heading for index 0");
+    }
+
+    // 1: p! with interpolation
+    if let Object::Paragraph(line) = &view.inner[1] {
+        assert_eq!(line.content(), "Hello Sen, you have 100 gold.");
+        assert_eq!(line.spans.len(), 5); // "Hello ", "Sen", ", you have ", "100", " gold."
+    } else {
+        panic!("expected Paragraph for index 1");
+    }
+
+    // 2 & 3: ps! with interpolation
+    if let Object::Paragraph(line) = &view.inner[2] {
+        assert_eq!(line.content(), "Score: 42");
+    } else {
+        panic!("expected Paragraph for index 2");
+    }
+    if let Object::Paragraph(line) = &view.inner[3] {
+        assert_eq!(line.content(), "Player: Sen");
+    } else {
+        panic!("expected Paragraph for index 3");
+    }
+
+    // 4: text! with interpolation
+    if let Object::Text(line, _) = &view.inner[4] {
+        assert_eq!(line.content(), "Stats: 100 gold");
+    } else {
+        panic!("expected Text for index 4");
+    }
+
+    // 5 & 6: texts! with interpolation
+    if let Object::Text(line, _) = &view.inner[5] {
+        assert_eq!(line.content(), "Gold: 100");
+    } else {
+        panic!("expected Text for index 5");
+    }
+    if let Object::Text(line, _) = &view.inner[6] {
+        assert_eq!(line.content(), "Score: 42");
+    } else {
+        panic!("expected Text for index 6");
+    }
+
+    // 7: p!(l!("Line with {name} and score {score}"))
+    if let Object::Paragraph(line) = &view.inner[7] {
+        assert_eq!(line.content(), "Line with Sen and score 42");
+    } else {
+        panic!("expected Paragraph for index 7");
+    }
+
+    // 8: p!(s!("Badge: {name}"), link!("Visit {name}"))
+    if let Object::Paragraph(line) = &view.inner[8] {
+        assert_eq!(line.spans[0].content, "Badge: Sen");
+        assert_eq!(line.spans[1].content, "Visit Sen");
+        assert!(matches!(line.spans[1].variant, ifengine::view::SpanVariant::Link));
+    } else {
+        panic!("expected Paragraph for index 8");
+    }
+
+    // 9 & 10: non-copy string borrowing
+    if let Object::Paragraph(line) = &view.inner[9] {
+        assert_eq!(line.content(), "First: Unmoved");
+    } else {
+        panic!("expected Paragraph for index 9");
+    }
+    if let Object::Paragraph(line) = &view.inner[10] {
+        assert_eq!(line.content(), "Second: Unmoved");
+    } else {
+        panic!("expected Paragraph for index 10");
+    }
+}

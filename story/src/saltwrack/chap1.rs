@@ -1,6 +1,6 @@
 use crate::{
     chap1d::*,
-    saltwrack::{Address, Oracle, State, Walker},
+    saltwrack::{Oracle, State, Walker},
 };
 #[allow(unused_imports)]
 use ifengine::elements::*;
@@ -24,42 +24,77 @@ pub fn p2(_s: &mut State) {
             .style("margin-top", "clamp(6rem, 15vh, 16rem)"),
         3
     );
-    choice!(
-        tun!("ABOUT", _about),
-        link!("BEGIN", p3)
-    );
+    choice!(tun!("ABOUT", _about), link!("BEGIN", p3));
 }
 
 #[ifview]
-pub fn p3(s: &mut State) {
+pub fn p3(state: &mut State) {
     ps!(
         "You turn back to the clerk sitting across the desk from you, over piles of slightly crumpled paper. Her hands are stained with ink. Her voice is hoarse, as though she has recently been ill.",
         r#""Oh—what would you prefer to be addressed as?""#
     );
 
-    choice!(
-        click!("“Sen.” The neutral honorific of respect: a fine choice for any purpose.", {
-            s.address = Address::Sen;
-            s.myname = "sen".to_string();
-            NEXT!(p4);
-        }),
-        click!("“Ammar.” An honorific translating to “sibling”, common among egalitarians, communalists, and anarchists.", {
-            s.address = Address::Ammar;
-            s.myname = "ammar".to_string();
-            NEXT!(p4);
-        }),
-        click!("“Interpreter.” The title of your position, an honorific conveying pride in your skills.", {
-            s.address = Address::Interpreter;
-            s.myname = "Interpreter".to_string();
-            NEXT!(p4);
-        })
-    );
+    let names = [
+        "Sen",
+        "The neutral honorific of respect: a fine choice for any purpose.",
+        "Ammar",
+        "An honorific translating to “sibling”, common among egalitarians, communalists, and anarchists.",
+        "Interpreter",
+        "The title of your position, an honorific conveying pride in your skills.",
+    ];
+
+    let mut choices = vec![];
+    for i in 0..3 {
+        let e = click!(names[i * 2], {
+            state.addr = match i {
+                0 => "sen".to_string(),
+                1 => "ammar".to_string(),
+                _ => "Interpreter".to_string(),
+            };
+            NEXT!(p4)
+        });
+        choices.push([e, s!(".  ", names[i * 2 + 1])]);
+    }
+    dchoice!(choices);
+
+    // ------- ALTERNATIVES --------
+    // // The whole line is clickable:
+    //
+    // let choices: Vec<_> = names
+    //     .chunks_exact(2)
+    //     .map(|x| [link!(x[0]), s!(".  ", x[1])])
+    //     .collect();
+
+    // dchoice! { choices,
+    //     c => {
+    //         state.myname = names[c * 2].to_string();
+    //         NEXT!(p4);
+    //     }
+    // }
+
+    // dchoice!(choices);
+
+    // // Key override:
+    //
+    // let choices: Vec<_> = names
+    //     .chunks_exact(2)
+    //     .enumerate()
+    //     .map(|(i, x)| [click!((i as u64), x[0]), s!(".  ", x[1])])
+    //     .collect();
+
+    // dchoice!(choices);
+
+    // for i in 0..3 {
+    //     if read_key!(i).is_some() {
+    //         state.myname = names[i as usize * 2].to_string();
+    //         NEXT!(p4)
+    //     }
+    // }
 }
 
 #[ifview]
 pub fn p4(s: &mut State) {
-    let addr = s.address.as_str();
-    p!(format!("The functionary nods. “I'll tell the others as much, {addr}.”"));
+    p!("The functionary nods. “I'll tell the others as much, {s.addr}.”");
 
     p!(
         "It's taken months to persuade the Observational Society to sign off on your expedition. But now, most of the obstacles are out of the way, and concrete reality is setting in: there are only a few weeks left before your departure. You've been assured that the Society's clerk will see to the budgeting. “All expenses have been approved,” she reminds you. “And in case something happens to one of you out there… well, you're undertaking this expedition with a full awareness of the risks. As are your colleagues.” She gives you a half-smile. “I hear your candidates are a scholar or two, a couple of saltwalkers, and… an artist. Oh, don't look at me like that. You know what oracles are like. It's a wonder we managed to find two who wanted to be part of this.”"
@@ -97,22 +132,21 @@ pub fn p5(s: &mut State) {
         );
     }
 
-    if s.oracle != Oracle::None && s.walker != Walker::None {
+    let need_oracle = s.oracle == Oracle::None;
+    let need_walker = s.walker == Walker::None;
+    let can_view_interpreter = !s.no_interpreter && (need_oracle || need_walker);
+
+    if (s.oracle != Oracle::None && s.walker != Walker::None)
+        || mchoice! {
+            need_oracle.then_some(link!("the first oracle", view_oracle_1)),
+            need_oracle.then_some(link!("the second oracle", view_oracle_2)),
+            need_walker.then_some(link!("the first saltwalker", view_walker_1)),
+            need_walker.then_some(link!("the second saltwalker", view_walker_2)),
+            can_view_interpreter.then_some(link!("the second interpreter", view_interpreter_2)),
+        }
+        .all()
+    {
         p!(link!("And so your crew is selected.", crew_selected));
-    } else {
-        let mut choices = vec![];
-        if s.oracle == Oracle::None {
-            choices.push(link!("the first oracle", view_oracle_1));
-            choices.push(link!("the second oracle", view_oracle_2));
-        }
-        if s.walker == Walker::None {
-            choices.push(link!("the first saltwalker", view_walker_1));
-            choices.push(link!("the second saltwalker", view_walker_2));
-        }
-        if !s.no_interpreter {
-            choices.push(link!("the second interpreter", view_interpreter_2));
-        }
-        dchoice!(choices);
     }
 }
 
@@ -136,7 +170,6 @@ pub fn view_oracle_1(s: &mut State) {
 pub fn select_oracle_1(s: &mut State) {
     s.oracle = Oracle::V;
     s.relation_oracle = 20;
-    s.c1.name = "Oracle V".into();
 
     p!(
         "“Yes. Thank you ever so much, Interpreter.” Their tone is unexpectedly fervent, given their carefully controlled appearance. The eyes of the two oracles meet. Some unshared communication seems to pass between them in that glance. The other oracle rests their fingertips on your new partner's wrist, for just a moment."
@@ -169,11 +202,8 @@ pub fn view_oracle_2(_s: &mut State) {
 pub fn select_oracle_2(s: &mut State) {
     s.oracle = Oracle::S;
     s.relation_oracle = 20;
-    s.c1.name = "Oracle S".into();
 
-    p!(
-        "They nod. “I will serve as well as I can.” You can't tell what they're thinking."
-    );
+    p!("They nod. “I will serve as well as I can.” You can't tell what they're thinking.");
     p!(
         "The eyes of the two oracles meet. Some unshared communication seems to pass between them in that glance. The other oracle offers your new partner an uncertain smile."
     );
@@ -205,12 +235,9 @@ pub fn view_walker_1(_s: &mut State) {
 pub fn select_walker_1(s: &mut State) {
     s.walker = Walker::A;
     s.relation_walker = 20;
-    s.c2.name = "Walker A".into();
-    let addr = s.address.as_str();
-
-    p!(format!(
-        "He stands and inclines his head in a very courteous, rather old-fashioned acknowledgement. “It is an honor, {addr}.” His voice is solemn; his eyes look sharply into yours. The other saltwalker watches him, her slight smile gone."
-    ));
+    p!(
+        "He stands and inclines his head in a very courteous, rather old-fashioned acknowledgement. “It is an honor, {s.addr}.” His voice is solemn; his eyes look sharply into yours. The other saltwalker watches him, her slight smile gone."
+    );
 
     if s.oracle == Oracle::None {
         p!("You still have an oracle to choose.");
@@ -240,7 +267,6 @@ pub fn select_walker_2(s: &mut State) {
     s.walker = Walker::T;
     s.relation_walker = 20;
     s.seen_eyes = false;
-    s.c2.name = "Walker T".into();
 
     p!(
         "Her smile widens to a grin. She reaches out to shake your hand; her grip is brief and fever-warm. The electric light in the room glints eerily off her helm. It reminds you of the eyes of a biting fly."
@@ -342,7 +368,10 @@ pub fn day1_start(s: &mut State) {
     p!(
         "There is no boundary between Hearth, your everywhere-place—the familiar place of dwelling—and the forsaken place outside of it, surrounding it. There is no line, not even a fading gradient. Your vehicle lopes over grey frozen heath for a few dozen miles. Soon, there is a thin film of ash or ashlike material on the ground."
     );
-    p!(link!("The sun is a glowing white spot behind the clouds.", day1_travel));
+    p!(link!(
+        "The sun is a glowing white spot behind the clouds.",
+        day1_travel
+    ));
 }
 
 #[ifview]
@@ -354,10 +383,14 @@ pub fn day1_travel(s: &mut State) {
 
     match s.oracle {
         Oracle::S => {
-            p!("The oracle sits beside you, watching the bleak landscape. They barely seem to notice you.");
+            p!(
+                "The oracle sits beside you, watching the bleak landscape. They barely seem to notice you."
+            );
         }
         _ => {
-            p!("The oracle sits hunched beside you, fidgeting occasionally with their glasses or a spare pencil.");
+            p!(
+                "The oracle sits hunched beside you, fidgeting occasionally with their glasses or a spare pencil."
+            );
         }
     }
 
@@ -366,10 +399,15 @@ pub fn day1_travel(s: &mut State) {
             p!(
                 "The saltwalker holds onto your maps and compasses, for now. Her experience will be useful for at least a few hundred miles north. Beyond that, few travel, even walkers. There's no reason to go so far beyond civilization. Besides expensive, fatal curiosity."
             );
-            p!("She seems more willing to chat. You didn't exactly get to know your colleagues before you were sent out here. You could ask her…");
+            p!(
+                "She seems more willing to chat. You didn't exactly get to know your colleagues before you were sent out here. You could ask her…"
+            );
             choice!(
                 link!("“Which city are you from?”", d1_t_city),
-                link!("“What's it like for you—driving a machine instead of walking?”", d1_t_driving),
+                link!(
+                    "“What's it like for you—driving a machine instead of walking?”",
+                    d1_t_driving
+                ),
                 link!("“How far have you travelled?”", d1_t_travel),
                 link!("don't bother her with questions", d1_no_convo)
             );
@@ -378,10 +416,15 @@ pub fn day1_travel(s: &mut State) {
             p!(
                 "The saltwalker holds onto your maps and compasses, for now. His experience will be useful for at least a few hundred miles north. Beyond that, few travel, even walkers. There's no reason to go so far beyond civilization. Besides expensive, fatal curiosity."
             );
-            p!("He seems more willing to chat. You didn't exactly get to know your colleagues before you were sent out here. You could ask him…");
+            p!(
+                "He seems more willing to chat. You didn't exactly get to know your colleagues before you were sent out here. You could ask him…"
+            );
             choice!(
                 link!("“You're from Hearth, aren't you?”", d1_a_city),
-                link!("“What's it like for you—driving a machine instead of walking?”", d1_a_driving),
+                link!(
+                    "“What's it like for you—driving a machine instead of walking?”",
+                    d1_a_driving
+                ),
                 link!("“How far have you travelled?”", d1_a_travel),
                 link!("don't bother him with questions", d1_no_convo)
             );
@@ -467,10 +510,9 @@ pub fn d1_a_driving(s: &mut State) {
 pub fn d1_a_travel(s: &mut State) {
     s.relation_walker += 1;
     s.used_1w_travel_ques = true;
-    let addr = s.address.as_str();
-    p!(format!(
-        "“Mm. A little past Wick—that's near four hundred miles north of here, and further east than we'll be going, unless the Society was wrong about where the objective is. Didn't you do those triangulations, {addr}?” His voice is gruff, but there's the hint of a smile on his bearded face. “You'd best not be leading us astray. At any rate, I've gone further south than north. Down past Rye. You can still see where forests used to be, they're not all gone under the ice... but the salt is worse. More of it in the soil.”"
-    ));
+    p!(
+        "“Mm. A little past Wick—that's near four hundred miles north of here, and further east than we'll be going, unless the Society was wrong about where the objective is. Didn't you do those triangulations, {s.addr}?” His voice is gruff, but there's the hint of a smile on his bearded face. “You'd best not be leading us astray. At any rate, I've gone further south than north. Down past Rye. You can still see where forests used to be, they're not all gone under the ice... but the salt is worse. More of it in the soil.”"
+    );
     p!(
         "He tells you about the remnants of those trees: gray boughs like driftwood on land, petrified by minerals and the lack of decay. Not long afterwards, he eases the vehicle to a stop."
     );
@@ -500,10 +542,14 @@ pub fn first_night(s: &mut State) {
 
     match s.walker {
         Walker::T => {
-            p!("She says it could attract things to the camp, otherwise. It's only a precaution, this close to a city, but you've seen the specimens and heard the stories. You don't disobey.");
+            p!(
+                "She says it could attract things to the camp, otherwise. It's only a precaution, this close to a city, but you've seen the specimens and heard the stories. You don't disobey."
+            );
         }
         _ => {
-            p!("He says it could attract things to the camp, otherwise. It's only a precaution, this close to a city, but you've seen the specimens and heard the stories. You don't disobey.");
+            p!(
+                "He says it could attract things to the camp, otherwise. It's only a precaution, this close to a city, but you've seen the specimens and heard the stories. You don't disobey."
+            );
         }
     }
 
@@ -607,10 +653,9 @@ pub fn route_mapped(s: &mut State) {
             );
         }
         Walker::T => {
-            let addr = s.address.as_str();
-            p!(format!(
-                "The saltwalker snorts. She doesn't seem surprised, merely disappointed. “Right. Don't bother saving yourself the trouble. We do it your way, {addr}.”"
-            ));
+            p!(
+                "The saltwalker snorts. She doesn't seem surprised, merely disappointed. “Right. Don't bother saving yourself the trouble. We do it your way, {s.addr}.”"
+            );
         }
         _ => {}
     }
@@ -650,6 +695,8 @@ pub fn camp_relax(s: &mut State) {
     p!(link!("And now you're out here.", day_three));
 }
 
+// ---------------- DAY 3 ----------------
+
 #[ifview]
 pub fn day_three(s: &mut State) {
     s.days = 3;
@@ -662,16 +709,33 @@ pub fn day_three(s: &mut State) {
     );
 
     if s.north > 90 {
-        p!("Yellow sky, gray land, sickly crystalline sun. You pass massive floes, heaped up as though this were the edge of an ocean.");
+        EMBED!(preglacier_day_text);
     } else {
-        p!(
-            "Something is heaped up in the distance, standing out against the stark white field. Once you get close enough, you see that it's a mechanical carcass: the wreck of an aeromobile, a rare relic from Firmament's experimentation. Its metal shell is warped and buckled from the weight and movement of ice; it might have been downed decades ago. As far as you're aware, engineers have largely given up on the possibility of powered flight."
-        );
-        p!(
-            "Odd scratches are raked into its body by the doors and windows. The saltwalker eyes them with suspicion as you pass by."
-        );
+        EMBED!(aero_wreck);
     }
 
+    EMBED!(bad_air);
+}
+
+#[ifview]
+pub fn preglacier_day_text(_s: &mut State) {
+    p!(
+        "Yellow sky, gray land, sickly crystalline sun. You pass massive floes, heaped up as though this were the edge of an ocean."
+    );
+}
+
+#[ifview]
+pub fn aero_wreck(_s: &mut State) {
+    p!(
+        "Something is heaped up in the distance, standing out against the stark white field. Once you get close enough, you see that it's a mechanical carcass: the wreck of an aeromobile, a rare relic from Firmament's experimentation. Its metal shell is warped and buckled from the weight and movement of ice; it might have been downed decades ago. As far as you're aware, engineers have largely given up on the possibility of powered flight."
+    );
+    p!(
+        "Odd scratches are raked into its body by the doors and windows. The saltwalker eyes them with suspicion as you pass by."
+    );
+}
+
+#[ifview]
+pub fn bad_air(s: &mut State) {
     p!(
         "While you start to set up camp, the walker is the first to spot the glyph, carved white into the side of a boulder. A horizontal line with a wavering vertical squiggle through the center of it."
     );
@@ -679,10 +743,9 @@ pub fn day_three(s: &mut State) {
 
     match s.walker {
         Walker::T => {
-            let addr = s.address.as_str();
-            p!(format!(
-                "She shakes her head, hunches her shoulders. “Something here is poisoned. That's what it says, {addr}. Could be you next, if you're bent on staying here. Maybe the ground's no good, maybe the ice. Sick water. Even if you distill it, might not clean it out.” She gives a slow, tense grin. “But I reckon I'll be all right no matter what. I've stayed in all sorts of wrong places.”"
-            ));
+            p!(
+                "She shakes her head, hunches her shoulders. “Something here is poisoned. That's what it says, {s.addr}. Could be you next, if you're bent on staying here. Maybe the ground's no good, maybe the ice. Sick water. Even if you distill it, might not clean it out.” She gives a slow, tense grin. “But I reckon I'll be all right no matter what. I've stayed in all sorts of wrong places.”"
+            );
         }
         _ => {
             p!(
@@ -718,11 +781,10 @@ pub fn camp_sickwater(s: &mut State) {
             "The oracle looks a little peaky, as though they haven't slept well. But it's hard to tell with them sometimes. Truth be told, they usually look like that."
         );
     }
-    p!(
-        s!("To be continued... (You head out into the brightness of day.)")
-            .cls("center")
-            .style("margin-top", "2rem")
-    );
+    p!(link!(
+        "You head out into the brightness of day.",
+        crate::saltwrack::chap2::day_four
+    ));
 }
 
 #[ifview]
@@ -739,9 +801,8 @@ pub fn camp_travel_night(s: &mut State) {
     p!(
         "In the morning, your body feels stiff and slow to respond, still clinging to sleep. The sun glares down, splintering and smudging through your goggles, making the saltwrack glitter. A sun halo arcs across half of the sky, fringed by three points to the top and sides."
     );
-    p!(
-        s!("To be continued... (You head out into the brightness of day.)")
-            .cls("center")
-            .style("margin-top", "2rem")
-    );
+    p!(link!(
+        "You head out into the brightness of day.",
+        crate::saltwrack::chap2::day_four
+    ));
 }

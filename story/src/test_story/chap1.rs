@@ -1,3 +1,4 @@
+use super::State;
 use ifengine::{
     elements::{
         alts, back, choice, count, dchoice, dynamic_choice, fresh, img, link, mchoice, p,
@@ -14,10 +15,34 @@ enum DChoices {
 }
 
 #[ifview]
-pub fn rainy_day(_: &mut ()) {
+pub fn rainy_day(state: &mut State) {
     p!("text1", "text2");
 
     replace!((77), "The ancient lock is [[sealed]].");
+
+    if replace!(
+        "I'm a wanted criminal on the run from the law and I stumbled here after a failed jump to escape the Zubvian Planetary Police.",
+        "Obviously you're not going to tell the truth. Good thing you've got your cover story ready."
+    ) {
+        choice! {
+            s!("I'm a treasure hunter. I search the Galaxy for long-dead civilizations and the things they left behind.").cls("in-500") => {
+                state.job = Some("treasure hunter".to_string());
+                "I'm a treasure hunter. I search the Galaxy for long-dead civilizations and the things they left behind."
+            },
+            s!("I'm a traveling merchant. I visit new planets looking for wares to buy and sell. Would you like to buy a fine Darlinian leather jacket?").cls("in-500") => {
+                state.job = Some("merchant".to_string());
+                "I'm a traveling merchant. I visit new planets looking for wares to buy and sell. Would you like to buy a fine Darlinian leather jacket?"
+            },
+            s!("Well, I'm not exactly a tourist, but I am a wanderer. I jump around from system to system looking for new sights and experiences. The stars in this sector of space are absolutely beautiful.").cls("in-500") => {
+                state.job = Some("wanderer".to_string());
+                "Well, I'm not exactly a tourist, but I am a wanderer. I jump around from system to system looking for new sights and experiences. The stars in this sector of space are absolutely beautiful."
+            },
+        };
+
+        if let Some(job) = &state.job {
+            p!("Job: {job}");
+        }
+    }
 
     text!(
         link!("next", sunny_day),
@@ -91,7 +116,7 @@ pub fn rainy_day(_: &mut ()) {
 }
 
 #[ifview]
-pub fn sunny_day(_: &mut ()) {
+pub fn sunny_day(_: &mut State) {
     p!("sunny");
 
     text!(
@@ -126,7 +151,7 @@ pub fn sunny_day(_: &mut ()) {
 }
 
 #[ifview]
-pub fn weather_station(_: &mut ()) {
+pub fn weather_station(_: &mut State) {
     p!("--- Weather Station (Embedded) ---");
     choice! {
         "Check barometer" => "The needle is falling rapidly; barometric pressure is 982 hPa.",
@@ -136,7 +161,7 @@ pub fn weather_station(_: &mut ()) {
 }
 
 #[ifview]
-pub fn sensor_logs(_: &mut ()) {
+pub fn sensor_logs(_: &mut State) {
     p!("--- Historical Sensor Logs Archive ---");
     p!("Sensor record: anomalous salt squalls recorded in years 188, 204, and 214.");
     p!(back!("Back to main weather station"));
