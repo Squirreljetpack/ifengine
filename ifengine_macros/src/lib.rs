@@ -230,6 +230,46 @@ pub fn push(input: TokenStream) -> TokenStream {
     elements::push(input)
 }
 
+/// Append additional content to the last object in the current [`View`](ifengine::View).
+///
+/// Supports explicit category prefixes (`"choice":`, `"object":`, `"span":` or their unquoted equivalents)
+/// to target different view object variants. If no prefix is supplied, it defaults to pushing spans.
+///
+/// # Prefixes & Targets
+/// - **`"span":` (or omitted default)**: Appends one or more spans to a preceding [`Object::Paragraph`](ifengine::view::Object::Paragraph)
+///   or [`Object::Text`](ifengine::view::Object::Text). String literals support `{var}` interpolation.
+/// - **`"choice":`**: Appends choices to a preceding [`Object::Choice`](ifengine::view::Object::Choice).
+///   Accepts any type implementing [`IntoNumberedLine`](ifengine::view::IntoNumberedLine), such as `(u8, Into<Line>)`
+///   or directly `Into<Line>` (`&str`, `String`, `Line`, etc.). If the index is omitted (`None`), it automatically
+///   assigns `previous index + 1` (or `0` if the choice list is empty).
+/// - **`"object":`**: Appends objects (or [`StampedObject`](ifengine::view::StampedObject)s) to a preceding
+///   embedded subpage view ([`Object::Embed`](ifengine::view::Object::Embed)).
+///
+/// If the target object variant does not match the specified category, or if the view is empty, `extend!` safely does nothing.
+///
+/// # Examples
+/// ```rust,ignore
+/// // Extend a paragraph with text and spans (interpolated strings supported)
+/// p!("Hello,");
+/// extend!(" {player.name}!");
+/// extend!("span": s!(" Welcome!").as_link());
+///
+/// // Extend a choice menu with auto-incrementing or explicit indices
+/// choice! {
+///     "Take the left path" => left_room,
+///     "Take the right path" => right_room,
+/// };
+/// extend!("choice": "Inspect the door", (5, "Return to camp"));
+///
+/// // Extend an embedded view with additional objects
+/// EMBED!(subpage);
+/// extend!("object": Object::Break);
+/// ```
+#[proc_macro]
+pub fn extend(input: TokenStream) -> TokenStream {
+    elements::extend(input)
+}
+
 /// Push a single unspaced plain text line ([`Object::Text`](ifengine::view::Object::Text)) to the view without paragraph margins.
 ///
 /// Constructed from one or more spans, or string literals with inline `{var}` interpolation.

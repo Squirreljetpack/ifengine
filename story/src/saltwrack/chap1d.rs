@@ -42,7 +42,8 @@ pub fn _oracle(_s: &mut State) {
 }
 
 #[ifview]
-pub fn _interpreter(_s: &mut State) {
+pub fn _interpreter(s: &mut State) {
+    s.no_interpreter = true;
     p!(
         "This is your profession, so you ought to know what a good one is. Where a walker interprets the land and an oracle interprets dreams, they interpret the structures of life itself. With scalpel and microscope, scientists like you unravel the biologies of the wrack, facing the mystery of this harsh and frozen world."
     );

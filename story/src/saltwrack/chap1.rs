@@ -111,29 +111,23 @@ pub fn p5(s: &mut State) {
         "You are shown to a small gathering-room wallpapered in grubby tapestry. Weak light filters through its salt-crusted windows. Five unfamiliar people sit around the table—actually, you're sure you've seen some of them in passing, in the corridors of the Observational Society. But it doesn't seem like you'll have a chance to talk to them individually before making your choices."
     );
 
+    p!(
+        "It would be folly to go without a ",
+        tun!("walker", _walker),
+        ". You've been pressured to select an ",
+        tun!("oracle", _oracle),
+        " as your other colleague.",
+    );
     if !s.no_interpreter {
-        p!(
-            "It would be folly to go without a ",
-            tun!("walker", _walker),
-            ". You've been pressured to select an ",
-            tun!("oracle", _oracle),
-            " as your other colleague. But as you scan over the faces, you note the unexpected presence of another ",
+        x![
+            "But as you scan over the faces, you note the unexpected presence of another ",
             tun!("interpreter", _interpreter),
             "."
-        );
-    } else {
-        p!(
-            "It would be folly to go without a ",
-            tun!("walker", _walker),
-            ". You've been pressured to select an ",
-            tun!("oracle", _oracle),
-            " as your other colleague."
-        );
+        ];
     }
 
     let need_oracle = s.oracle == Oracle::None;
     let need_walker = s.walker == Walker::None;
-    let can_view_interpreter = !s.no_interpreter && (need_oracle || need_walker);
 
     if (s.oracle != Oracle::None && s.walker != Walker::None)
         || mchoice! {
@@ -141,7 +135,7 @@ pub fn p5(s: &mut State) {
             need_oracle.then_some(link!("the second oracle", view_oracle_2)),
             need_walker.then_some(link!("the first saltwalker", view_walker_1)),
             need_walker.then_some(link!("the second saltwalker", view_walker_2)),
-            can_view_interpreter.then_some(link!("the second interpreter", view_interpreter_2)),
+            (!s.no_interpreter).then_some(link!("the second interpreter", view_interpreter_2)),
         }
         .all()
     {

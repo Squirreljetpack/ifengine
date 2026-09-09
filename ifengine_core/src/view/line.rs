@@ -184,6 +184,10 @@ impl Line {
         self
     }
 
+    pub fn push(&mut self, span: impl Into<Span>) {
+        self.spans.push(span.into());
+    }
+
     pub fn content(&self) -> String {
         let mut s = String::new();
         for span in &self.spans {
@@ -440,6 +444,34 @@ impl<const N: usize> From<[Span; N]> for Line {
 //     }
 // }
 //
+
+// ----------------
+
+/// Trait to normalize varied input formats into `(Option<u8>, Line)`.
+pub trait IntoNumberedLine {
+    fn into_numbered_line(self) -> (Option<u8>, Line);
+}
+
+// 1. Accepts anything that can convert into `Line` (e.g. Line, String, &str)
+impl<T> IntoNumberedLine for T
+where
+    T: Into<Line>,
+{
+    fn into_numbered_line(self) -> (Option<u8>, Line) {
+        (None, self.into())
+    }
+}
+
+// 2. Accepts `(u8, T)` where T converts into `Line`
+impl<T> IntoNumberedLine for (u8, T)
+where
+    T: Into<Line>,
+{
+    fn into_numbered_line(self) -> (Option<u8>, Line) {
+        (Some(self.0), self.1.into())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

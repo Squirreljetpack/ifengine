@@ -105,6 +105,16 @@ impl<'a> PageState<'a> {
         self.view.push(item.into());
     }
 
+    /// Returns a mutable reference to the last stamped object in the page view, if any.
+    pub fn last_mut(&mut self) -> Option<&mut StampedObject> {
+        self.view.last_mut()
+    }
+
+    /// Returns a reference to the last stamped object in the page view, if any.
+    pub fn last(&self) -> Option<&StampedObject> {
+        self.view.last()
+    }
+
     /// Evaluates an embedded page function using a transient [`Game`] and attaches its [`View`].
     ///
     /// If the page returns [`Response::View`], the view is pushed as an [`Object::Embed`]
