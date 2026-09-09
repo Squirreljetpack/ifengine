@@ -1,8 +1,8 @@
 use super::State;
 use ifengine::{
     elements::{
-        alts, back, choice, count, dchoice, dynamic_choice, fresh, img, link, mchoice, p,
-        page_dbg, replace, s, text, EMBED,
+        EMBED, alts, back, choice, count, dchoice, dynamic_choice, fresh, img, link, mchoice, p,
+        page_dbg, replace, s, text,
     },
     ifview,
 };
@@ -29,11 +29,11 @@ pub fn rainy_day(state: &mut State) {
                 state.job = Some("treasure hunter".to_string());
                 "I'm a treasure hunter. I search the Galaxy for long-dead civilizations and the things they left behind."
             },
-            s!("I'm a traveling merchant. I visit new planets looking for wares to buy and sell. Would you like to buy a fine Darlinian leather jacket?").cls("in-500") => {
+            s!("I'm a traveling merchant. I visit new planets looking for wares to buy and sell. Would you like to buy a fine Darlinian leather jacket?").cls("in-1000") => {
                 state.job = Some("merchant".to_string());
                 "I'm a traveling merchant. I visit new planets looking for wares to buy and sell. Would you like to buy a fine Darlinian leather jacket?"
             },
-            s!("Well, I'm not exactly a tourist, but I am a wanderer. I jump around from system to system looking for new sights and experiences. The stars in this sector of space are absolutely beautiful.").cls("in-500") => {
+            s!("Well, I'm not exactly a tourist, but I am a wanderer. I jump around from system to system looking for new sights and experiences. The stars in this sector of space are absolutely beautiful.").cls("in-1500") => {
                 state.job = Some("wanderer".to_string());
                 "Well, I'm not exactly a tourist, but I am a wanderer. I jump around from system to system looking for new sights and experiences. The stars in this sector of space are absolutely beautiful."
             },
@@ -124,30 +124,6 @@ pub fn sunny_day(_: &mut State) {
         "test",
         count!(|n: u64| n.to_string())
     );
-
-    // choose!({
-    //     "1" => "Chose 1",
-    //     "2" => {
-    //         "Chose 2"
-    //     },
-    // });
-    // what about Always choices
-    // do we also need to track the choice which was last clicked
-
-    // do we want to expose a way to change the page directly instead of through link
-
-    // if x > 0 ... change
-
-    // click -> link ->
-
-    // you might want if choices is done
-    // let (chosen [bool], element) = choices! [
-    // {
-    //     do_something;
-    //     choice_render
-    // }
-    // ]
-    // add!(element)
 }
 
 #[ifview]
@@ -166,4 +142,3 @@ pub fn sensor_logs(_: &mut State) {
     p!("Sensor record: anomalous salt squalls recorded in years 188, 204, and 214.");
     p!(back!("Back to main weather station"));
 }
-

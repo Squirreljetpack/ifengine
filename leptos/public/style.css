@@ -43,6 +43,7 @@ html, body {
     font-size: 19px;
     line-height: 1.75;
     min-height: 100vh;
+    min-height: 100dvh;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
 }
@@ -56,6 +57,7 @@ html, body {
     justify-content: center;
     align-items: stretch;
     min-height: 100vh;
+    min-height: 100dvh;
     width: 100%;
     background-color: var(--color-backdrop);
 }
@@ -66,8 +68,11 @@ html, body {
     width: 100%;
     max-width: var(--page-width);
     min-height: 100vh;
-    padding: 3.5rem 2rem 0.5rem;
+    min-height: 100dvh;
+    padding: 2rem 2rem 1rem;
+    row-gap: 1.5rem;
     position: relative;
+    box-sizing: border-box;
 }
 
 /* --------------------------------------------------------------------------
@@ -84,8 +89,9 @@ html, body {
     text-transform: uppercase;
     color: var(--color-text-muted);
     min-height: 1.2rem;
-    margin-bottom: 2.1rem;
+    margin-bottom: 0;
     transition: border-color 0.2s ease;
+    flex-shrink: 0;
 }
 
 .header-has-content {
@@ -124,7 +130,8 @@ html, body {
 .passage-article {
     display: flex;
     flex-direction: column;
-    flex-grow: 1;
+    margin-top: auto;
+    margin-bottom: auto;
 }
 
 .passage-paragraph {
@@ -249,6 +256,13 @@ h6.passage-heading { font-size: 0.95rem; text-transform: uppercase; color: var(-
     border: none;
 }
 
+.choice-item:has(.delayed-hidden),
+.choice-item:has(.fade-out-removed) {
+    display: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
 .choice-button {
     cursor: pointer;
     width: 100%;
@@ -345,7 +359,7 @@ h6.passage-heading { font-size: 0.95rem; text-transform: uppercase; color: var(-
     display: flex;
     justify-content: flex-end;
     align-items: center;
-    margin-top: auto;
+    margin-top: 0;
     padding-top: 0.5rem;
     padding-bottom: 0.25rem;
     border-top: 1px solid rgba(255, 255, 255, 0.06);
@@ -354,6 +368,7 @@ h6.passage-heading { font-size: 0.95rem; text-transform: uppercase; color: var(-
     line-height: 1.2;
     letter-spacing: 0.04em;
     color: rgba(255, 255, 255, 0.25);
+    flex-shrink: 0;
 }
 
 .footer-attribution-link {
@@ -458,10 +473,13 @@ html, :root {
 /* Unchanged elements during same-page reflow: hide old snapshot and keep single new element with solid opacity */
 ::view-transition-old(.reflow) {
     display: none !important;
+    animation: none !important;
+    opacity: 0 !important;
 }
 
 ::view-transition-new(.reflow) {
     animation: none !important;
+    opacity: 1 !important;
 }
 
 /* Changed elements (e.g. alts!, choices collapsing to replacement line):
@@ -482,7 +500,7 @@ html, :root {
 
 @media screen and (max-width: 768px) {
     #page {
-        padding: 2rem 1.25rem 0.5rem;
+        padding: 1.5rem 1.25rem 0.75rem;
     }
 
     html, body {

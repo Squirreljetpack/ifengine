@@ -49,7 +49,7 @@ This document provides a comprehensive specification of [`ifengine_leptos`](file
                                                └─────────────────────────┘
 ```
 
-The rendering pipeline converts the immediate-mode [`View`](file:///Users/absinthe/gh/OWN/ifengine/ifengine_core/src/view/mod.rs) produced by `Game::view()` into accessible, semantic DOM nodes styled after the minimal dark aesthetic of Saltwrack / Chapbook ([`style.css`](file:///Users/absinthe/gh/OWN/ifengine/leptos/style.css)).
+The rendering pipeline converts the immediate-mode [`View`](file:///Users/absinthe/gh/OWN/ifengine/ifengine_core/src/view/mod.rs) produced by `Game::view()` into accessible, semantic DOM nodes.
 
 ---
 
@@ -70,30 +70,6 @@ The frontend dispatches all 11 [`Object`](file:///Users/absinthe/gh/OWN/ifengine
 | [`Object::Note`](file:///Users/absinthe/gh/OWN/ifengine/ifengine_core/src/view/mod.rs) | `<aside class="passage-note">` | Dashed border callout (`1px dashed var(--color-border)`) with padding and secondary text color. |
 | [`Object::Custom`](file:///Users/absinthe/gh/OWN/ifengine/ifengine_core/src/view/mod.rs) | `<div class="passage-custom" data-custom="...">` | Extensible element for story-specific integrations (e.g. ambient audio triggers, analytics). |
 | [`Object::Embed`](file:///Users/absinthe/gh/OWN/ifengine/ifengine_core/src/view/mod.rs) | `<div class="passage-embed" data-page="...">` | Embeds sub-page views hierarchically while maintaining isolated page IDs and transition scopes. |
-
----
-
-## 3. Image Support (`Object::Image`)
-
-The frontend implements complete media presentation for [`Image`](file:///Users/absinthe/gh/OWN/ifengine/ifengine_core/src/view/image.rs) elements via [`ObjectView`](file:///Users/absinthe/gh/OWN/ifengine/leptos/src/components/object.rs):
-
-### 1. Image Sources ([`ImageVariant`](file:///Users/absinthe/gh/OWN/ifengine/ifengine_core/src/view/image.rs))
-- **Remote / URL**: `ImageVariant::Url(url)` binds directly to the image `src`.
-- **Local Assets**: `ImageVariant::Local(uri, _bytes)` uses the local URI string as `src`.
-
-### 2. Sizing & Constraints
-- Authors can define fixed or maximum dimensions via `.with_size([width, height])`.
-- If `w > 0`, the wrapper applies inline `max-width: {w}px; width: 100%;`.
-- If `h > 0`, the wrapper applies inline `max-height: {h}px;`.
-- By default, `.passage-image` enforces `max-width: 100%; height: auto; border-radius: 4px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);`.
-
-### 3. Clickable Image Actions
-- If `img.action` is present, the `<img>` is wrapped inside `<button type="button" class="image-action-button">`.
-- Clicking the image executes `ctx.dispatch_action.run(action)` to trigger game state changes or navigation without layout distortion.
-
-### 4. Accessibility & Transitions
-- Accessible `alt` text is passed through to `alt="{img.alt}"`.
-- Images with a [`PageKey`](file:///Users/absinthe/gh/OWN/ifengine/ifengine_core/src/core/game_state.rs) ID are assigned CSS View Transition metadata (`view-transition-name: item-{key};`) so image swaps during same-page updates animate seamlessly.
 
 ---
 
@@ -124,7 +100,7 @@ CSS classes added through DSL builders (`.cls("...")`, `.classes([...])`) on [`L
 [`ifengine_leptos`](file:///Users/absinthe/gh/OWN/ifengine/leptos) provides rich CSS customization through [`span_to_css_style`](file:///Users/absinthe/gh/OWN/ifengine/leptos/src/render.rs).
 
 ### 1. The `.style(key, value)` Map
-Story authors can set arbitrary CSS properties directly on any `Span` using `.style("property", "value")` or `.styles([("k", "v")])`:
+Story authors can set arbitrary CSS properties directly on any `Span` using `.style("property", "value")`:
 
 ```rust
 s!("SALTWRACK")
@@ -171,11 +147,11 @@ Elements can declare entrance and exit transitions directly in their class list:
 
 | Pattern | Behavior | Defaults |
 | :--- | :--- | :--- |
-| `"in"` | Fade in immediately | `DEFAULT_FADE_IN_MS = 1000ms`, delay = 0 |
-| `"in-{d}"` | Fade in after `{d}` ms delay | Duration = 1000ms, delay = `{d}` ms |
+| `"in"` | Fade in immediately | `DEFAULT_FADE_IN_DURATION_MS = 1000ms`, delay = 0ms |
+| `"in-{d}"` | Fade in after `{d}` ms delay | Duration = `DEFAULT_FADE_IN_DURATION_MS (1000ms)`, delay = `{d}` ms |
 | `"in-{d}-{t}"` | Fade in after `{d}` ms delay over `{t}` ms | Duration = `{t}` ms, delay = `{d}` ms |
-| `"out"` | Fade out immediately | `DEFAULT_FADE_OUT_MS = 1000ms`, delay = 0 |
-| `"out-{d}"` | Fade out after `{d}` ms delay | Duration = 1000ms, delay = `{d}` ms |
+| `"out"` | Fade out immediately | `DEFAULT_FADE_OUT_DURATION_MS = 1000ms`, delay = 0ms |
+| `"out-{d}"` | Fade out after `{d}` ms delay | Duration = `DEFAULT_FADE_OUT_DURATION_MS (1000ms)`, delay = `{d}` ms |
 | `"out-{d}-{t}"` | Fade out after `{d}` ms delay over `{t}` ms | Duration = `{t}` ms, delay = `{d}` ms |
 
 ### 2. Multi-Phase Transition Lifecycle ([`TransitionPhase`](file:///Users/absinthe/gh/OWN/ifengine/leptos/src/transition.rs))
@@ -251,7 +227,7 @@ All colors, dimensions, and transition constants are centrally configurable in [
 | `--font-serif` | Iowan Old Style, Georgia, serif | Primary passage reading font. |
 | `--font-sans` | system-ui, Segoe UI, sans-serif | Header and UI typography. |
 | `--page-width` / [`MAX_PAGE_WIDTH_REM`](file:///Users/absinthe/gh/OWN/ifengine/leptos/src/consts.rs) | `44rem` | Maximum story reading column width. |
-| [`DEFAULT_FADE_IN_MS`](file:///Users/absinthe/gh/OWN/ifengine/leptos/src/consts.rs) | `1000ms` | Default duration for `"in"` class. |
-| [`DEFAULT_FADE_OUT_MS`](file:///Users/absinthe/gh/OWN/ifengine/leptos/src/consts.rs) | `1000ms` | Default duration for `"out"` class. |
+| [`DEFAULT_FADE_IN_DURATION_MS`](file:///Users/absinthe/gh/OWN/ifengine/leptos/src/consts.rs) | `1000ms` | Default animation duration for `"in"` class. |
+| [`DEFAULT_FADE_OUT_DURATION_MS`](file:///Users/absinthe/gh/OWN/ifengine/leptos/src/consts.rs) | `1000ms` | Default animation duration for `"out"` class. |
 | [`DEFAULT_PAGE_TRANSITION_OUT_MS`](file:///Users/absinthe/gh/OWN/ifengine/leptos/src/consts.rs) | `300ms` | Page fade-out transition duration. |
 | [`DEFAULT_PAGE_TRANSITION_IN_MS`](file:///Users/absinthe/gh/OWN/ifengine/leptos/src/consts.rs) | `200ms` | Page fade-in transition duration. |

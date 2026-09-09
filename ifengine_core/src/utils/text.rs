@@ -1,4 +1,4 @@
-/// - (Does not) replace {digit} with words
+/// - (Does not) replace digits with words
 /// - Converts straight quotes to curly quotes
 /// - Converts -- to em-dash (—)
 /// - Converts ... to ellipsis (…)
@@ -13,13 +13,10 @@ pub fn linguate(text: &str) -> String {
 
     let mut result = text.to_string();
 
-    // 2. Replace -- with em-dash
     result = result.replace("--", "—");
 
-    // 3. Replace ... with ellipsis
     result = result.replace("...", "…");
 
-    // 4. Replace quotes manually
     // Double quotes
     let mut final_text = String::with_capacity(result.len());
     let mut in_double = false;
@@ -72,11 +69,6 @@ pub fn trim_lines(s: &str) -> String {
 
     lines[start..=end].join("\n")
 }
-
-// #[cfg(not(feature = "text"))]
-//     pub fn linguate(input: &str) -> String {
-//         input.to_string()
-//     }
 
 pub fn split_braced(s: &str) -> Vec<String> {
     let mut result = Vec::new();

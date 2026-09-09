@@ -18,7 +18,8 @@ pub enum PageTransitionPhase {
 }
 
 /// Type alias for a thread-safe header extractor closure.
-pub type HeaderExtractor<C> = Arc<dyn Fn(&ifengine::Game<C>) -> Vec<String> + Send + Sync + 'static>;
+pub type HeaderExtractor<C> =
+    Arc<dyn Fn(&ifengine::Game<C>) -> Vec<String> + Send + Sync + 'static>;
 
 /// Generic story application runner component.
 ///
@@ -37,31 +38,86 @@ where
 {
     let game_lock = Arc::new(RwLock::new(game));
 
-    // Evaluate initial page view
     let initial_view = game_lock
         .write()
         .unwrap()
         .view()
         .expect("failed to evaluate initial story page");
 
-    let initial_header = match &header_extractor {
-        Some(extractor) => extractor(&game_lock.read().unwrap()),
-        None => vec![],
-    };
+    let initial_header = header_extractor
+        .as_ref()
+        .map_or_else(Vec::new, |f| f(&game_lock.read().unwrap()));
 
     let (current_view, set_current_view) = signal(initial_view);
     let (header_items, set_header_items) = signal(initial_header);
     let (transition_phase, set_transition_phase) = signal(PageTransitionPhase::None);
     let transitions = RwSignal::new(TransitionManager::new());
 
-    // Mark the initial page as active in the transition manager
     transitions
         .write_untracked()
         .on_view_change(&current_view.get_untracked().pageid, true);
 
-    // Action dispatcher: applies state mutations or page transitions and refreshes the view
+    // execute the fade-out -> swap -> fade-in transition
+    let trigger_page_transition = move |new_view: ifengine::View, header: Vec<String>| {
+        set_transition_phase.set(PageTransitionPhase::Leaving);
+
+        set_timeout(
+            move || {
+                transitions
+                    .write_untracked()
+                    .on_view_change(&new_view.pageid, true);
+
+                set_header_items.set(header);
+                set_current_view.set(new_view);
+
+                if let Some(window) = web_sys::window() {
+                    window.scroll_to_with_x_and_y(0.0, 0.0);
+                }
+
+                set_transition_phase.set(PageTransitionPhase::Entering);
+
+                set_timeout(
+                    move || set_transition_phase.set(PageTransitionPhase::None),
+                    std::time::Duration::from_millis(crate::consts::DEFAULT_PAGE_TRANSITION_IN_MS),
+                );
+            },
+            std::time::Duration::from_millis(crate::consts::DEFAULT_PAGE_TRANSITION_OUT_MS),
+        );
+    };
+
+    let refresh_view = {
+        let header_extractor = header_extractor.clone();
+        move |game: &mut ifengine::Game<C>| {
+            let new_view = match game.view() {
+                Ok(view) => view,
+                Err(err) => {
+                    web_sys::console::error_1(
+                        &format!("[ifengine_leptos] Error rendering page view: {err:?}").into(),
+                    );
+                    return;
+                }
+            };
+
+            let header = header_extractor.as_ref().map_or_else(Vec::new, |f| f(game));
+
+            if game.fresh() {
+                trigger_page_transition(new_view, header);
+            } else {
+                transitions
+                    .write_untracked()
+                    .on_view_change(&new_view.pageid, false);
+
+                run_with_view_transition(move || {
+                    set_header_items.set(header);
+                    set_current_view.set(new_view);
+                });
+            }
+        }
+    };
+
+    // --- Action Dispatcher ---
     let game_for_action = Arc::clone(&game_lock);
-    let header_extractor_for_action = header_extractor.clone();
+    let on_action = refresh_view.clone();
     let dispatch_action = Callback::new(move |action: Action| {
         let mut game = game_for_action.write().unwrap();
         if let Err(err) = game.handle_action(action) {
@@ -70,116 +126,18 @@ where
             );
             return;
         }
-
-        match game.view() {
-            Ok(new_view) => {
-                let fresh = game.fresh();
-                let header = match &header_extractor_for_action {
-                    Some(extractor) => extractor(&game),
-                    None => vec![],
-                };
-
-                if fresh {
-                    set_transition_phase.set(PageTransitionPhase::Leaving);
-                    set_timeout(
-                        move || {
-                            transitions
-                                .write_untracked()
-                                .on_view_change(&new_view.pageid, true);
-                            set_header_items.set(header);
-                            set_current_view.set(new_view);
-
-                            if let Some(window) = web_sys::window() {
-                                window.scroll_to_with_x_and_y(0.0, 0.0);
-                            }
-
-                            set_transition_phase.set(PageTransitionPhase::Entering);
-                            set_timeout(
-                                move || {
-                                    set_transition_phase.set(PageTransitionPhase::None);
-                                },
-                                std::time::Duration::from_millis(crate::consts::DEFAULT_PAGE_TRANSITION_IN_MS),
-                            );
-                        },
-                        std::time::Duration::from_millis(crate::consts::DEFAULT_PAGE_TRANSITION_OUT_MS),
-                    );
-                } else {
-                    transitions
-                        .write_untracked()
-                        .on_view_change(&new_view.pageid, false);
-                    run_with_view_transition(move || {
-                        set_header_items.set(header);
-                        set_current_view.set(new_view);
-                    });
-                }
-            }
-            Err(err) => {
-                web_sys::console::error_1(
-                    &format!("[ifengine_leptos] Error rendering page view: {err:?}").into(),
-                );
-            }
-        }
+        on_action(&mut game);
     });
 
-    // Choice dispatcher: applies bitmask selection on dynamic or branching choices
+    // --- Choice Dispatcher ---
     let game_for_choice = Arc::clone(&game_lock);
-    let header_extractor_for_choice = header_extractor.clone();
+    let on_choice = refresh_view;
     let dispatch_choice = Callback::new(move |(choice_key, index): (PageKey, u8)| {
         let mut game = game_for_choice.write().unwrap();
         game.handle_choice(choice_key, index);
-
-        match game.view() {
-            Ok(new_view) => {
-                let fresh = game.fresh();
-                let header = match &header_extractor_for_choice {
-                    Some(extractor) => extractor(&game),
-                    None => vec![],
-                };
-
-                if fresh {
-                    set_transition_phase.set(PageTransitionPhase::Leaving);
-                    set_timeout(
-                        move || {
-                            transitions
-                                .write_untracked()
-                                .on_view_change(&new_view.pageid, true);
-                            set_header_items.set(header);
-                            set_current_view.set(new_view);
-
-                            if let Some(window) = web_sys::window() {
-                                window.scroll_to_with_x_and_y(0.0, 0.0);
-                            }
-
-                            set_transition_phase.set(PageTransitionPhase::Entering);
-                            set_timeout(
-                                move || {
-                                    set_transition_phase.set(PageTransitionPhase::None);
-                                },
-                                std::time::Duration::from_millis(crate::consts::DEFAULT_PAGE_TRANSITION_IN_MS),
-                            );
-                        },
-                        std::time::Duration::from_millis(crate::consts::DEFAULT_PAGE_TRANSITION_OUT_MS),
-                    );
-                } else {
-                    transitions
-                        .write_untracked()
-                        .on_view_change(&new_view.pageid, false);
-                    run_with_view_transition(move || {
-                        set_header_items.set(header);
-                        set_current_view.set(new_view);
-                    });
-                }
-            }
-            Err(err) => {
-                web_sys::console::error_1(
-                    &format!("[ifengine_leptos] Error rendering page view after choice: {err:?}")
-                        .into(),
-                );
-            }
-        }
+        on_choice(&mut game);
     });
 
-    // Provide the unified story context to the entire component tree
     provide_context(StoryContext {
         dispatch_action,
         dispatch_choice,
@@ -200,21 +158,9 @@ where
                 <article class=article_class>
                     {move || {
                         let view = current_view.get();
-                        let page_id = view.pageid.clone();
-                        let objects = view.inner;
-
-                        objects
-                            .into_iter()
-                            .map(|object| {
-                                let page_id_clone = page_id.clone();
-                                view! {
-                                    <ObjectView
-                                        object=object
-                                        page_id=page_id_clone
-                                    />
-                                }
-                            })
-                            .collect::<Vec<_>>()
+                        view.inner.into_iter().map(|object| {
+                            view! { <ObjectView object=object page_id=view.pageid.clone() /> }
+                        }).collect::<Vec<_>>()
                     }}
                 </article>
 
@@ -248,9 +194,10 @@ pub fn run_with_view_transition<F: FnOnce() + 'static>(update: F) {
     if let Some(window) = web_sys::window() {
         if let Some(document) = window.document() {
             let doc_val = wasm_bindgen::JsValue::from(&document);
-            if let Ok(method) =
-                js_sys::Reflect::get(&doc_val, &wasm_bindgen::JsValue::from_str("startViewTransition"))
-            {
+            if let Ok(method) = js_sys::Reflect::get(
+                &doc_val,
+                &wasm_bindgen::JsValue::from_str("startViewTransition"),
+            ) {
                 if method.is_function() {
                     let function = js_sys::Function::from(method);
                     let closure = wasm_bindgen::closure::Closure::once_into_js(move || {
@@ -303,7 +250,9 @@ mod tests {
     fn test_modular_custom_game() {
         let mut game: ifengine::Game<()> = ifengine::Game::new_with_page("test_page", |_game| {
             let mut view = ifengine::view::View::new(ifengine::core::PageId("test_page".into()));
-            view.inner.push(ifengine::view::Object::Paragraph(ifengine::view::Line::from("hello")));
+            view.inner.push(ifengine::view::Object::Paragraph(
+                ifengine::view::Line::from("hello"),
+            ));
             ifengine::core::Response::View(view)
         });
         let view = game.view().expect("custom game should render view");

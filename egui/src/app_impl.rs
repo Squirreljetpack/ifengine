@@ -20,7 +20,9 @@ impl eframe::App for App {
     }
 
     /// Called each time the UI needs repainting, which may be many times per second.
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+    fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+        let ctx = ui.ctx().clone();
+        let ctx = &ctx;
         // ctx.all_styles_mut(|x| {
         //     dbg!(&x.text_styles);
         // });
@@ -54,14 +56,14 @@ impl eframe::App for App {
             );
         }
         self.show_graph = show_graph;
-        egui::TopBottomPanel::top("top_panel")
+        egui::Panel::top("top_panel")
             .frame(egui::Frame {
                 inner_margin: egui::Margin::symmetric(5, 12),
-                fill: ctx.style().visuals.panel_fill, // necessary for some reasone
+                fill: ui.style().visuals.panel_fill, // necessary for some reasone
                 ..Default::default()
             })
             .show_separator_line(false)
-            .show(ctx, |ui| {
+            .show(ui, |ui| {
                 let hovered = self.game.iterations() <= 3
                     || ui
                         .ctx()
@@ -97,6 +99,22 @@ impl eframe::App for App {
                 });
             });
 
+        egui::Panel::bottom("bottom_panel")
+            .frame(egui::Frame {
+                fill: ui.style().visuals.window_fill, // body
+                ..Default::default()
+            })
+            .show_separator_line(false)
+            .show(ui, |ui| {
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Min), |ui| {
+                    ui.add_space(10.0); // pushes content left a bit
+                    ui.add_custom_link(
+                        RichText::new("Made with IfEngine").size(10.0),
+                        "https://github.com/Squirreljetpack/ifengine",
+                    )
+                });
+            });
+
         let resp = match self.game.view() {
             Ok(view) => view,
             Err(e) => {
@@ -106,10 +124,10 @@ impl eframe::App for App {
         };
         egui::CentralPanel::default()
             .frame(egui::Frame {
-                fill: ctx.style().visuals.window_fill, // body
+                fill: ui.style().visuals.window_fill, // body
                 ..Default::default()
             })
-            .show(ctx, |ui| {
+            .show(ui, |ui| {
                 center_vertical(ui, |ui| {
                     ui.vertical_centered_justified(|ui| {
                         let width = ui.available_width().min(800.0);
@@ -158,7 +176,9 @@ impl eframe::App for App {
                                             self.state.fade_duration,
                                             [emath::easing::quadratic_out, emath::easing::linear],
                                             |ui| {
-                                                ui.ctx().data_mut(|d| d.insert_temp(middle_id, ()))
+                                                ui.ctx().data_mut(|d| {
+                                                    d.insert_temp(middle_id, ());
+                                                });
                                             },
                                             |ui| render(last_view, ui, None),
                                             |ui| render(resp.clone(), ui, Some(game)),
@@ -175,28 +195,6 @@ impl eframe::App for App {
                                 });
                             })
                     });
-                });
-            });
-
-        egui::TopBottomPanel::bottom("bottom_panel")
-            .frame(egui::Frame {
-                fill: ctx.style().visuals.window_fill, // body
-                // inner_margin: egui::Margin {
-                //     left: 0,
-                //     right: 2,
-                //     top: 0,
-                //     bottom: 2,
-                // },
-                ..Default::default()
-            })
-            .show_separator_line(false)
-            .show(ctx, |ui| {
-                ui.with_layout(egui::Layout::right_to_left(egui::Align::Min), |ui| {
-                    ui.add_space(10.0); // pushes content left a bit
-                    ui.add_custom_link(
-                        RichText::new("Made with IfEngine").size(10.0),
-                        "https://github.com/Squirreljetpack/ifengine",
-                    )
                 });
             });
     }
@@ -217,7 +215,7 @@ fn init_theme(ctx: &egui::Context) {
         .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
         .is_ok()
     {
-        let theme = if ctx.style().visuals.dark_mode {
+        let theme = if ctx.global_style().visuals.dark_mode {
             "dark"
         } else {
             "light"

@@ -220,43 +220,6 @@ pub fn mparagraph(input: TokenStream) -> TokenStream {
     choices::mparagraph(input)
 }
 
-/// Disappearing or replaceable paragraph with inline link trigger and View Transition support.
-///
-/// Attaches an ID to the paragraph line. If the string contains `[[target]]`, the first bracketed section
-/// is used as the clickable link; otherwise, the entire string becomes the clickable link.
-/// When clicked, if a replacement block/expression is present, it is evaluated and rendered in place of the line;
-/// otherwise, an empty paragraph is rendered, collapsing the line with a smooth exit transition.
-///
-/// Returns `true` if the line has been clicked and replaced, or `false` if it is still unclicked.
-///
-/// # Syntax
-/// ```text
-/// replace!((maybe_key), string_expr [, block])
-/// ```
-///
-/// The `string_expr` supports `{var}` interpolation.
-///
-/// # Examples
-/// ```rust,ignore
-/// // Disappears on click
-/// replace!("The old chest is [[locked]].");
-///
-/// // Replaces paragraph on click
-/// replace!("The gate is [[closed]].", "The gate swings open.");
-///
-/// // Chaining timed choices after replace
-/// if replace!("Click [[here]] to reveal options", "Options revealed:") {
-///     choice! {
-///         s!("Option A").cls("in-500") => "Chose A",
-///         s!("Option B").cls("in-500") => "Chose B",
-///     };
-/// }
-/// ```
-#[proc_macro]
-pub fn replace(input: TokenStream) -> TokenStream {
-    choices::replace(input)
-}
-
 // =========================================================================
 // Elements
 // =========================================================================
@@ -414,6 +377,32 @@ pub fn hr(input: TokenStream) -> TokenStream {
 }
 
 // =========================================================================
+// Responses
+// =========================================================================
+
+/// Immediately yield a [`Response::View`](ifengine::core::Response::View) with the current [`View`](ifengine::View).
+///
+/// This returns `!`, exiting the current function.
+#[proc_macro]
+#[allow(non_snake_case)]
+pub fn r#YIELD(input: TokenStream) -> TokenStream {
+    state::r#YIELD(input)
+}
+
+/// Embed a sub-page view into the current page.
+///
+/// Calls the target page with a transient Game.
+/// If the target page returns `Response::View`, the view is embedded as an `Object::Embed`
+/// into the current page and returned as the expression value.
+/// If the target page returns any other `Response` variant (`Switch`, `Back`, `Tunnel`, `Exit`, `End`),
+/// it is returned immediately from the enclosing page function.
+#[proc_macro]
+#[allow(non_snake_case)]
+pub fn EMBED(input: TokenStream) -> TokenStream {
+    elements::embed(input)
+}
+
+// =========================================================================
 // State & Navigation
 // =========================================================================
 
@@ -455,6 +444,43 @@ pub fn click(input: TokenStream) -> TokenStream {
     state::click(input)
 }
 
+/// Disappearing or replaceable paragraph with inline link trigger and View Transition support.
+///
+/// Attaches an ID to the paragraph line. If the string contains `[[target]]`, the first bracketed section
+/// is used as the clickable link; otherwise, the entire string becomes the clickable link.
+/// When clicked, if a replacement block/expression is present, it is evaluated and rendered in place of the line.
+/// The replacement shares the same element id as the original paragraph, enabling smooth transitions on supported frontends.
+///
+/// Returns `true` if the line has been clicked and replaced, or `false` if it is still unclicked.
+///
+/// # Syntax
+/// ```text
+/// replace!((maybe_key), string_expr [, block])
+/// ```
+///
+/// The `string_expr` supports `{var}` interpolation.
+///
+/// # Examples
+/// ```rust,ignore
+/// // Disappears on click
+/// replace!("The old chest is [[locked]].");
+///
+/// // Replaces paragraph on click
+/// replace!("The gate is [[closed]].", "The gate swings open.");
+///
+/// // Chaining timed choices after replace
+/// if replace!("Click [[here]] to reveal options", "Options revealed:") {
+///     choice! {
+///         s!("Option A").cls("in-500") => "Chose A",
+///         s!("Option B").cls("in-1000") => "Chose B",
+///     };
+/// }
+/// ```
+#[proc_macro]
+pub fn replace(input: TokenStream) -> TokenStream {
+    choices::replace(input)
+}
+
 /// Run a function only once when the page is first loaded.
 ///
 /// # Syntax
@@ -480,15 +506,6 @@ pub fn fresh(input: TokenStream) -> TokenStream {
 #[proc_macro]
 pub fn back(input: TokenStream) -> TokenStream {
     state::back(input)
-}
-
-/// Immediately yield a [`Response::View`](ifengine::core::Response::View) with the current [`View`](ifengine::View).
-///
-/// This returns `!`, exiting the current function.
-#[proc_macro]
-#[allow(non_snake_case)]
-pub fn r#YIELD(input: TokenStream) -> TokenStream {
-    state::r#YIELD(input)
 }
 
 /// Read the value of a key in the internal [`PageState`](ifengine::core::PageState).
@@ -590,6 +607,10 @@ pub fn untag(input: TokenStream) -> TokenStream {
     state::untag(input)
 }
 
+// =========================================================================
+// Debug
+// =========================================================================
+
 /// Returns whether the current function is running in a [`Simulation`](ifengine::run::Simulation).
 #[proc_macro]
 pub fn in_sim(input: TokenStream) -> TokenStream {
@@ -606,17 +627,4 @@ pub fn page_dbg(input: TokenStream) -> TokenStream {
 #[proc_macro]
 pub fn view_dbg(input: TokenStream) -> TokenStream {
     state::view_dbg(input)
-}
-
-/// Embed a sub-page view into the current page.
-///
-/// Calls the target page with a transient Game.
-/// If the target page returns `Response::View`, the view is embedded as an `Object::Embed`
-/// into the current page and returned as the expression value.
-/// If the target page returns any other `Response` variant (`Switch`, `Back`, `Tunnel`, `Exit`, `End`),
-/// it is returned immediately from the enclosing page function.
-#[proc_macro]
-#[allow(non_snake_case)]
-pub fn EMBED(input: TokenStream) -> TokenStream {
-    elements::embed(input)
 }

@@ -34,7 +34,7 @@ impl Ui {
     }
 
     pub fn draw_empty(&mut self, n: u8) {
-        let style = self.ctx().style();
+        let style = self.style();
         let body = style.text_styles.get(&TextStyle::Body);
         let row_height = body.map_or(18.0, |f| f.size);
         self.add_space(row_height * n as f32);
