@@ -1,4 +1,4 @@
-use ifengine::elements::{p, EMBED, NEXT};
+use ifengine::elements::{EMBED, NEXT, p};
 use ifengine::view::Object;
 
 #[derive(Debug, Default, Clone, PartialEq)]
@@ -69,7 +69,8 @@ fn parent_with_transition_embed(s: &mut TestState) {
 
 #[test]
 fn test_embed_propagates_transitions() {
-    let mut game = ifengine::Game::new_with_page("parent_with_transition_embed", parent_with_transition_embed);
+    let mut game =
+        ifengine::Game::new_with_page("parent_with_transition_embed", parent_with_transition_embed);
     game.context = TestState::default();
 
     let view = game.view().expect("view should succeed");

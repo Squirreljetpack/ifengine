@@ -307,6 +307,23 @@ impl<'a> PageState<'a> {
         }
     }
 
+    /// Checks if the dirty bit (bit 63) is set for `key`.
+    ///
+    /// When set, clears the dirty bit and increments the lower 63-bit value.
+    /// Returns `true` if the dirty bit was set and the value before incrementing was `< max_clicks`
+    /// (or if `max_clicks == 0`, meaning unbounded).
+    pub fn poll_click(&self, key: PageKey, max_clicks: u64) -> bool {
+        const DIRTY_BIT: u64 = 1 << 63;
+        if let Some(x) = self.page_state.borrow_mut().get_mut(&key) {
+            if (*x & DIRTY_BIT) != 0 {
+                let value = *x & !DIRTY_BIT;
+                *x = (value.saturating_add(1)) & !DIRTY_BIT;
+                return max_clicks == 0 || value < max_clicks;
+            }
+        }
+        false
+    }
+
     /// Adds a tag to both the current [`View`]'s tag list and the global [`GameTags`].
     ///
     /// Returns `true` if the tag was newly inserted into global game tags, or `false` if already present.
@@ -383,4 +400,3 @@ mod tests {
         assert_eq!(keys1, keys2);
     }
 }
-

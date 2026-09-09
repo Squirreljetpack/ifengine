@@ -18,7 +18,6 @@ impl<T> GameContext for T where T: Default + Clone + std::fmt::Debug + 'static {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct GameInner {
     pub state: GameState,
-    #[cfg_attr(feature = "serde", serde(skip))]
     pub(crate) pages: PageStack,
     fresh: bool,
     last_id: PageId,
@@ -98,12 +97,7 @@ impl<C: GameContext> Game<C> {
     }
 
     /// Creates a transient [`Game`] instance used for temporary execution during sub-page embedding.
-    pub fn new_transient(
-        context: C,
-        tags: GameTags,
-        simulating: bool,
-        fresh: bool,
-    ) -> Self {
+    pub fn new_transient(context: C, tags: GameTags, simulating: bool, fresh: bool) -> Self {
         Self {
             context,
             tags,
@@ -278,6 +272,11 @@ impl GameInner {
     pub fn page_depth(&self) -> usize {
         self.pages.0.last().map(|x| x.len()).unwrap_or_default()
     }
+
+    /// The identifier of the active page.
+    pub fn last_page_id(&self) -> &PageId {
+        &self.last_id
+    }
 }
 
 /// Instantiate a [`Game`] from a function decorated with `#[ifview]`.
@@ -377,6 +376,50 @@ impl PageStack {
 
     pub fn pop_stack(&mut self) -> Option<Vec<PageHandle>> {
         self.0.pop()
+    }
+}
+
+#[cfg(feature = "serde")]
+impl serde::Serialize for PageStack {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        use serde::ser::SerializeSeq;
+        let mut outer = serializer.serialize_seq(Some(self.0.len()))?;
+        for inner in &self.0 {
+            let ids: Vec<&PageId> = inner.iter().map(|h| &h.id).collect();
+            outer.serialize_element(&ids)?;
+        }
+        outer.end()
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<'de> serde::Deserialize<'de> for PageStack {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let id_stacks: Vec<Vec<PageId>> = Vec::deserialize(deserializer)?;
+        let mut stacks = Vec::with_capacity(id_stacks.len());
+        for id_stack in id_stacks {
+            let mut stack = Vec::with_capacity(id_stack.len());
+            for id in id_stack {
+                if id.is_empty() {
+                    continue;
+                }
+                if let Some(handle) = crate::core::resolve_page(&id) {
+                    stack.push(handle);
+                } else {
+                    return Err(serde::de::Error::custom(format!(
+                        "Failed to resolve page in PageStack: '{id}'"
+                    )));
+                }
+            }
+            stacks.push(stack);
+        }
+        Ok(PageStack(stacks))
     }
 }
 

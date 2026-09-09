@@ -1,8 +1,8 @@
 use super::State;
 use ifengine::{
     elements::{
-        EMBED, alts, back, choice, click, count, dchoice, dynamic_choice, fresh, img, link, mchoice, p,
-        page_dbg, replace, s, text,
+        EMBED, alts, back, choice, click, count, dchoice, dynamic_choice, fresh, img, link,
+        mchoice, p, page_dbg, replace, s, text,
     },
     ifview,
 };

@@ -10,6 +10,7 @@ mod components;
 pub mod consts;
 mod context;
 mod render;
+pub mod storage;
 mod transition;
 
 pub use app::App;

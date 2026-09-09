@@ -403,7 +403,11 @@ impl syn::parse::Parse for EmbedInput {
         if is_trailer_next(input) {
             let _ = input.parse::<Token![::]>()?;
             render_data = Some(input.parse()?);
-            return Ok(EmbedInput { target_fn, ctx, render_data });
+            return Ok(EmbedInput {
+                target_fn,
+                ctx,
+                render_data,
+            });
         }
 
         if !input.is_empty() {
@@ -428,12 +432,20 @@ impl syn::parse::Parse for EmbedInput {
             }
         }
 
-        Ok(EmbedInput { target_fn, ctx, render_data })
+        Ok(EmbedInput {
+            target_fn,
+            ctx,
+            render_data,
+        })
     }
 }
 
 pub fn embed(input: TokenStream) -> TokenStream {
-    let EmbedInput { target_fn, ctx, render_data } = syn::parse_macro_input!(input as EmbedInput);
+    let EmbedInput {
+        target_fn,
+        ctx,
+        render_data,
+    } = syn::parse_macro_input!(input as EmbedInput);
 
     let data = match render_data {
         Some(s) => quote!(#s),

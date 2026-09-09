@@ -22,10 +22,7 @@ impl<C: GameContext> PageErased for Page<C> {
         self(game)
     }
 }
-// todo: add struct impl
-
-// newtype over alias just because arc doesn't have serialize, this is very annoying
-// On the plus side makes typing a bit stronger...
+// todo: add struct that implements this, i.e. parsed from dsl
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
 /// Identifies a [`Page`]
@@ -107,6 +104,24 @@ impl<T: Into<Arc<str>>> From<T> for PageId {
     }
 }
 
+/// Compile-time registration entry for pages decorated with `#[ifview]`.
+pub struct RegisteredPage {
+    pub id: &'static str,
+    pub factory: fn(PageId) -> PageHandle,
+}
+
+inventory::collect!(RegisteredPage);
+
+/// Resolves a page identifier against the global compile-time registry.
+pub fn resolve_page(id: &str) -> Option<PageHandle> {
+    for page in inventory::iter::<RegisteredPage> {
+        if page.id == id {
+            return Some((page.factory)(page.id.into()));
+        }
+    }
+    None
+}
+
 #[cfg(feature = "serde")]
 mod serde_impl {
     use super::*;
@@ -121,13 +136,36 @@ mod serde_impl {
         }
     }
 
+    struct PageIdVisitor;
+
+    impl<'de> serde::de::Visitor<'de> for PageIdVisitor {
+        type Value = PageId;
+
+        fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+            formatter.write_str("a string representing a page id")
+        }
+
+        fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+        where
+            E: serde::de::Error,
+        {
+            Ok(PageId::from(v))
+        }
+
+        fn visit_string<E>(self, v: String) -> Result<Self::Value, E>
+        where
+            E: serde::de::Error,
+        {
+            Ok(PageId::from(v))
+        }
+    }
+
     impl<'de> Deserialize<'de> for PageId {
         fn deserialize<D>(d: D) -> Result<Self, D::Error>
         where
             D: Deserializer<'de>,
         {
-            let s: &str = Deserialize::deserialize(d)?;
-            Ok(PageId::from(s))
+            d.deserialize_str(PageIdVisitor)
         }
     }
 }

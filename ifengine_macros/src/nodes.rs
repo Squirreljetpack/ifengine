@@ -5,7 +5,6 @@ use syn::{
     punctuated::Punctuated,
 };
 
-
 /// Optional u64 key specified in the first position, surrounded in brackets.
 /// The internal data describing an element is stored under this key in the page state and can be retrieved for full fine-grained control.
 /// # Syntax

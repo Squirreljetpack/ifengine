@@ -177,4 +177,27 @@ mod tests {
         let sim = game.simulate(|s| s.depth <= 20);
         assert!(!sim.runs.is_empty());
     }
+
+    #[cfg(feature = "serde")]
+    #[test]
+    fn test_saltwrack_serialization() {
+        let mut game = new();
+        let _ = game.view().expect("view should render");
+        game.context.miles = 100;
+        game.context.rations = 5;
+
+        let json = serde_json::to_string(&game).expect("serde_json serialize failed");
+        println!("Saltwrack JSON size: {} bytes", json.len());
+
+        let bincode_bytes = bincode::serialize(&game).expect("bincode serialize failed");
+        println!("Saltwrack Bincode size: {} bytes", bincode_bytes.len());
+
+        let postcard_bytes = postcard::to_allocvec(&game).expect("postcard serialize failed");
+        println!("Saltwrack Postcard size: {} bytes", postcard_bytes.len());
+
+        let deserialized_postcard: Game =
+            postcard::from_bytes(&postcard_bytes).expect("postcard deserialize failed");
+        assert_eq!(deserialized_postcard.context.miles, 100);
+        assert_eq!(deserialized_postcard.context.rations, 5);
+    }
 }

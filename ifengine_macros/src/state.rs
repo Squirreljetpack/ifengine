@@ -76,7 +76,10 @@ impl Parse for AltsInput {
 
             let mut variant = None;
             if let Some(last_expr) = exprs.last() {
-                if let Expr::Path(syn::ExprPath { path, qself: None, .. }) = last_expr {
+                if let Expr::Path(syn::ExprPath {
+                    path, qself: None, ..
+                }) = last_expr
+                {
                     if let Some(ident) = path.get_ident() {
                         let ident_str = ident.to_string();
                         if ident_str == "Stop" {
@@ -237,6 +240,7 @@ pub struct ClickInput {
     pub maybe_key: MaybeKey,
     pub expr: Expr,
     pub block: Expr,
+    pub max_clicks: Option<Expr>,
 }
 
 impl Parse for ClickInput {
@@ -247,15 +251,35 @@ impl Parse for ClickInput {
 
         let block = if input.peek(Token![,]) {
             input.parse::<Token![,]>()?;
-            input.parse::<Expr>()?
+            if input.is_empty() {
+                syn::parse_quote!({})
+            } else {
+                input.parse::<Expr>()?
+            }
         } else {
             syn::parse_quote!({})
+        };
+
+        let max_clicks = if input.peek(Token![,]) {
+            input.parse::<Token![,]>()?;
+            if input.is_empty() {
+                None
+            } else {
+                let m = input.parse::<Expr>()?;
+                if input.peek(Token![,]) {
+                    input.parse::<Token![,]>()?;
+                }
+                Some(m)
+            }
+        } else {
+            None
         };
 
         Ok(ClickInput {
             maybe_key,
             expr,
             block,
+            max_clicks,
         })
     }
 }
@@ -265,13 +289,18 @@ pub fn click(input: TokenStream) -> TokenStream {
         maybe_key,
         expr,
         block,
+        max_clicks,
     } = syn::parse_macro_input!(input as ClickInput);
     let key = maybe_key.into_tokens();
     let expr_tokens = crate::helpers::expand_string_expr(&expr);
+    let max_clicks_tokens = match max_clicks {
+        Some(m) => quote! { ((#m) as u64) },
+        None => quote! { 0u64 },
+    };
 
     let expanded = quote! {{
         let __ifengine_key = #key;
-        if __ifengine_page_state.was_zero(__ifengine_key) {
+        if __ifengine_page_state.poll_click(__ifengine_key, #max_clicks_tokens) {
             let _ = #block;
         };
 
@@ -279,11 +308,19 @@ pub fn click(input: TokenStream) -> TokenStream {
             #expr_tokens
         )
         .with_id(__ifengine_key)
-        .with_action(ifengine::Action::Inc((__ifengine_page_state.id(), __ifengine_key)))
+        .with_action(ifengine::Action::SetBit((__ifengine_page_state.id(), __ifengine_key), 63))
         .as_link();
 
-        // sim the handler once
-        if __ifengine_page_state.get(__ifengine_key).is_some() {
+        // sim the handler
+        if __ifengine_page_state.get(__ifengine_key).is_some_and(|v| {
+            let max = #max_clicks_tokens;
+            let count = v & !(1u64 << 63);
+            if max == 0 {
+                count >= 1
+            } else {
+                count >= max
+            }
+        }) {
             span.no_sim()
         } else {
             span

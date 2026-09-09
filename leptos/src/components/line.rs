@@ -4,8 +4,8 @@ use leptos::prelude::*;
 use crate::components::span::SpanView;
 use crate::context::StoryContext;
 use crate::transition::{
-    compute_initial_phase, generate_active_transition_style, generate_view_transition_style,
-    parse_transition_classes, setup_transition_timers, TransitionPhase,
+    TransitionPhase, compute_initial_phase, generate_active_transition_style,
+    generate_view_transition_style, parse_transition_classes, setup_transition_timers,
 };
 
 /// Renders a [`Line`] consisting of multiple spans, with line-level animation and class support.
@@ -35,7 +35,8 @@ pub fn LineView(line: Line) -> impl IntoView {
         match phase.get() {
             TransitionPhase::Pending | TransitionPhase::Removed => {}
             TransitionPhase::Active => {
-                let (trans_style, _) = generate_active_transition_style(&line_config, should_animate);
+                let (trans_style, _) =
+                    generate_active_transition_style(&line_config, should_animate);
                 if !trans_style.is_empty() {
                     styles.push(trans_style);
                 }

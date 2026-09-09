@@ -18,9 +18,9 @@ pub fn p1(_s: &mut State) {
 pub fn p2(_s: &mut State) {
     h!(
         s!("SALTWRACK"),
-            // .cls("center")
-            // .style("display", "block")
-            // .style("margin-top", "clamp(6rem, 15vh, 16rem)"),
+        // .cls("center")
+        // .style("display", "block")
+        // .style("margin-top", "clamp(6rem, 15vh, 16rem)"),
         3
     );
     choice!(tun!("ABOUT", _about), link!("BEGIN", p3));

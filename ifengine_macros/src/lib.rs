@@ -435,9 +435,14 @@ pub fn count(input: TokenStream) -> TokenStream {
 
 /// Run code on click. Supports `{var}` interpolation in the span text.
 ///
+/// If a key is not specified, it will be automatically generated.
+/// An optional `max_clicks` parameter can be provided in final position (defaults to `0`, unbounded).
+///
 /// # Syntax
 /// ```rust,ignore
 /// p!(click!(span, block))
+/// p!(click!(span, block, max_clicks))
+/// p!(click!((maybe_key), span, block, max_clicks))
 /// ```
 #[proc_macro]
 pub fn click(input: TokenStream) -> TokenStream {

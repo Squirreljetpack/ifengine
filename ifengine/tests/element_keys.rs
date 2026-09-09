@@ -11,7 +11,8 @@ fn test_element_macro_page(_: &mut ()) {
 
 #[test]
 fn test_element_macros_and_keys() {
-    let mut game = ifengine::Game::new_with_page("test_element_macro_page", test_element_macro_page);
+    let mut game =
+        ifengine::Game::new_with_page("test_element_macro_page", test_element_macro_page);
     let view = game.view().expect("view should succeed");
 
     assert_eq!(view.inner.len(), 1);
@@ -97,30 +98,51 @@ fn test_choice_and_element_ids_page(_: &mut ()) {
 
 #[test]
 fn test_choice_and_element_ids() {
-    let mut game = ifengine::Game::new_with_page("test_choice_and_element_ids_page", test_choice_and_element_ids_page);
+    let mut game = ifengine::Game::new_with_page(
+        "test_choice_and_element_ids_page",
+        test_choice_and_element_ids_page,
+    );
     let view = game.view().expect("view should succeed");
 
     // 1. Heading has an ID on its StampedObject, inner span has no ID
     assert!(view.inner[0].id.is_some(), "heading must have an object id");
     if let Object::Heading(span, 1) = &view.inner[0].object {
-        assert!(span.id.is_none(), "heading span should not have an element id");
+        assert!(
+            span.id.is_none(),
+            "heading span should not have an element id"
+        );
     } else {
         panic!("expected Object::Heading");
     }
 
     // 2. Paragraph has an ID on its StampedObject, inner line has no ID
-    assert!(view.inner[1].id.is_some(), "paragraph must have an object id");
+    assert!(
+        view.inner[1].id.is_some(),
+        "paragraph must have an object id"
+    );
     if let Object::Paragraph(line) = &view.inner[1].object {
-        assert!(line.id.is_none(), "paragraph line should not have an element id");
+        assert!(
+            line.id.is_none(),
+            "paragraph line should not have an element id"
+        );
     } else {
         panic!("expected Object::Paragraph");
     }
 
     // 3. Count and Click spans have IDs, and outer paragraph has an ID
-    assert!(view.inner[2].id.is_some(), "paragraph with count/click must have an object id");
+    assert!(
+        view.inner[2].id.is_some(),
+        "paragraph with count/click must have an object id"
+    );
     if let Object::Paragraph(line) = &view.inner[2].object {
-        assert!(line.spans[0].id.is_some(), "count span must have an element id");
-        assert!(line.spans[1].id.is_some(), "click span must have an element id");
+        assert!(
+            line.spans[0].id.is_some(),
+            "count span must have an element id"
+        );
+        assert!(
+            line.spans[1].id.is_some(),
+            "click span must have an element id"
+        );
     } else {
         panic!("expected Object::Paragraph with count/click");
     }
@@ -144,7 +166,11 @@ fn test_choice_and_element_ids() {
     let updated_view = game.view().expect("view after choice should succeed");
 
     // 7. Choice transitioned to its replacement Paragraph with the EXACT SAME KEY!
-    assert_eq!(updated_view.inner[4].id, Some(choice_key), "replacement paragraph must share the choice's key");
+    assert_eq!(
+        updated_view.inner[4].id,
+        Some(choice_key),
+        "replacement paragraph must share the choice's key"
+    );
     if let Object::Paragraph(line) = &updated_view.inner[4].object {
         assert_eq!(line.content(), "Chose A");
     } else {
@@ -213,7 +239,8 @@ fn test_replace_macro() {
     };
 
     // Click chest link (key 100)
-    game.handle_action(action_100).expect("action should succeed");
+    game.handle_action(action_100)
+        .expect("action should succeed");
     let view2 = game.view().expect("view should succeed");
 
     // Chest is now completely disappeared from the view (length reduced from 3 to 2)
@@ -222,7 +249,8 @@ fn test_replace_macro() {
     assert!(matches!(&view2.inner[0].object, Object::Paragraph(_)));
 
     // Click door link (key 200)
-    game.handle_action(action_200).expect("action should succeed");
+    game.handle_action(action_200)
+        .expect("action should succeed");
     let view3 = game.view().expect("view should succeed");
 
     // Door is now replaced with "The door is open." with the exact same key 200
@@ -235,7 +263,8 @@ fn test_replace_macro() {
     }
 
     // Click magic link (key 300)
-    game.handle_action(action_300).expect("action should succeed");
+    game.handle_action(action_300)
+        .expect("action should succeed");
     let view4 = game.view().expect("view should succeed");
 
     // Magic is now replaced with the block's evaluated result
@@ -275,7 +304,8 @@ fn test_interpolation_page(_: &mut ()) {
 
 #[test]
 fn test_variable_interpolation_macros() {
-    let mut game = ifengine::Game::new_with_page("test_interpolation_page", test_interpolation_page);
+    let mut game =
+        ifengine::Game::new_with_page("test_interpolation_page", test_interpolation_page);
     let view = game.view().expect("view should succeed");
 
     // 0: h!
@@ -335,7 +365,10 @@ fn test_variable_interpolation_macros() {
     if let Object::Paragraph(line) = &view.inner[8].object {
         assert_eq!(line.spans[0].content, "Badge: Sen");
         assert_eq!(line.spans[1].content, "Visit Sen");
-        assert!(matches!(line.spans[1].variant, ifengine::view::SpanVariant::Link));
+        assert!(matches!(
+            line.spans[1].variant,
+            ifengine::view::SpanVariant::Link
+        ));
     } else {
         panic!("expected Paragraph for index 8");
     }
@@ -351,4 +384,83 @@ fn test_variable_interpolation_macros() {
     } else {
         panic!("expected Paragraph for index 10");
     }
+}
+
+#[derive(Debug, Default, Clone)]
+struct ClickState {
+    unbounded_count: usize,
+    bounded_count: usize,
+}
+
+#[ifengine::ifview]
+fn test_click_page(state: &mut ClickState) {
+    use ifengine::elements::{click, p};
+
+    let clk_unbounded = click!("Unbounded", {
+        state.unbounded_count += 1;
+    });
+
+    let clk_bounded = click!(
+        "Bounded",
+        {
+            state.bounded_count += 1;
+        },
+        2
+    );
+
+    p!(clk_unbounded, clk_bounded);
+}
+
+#[test]
+fn test_click_macro_repeatable_and_max_clicks() {
+    use ifengine::view::Object;
+
+    let mut game = ifengine::Game::new_with_page("test_click_page", test_click_page);
+
+    let view1 = game.view().expect("view 1 should succeed");
+    assert_eq!(game.context.unbounded_count, 0);
+    assert_eq!(game.context.bounded_count, 0);
+
+    let Object::Paragraph(line) = &view1.inner[0].object else {
+        panic!("expected paragraph");
+    };
+    let unbounded_action = line.spans[0].action.clone().expect("unbounded action");
+    let bounded_action = line.spans[1].action.clone().expect("bounded action");
+
+    // Click unbounded 1st time
+    game.handle_action(unbounded_action.clone()).unwrap();
+    let _ = game.view().unwrap();
+    assert_eq!(game.context.unbounded_count, 1);
+
+    // Re-render without clicking: code should NOT run again (dirty bit was cleared)
+    let _ = game.view().unwrap();
+    assert_eq!(game.context.unbounded_count, 1);
+
+    // Click unbounded 2nd time
+    game.handle_action(unbounded_action.clone()).unwrap();
+    let _ = game.view().unwrap();
+    assert_eq!(game.context.unbounded_count, 2);
+
+    // Click unbounded 3rd time
+    game.handle_action(unbounded_action).unwrap();
+    let _ = game.view().unwrap();
+    assert_eq!(game.context.unbounded_count, 3);
+
+    // Click bounded 1st time (max 2)
+    game.handle_action(bounded_action.clone()).unwrap();
+    let _ = game.view().unwrap();
+    assert_eq!(game.context.bounded_count, 1);
+
+    // Click bounded 2nd time (max 2)
+    game.handle_action(bounded_action.clone()).unwrap();
+    let _ = game.view().unwrap();
+    assert_eq!(game.context.bounded_count, 2);
+
+    // Click bounded 3rd time: exceeds max_clicks (2), should NOT run
+    game.handle_action(bounded_action).unwrap();
+    let _ = game.view().unwrap();
+    assert_eq!(
+        game.context.bounded_count, 2,
+        "bounded click should not execute beyond max_clicks"
+    );
 }

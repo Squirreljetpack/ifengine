@@ -29,7 +29,7 @@ pub fn ObjectView(stamped: StampedObject) -> impl IntoView {
         Object::Text(line, render_data) => {
             if render_data == "popup" || render_data == "modal" {
                 view! {
-                    <div class="passage-popup-backdrop passage-popup" data-render=render_data style=vt_style>
+                    <div class="passage-popup-backdrop passage-popup" data-render=render_data>
                         <div class="passage-popup-dialog">
                             <div class="passage-text" data-render=render_data>
                                 <LineView line=line />
@@ -107,12 +107,18 @@ pub fn ObjectView(stamped: StampedObject) -> impl IntoView {
             };
 
             match level {
-                1 => view! { <h1 class="passage-heading h1" style=vt_style>{heading_view}</h1> }.into_any(),
-                2 => view! { <h2 class="passage-heading h2" style=vt_style>{heading_view}</h2> }.into_any(),
-                3 => view! { <h3 class="passage-heading h3" style=vt_style>{heading_view}</h3> }.into_any(),
-                4 => view! { <h4 class="passage-heading h4" style=vt_style>{heading_view}</h4> }.into_any(),
-                5 => view! { <h5 class="passage-heading h5" style=vt_style>{heading_view}</h5> }.into_any(),
-                _ => view! { <h6 class="passage-heading h6" style=vt_style>{heading_view}</h6> }.into_any(),
+                1 => view! { <h1 class="passage-heading h1" style=vt_style>{heading_view}</h1> }
+                    .into_any(),
+                2 => view! { <h2 class="passage-heading h2" style=vt_style>{heading_view}</h2> }
+                    .into_any(),
+                3 => view! { <h3 class="passage-heading h3" style=vt_style>{heading_view}</h3> }
+                    .into_any(),
+                4 => view! { <h4 class="passage-heading h4" style=vt_style>{heading_view}</h4> }
+                    .into_any(),
+                5 => view! { <h5 class="passage-heading h5" style=vt_style>{heading_view}</h5> }
+                    .into_any(),
+                _ => view! { <h6 class="passage-heading h6" style=vt_style>{heading_view}</h6> }
+                    .into_any(),
             }
         }
 
@@ -155,7 +161,7 @@ pub fn ObjectView(stamped: StampedObject) -> impl IntoView {
                 .into_any()
             } else if render_data == "popup" || render_data == "modal" {
                 view! {
-                    <div class="passage-popup-backdrop passage-popup" data-render=render_data style=vt_style>
+                    <div class="passage-popup-backdrop passage-popup" data-render=render_data>
                         <div class="passage-popup-dialog">
                             <div class="passage-embed" data-page=pid_str>
                                 {embedded_view.inner.into_iter().map(move |stamped| {

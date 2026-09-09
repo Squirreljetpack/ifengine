@@ -137,7 +137,13 @@ pub fn mchoice(input: TokenStream) -> TokenStream {
 
             // Only expand string literals; other exprs (Option<Span>, etc.) pass through to
             // ChoiceVariant::from which has the appropriate blanket impls.
-            let variant_tokens = if matches!(line, Expr::Lit(syn::ExprLit { lit: syn::Lit::Str(_), .. })) {
+            let variant_tokens = if matches!(
+                line,
+                Expr::Lit(syn::ExprLit {
+                    lit: syn::Lit::Str(_),
+                    ..
+                })
+            ) {
                 let line_tokens = expand_line_expr(line);
                 quote! { ifengine::elements::ChoiceVariant::from({ #line_tokens }) }
             } else {

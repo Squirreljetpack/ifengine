@@ -40,9 +40,15 @@ pub fn ifview(_attr: TokenStream, item: TokenStream) -> TokenStream {
     impl<'a> VisitMut for EmbedRewriter<'a> {
         fn visit_macro_mut(&mut self, mac: &mut syn::Macro) {
             if mac.path.is_ident("EMBED")
-                || mac.path.segments.last().map_or(false, |s| s.ident == "EMBED")
+                || mac
+                    .path
+                    .segments
+                    .last()
+                    .map_or(false, |s| s.ident == "EMBED")
             {
-                if let Ok(embed_input) = syn::parse2::<crate::elements::EmbedInput>(mac.tokens.clone()) {
+                if let Ok(embed_input) =
+                    syn::parse2::<crate::elements::EmbedInput>(mac.tokens.clone())
+                {
                     if embed_input.ctx.is_none() && embed_input.target_fn.is_some() {
                         let target = embed_input.target_fn.unwrap();
                         let ctx = self.ctx_ident;
@@ -92,6 +98,13 @@ pub fn ifview(_attr: TokenStream, item: TokenStream) -> TokenStream {
 
             #[allow(unreachable_code)]
             __ifengine_page_state.into_response()
+        }
+
+        ifengine::inventory::submit! {
+            ifengine::core::RegisteredPage {
+                id: concat!(module_path!(), "::", stringify!(#name)),
+                factory: |id: ifengine::core::PageId| ifengine::core::PageHandle::new::<#ctx_type>(id, #name),
+            }
         }
     };
 

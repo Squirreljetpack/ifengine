@@ -4,8 +4,8 @@ use leptos::prelude::*;
 use crate::context::StoryContext;
 use crate::render::{span_classes, span_to_css_style};
 use crate::transition::{
-    compute_initial_phase, generate_active_transition_style, generate_view_transition_style,
-    parse_transition_classes, setup_transition_timers, TransitionPhase,
+    TransitionPhase, compute_initial_phase, generate_active_transition_style,
+    generate_view_transition_style, parse_transition_classes, setup_transition_timers,
 };
 
 /// Renders a single [`Span`] element with styling, modifiers, transition animation,
@@ -40,7 +40,8 @@ pub fn SpanView(span: Span) -> impl IntoView {
         match phase.get() {
             TransitionPhase::Pending | TransitionPhase::Removed => {}
             TransitionPhase::Active => {
-                let (trans_style, _) = generate_active_transition_style(&span_config, should_animate);
+                let (trans_style, _) =
+                    generate_active_transition_style(&span_config, should_animate);
                 if !trans_style.is_empty() {
                     styles.push(trans_style);
                 }

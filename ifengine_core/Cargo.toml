@@ -23,6 +23,7 @@ thiserror = "2.0.17"
 iddqd = "0.3.17"
 
 # optional
+inventory = "0.3"
 serde = { version = "1.0.219", features = ["derive"], optional = true }
 rand = { version = "0.9.2", optional = true }
 const-fnv1a-hash = { version = "1.1.0", optional = true }

@@ -9,7 +9,10 @@
 //! A starting page is used to initialize the [`Game`](struct@Game), which can then be called upon to yield its current view through [`Game::view`], and updated by interacting with the view.
 //! A view consists of a sequence of [`Object`](view::Object)s which you can attach by calling the provided [elements and macros](elements) within the page.
 
+extern crate self as ifengine;
+
 pub use ifengine_core::*;
+pub use inventory;
 
 #[cfg(feature = "macros")]
 pub use ifengine_macros::ifview;

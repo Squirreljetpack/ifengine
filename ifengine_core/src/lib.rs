@@ -8,9 +8,4 @@ pub mod utils;
 pub mod view;
 
 // Core types needed to use the library
-pub use {
-    core::Action,
-    core::Game,
-    errors::*,
-    view::View,
-};
+pub use {core::Action, core::Game, errors::*, view::View};

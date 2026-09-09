@@ -15,4 +15,8 @@ pub struct StoryContext {
     pub dispatch_choice: Callback<(PageKey, u8)>,
     /// Reactive transition manager tracking animated items across iterations.
     pub transitions: RwSignal<TransitionManager>,
+    /// Opens the Save Game modal.
+    pub open_save_modal: Callback<()>,
+    /// Opens the Load Game modal.
+    pub open_load_modal: Callback<()>,
 }
