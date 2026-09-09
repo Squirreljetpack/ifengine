@@ -64,8 +64,6 @@ pub fn ifview(attr: TokenStream, item: TokenStream) -> TokenStream {
 /// By default, a deterministic key is automatically assigned.
 /// Multiple LHS values can be specified for the same RHS using `|`.
 ///
-/// LHS string literals support `{var}` interpolation.
-///
 /// # Example
 /// ```rust,ignore
 /// choice! {
@@ -91,8 +89,6 @@ pub fn choice(input: TokenStream) -> TokenStream {
 /// Any `Option<Into<Line>>` will coerce to `Choice::None` or `Choice::Always`.
 ///
 /// The return type is a `[bool; n]` representing which of the options were hidden (NOT displayed).
-///
-/// LHS string literals support `{var}` interpolation.
 ///
 /// # Example
 /// ```rust,ignore
@@ -237,7 +233,7 @@ pub fn push(input: TokenStream) -> TokenStream {
 ///
 /// # Prefixes & Targets
 /// - **`"span":` (or omitted default)**: Appends one or more spans to a preceding [`Object::Paragraph`](ifengine::view::Object::Paragraph)
-///   or [`Object::Text`](ifengine::view::Object::Text). String literals support `{var}` interpolation.
+///   or [`Object::Text`](ifengine::view::Object::Text).
 /// - **`"choice":`**: Appends choices to a preceding [`Object::Choice`](ifengine::view::Object::Choice).
 ///   Accepts any type implementing [`IntoNumberedLine`](ifengine::view::IntoNumberedLine), such as `(u8, Into<Line>)`
 ///   or directly `Into<Line>` (`&str`, `String`, `Line`, etc.). If the index is omitted (`None`), it automatically
@@ -249,7 +245,7 @@ pub fn push(input: TokenStream) -> TokenStream {
 ///
 /// # Examples
 /// ```rust,ignore
-/// // Extend a paragraph with text and spans (interpolated strings supported)
+/// // Extend a paragraph with text and spans
 /// p!("Hello,");
 /// extend!(" {player.name}!");
 /// extend!("span": s!(" Welcome!").as_link());
@@ -272,7 +268,7 @@ pub fn extend(input: TokenStream) -> TokenStream {
 
 /// Push a single unspaced plain text line ([`Object::Text`](ifengine::view::Object::Text)) to the view without paragraph margins.
 ///
-/// Constructed from one or more spans, or string literals with inline `{var}` interpolation.
+/// Constructed from one or more spans, or string literals.
 ///
 /// # Custom Styling Metadata
 /// A trailing [`RenderData`](ifengine::view::RenderData) can be specified following `::`.
@@ -289,7 +285,7 @@ pub fn text(input: TokenStream) -> TokenStream {
 
 /// Push multiple unspaced plain text lines ([`Object::Text`](ifengine::view::Object::Text)) in sequence to the view.
 ///
-/// Each argument is a separate line without paragraph margins. Supports `{var}` interpolation. See [`text!`].
+/// Each argument is a separate line without paragraph margins. See [`text!`].
 ///
 /// # Example
 /// ```rust,ignore
@@ -302,7 +298,7 @@ pub fn texts(input: TokenStream) -> TokenStream {
 
 /// Push a single paragraph block ([`Object::Paragraph`](ifengine::view::Object::Paragraph)) to the view with standard vertical margins.
 ///
-/// Constructed from one or more spans, or string literals with inline `{var}` interpolation.
+/// Constructed from one or more spans, or string literals.
 ///
 /// # Example
 /// ```rust,ignore
@@ -315,7 +311,7 @@ pub fn paragraph(input: TokenStream) -> TokenStream {
 
 /// Push multiple separate paragraph blocks ([`Object::Paragraph`](ifengine::view::Object::Paragraph)) to the view.
 ///
-/// Each argument is its own block with standard vertical spacing. Supports `{var}` interpolation.
+/// Each argument is its own block with standard vertical spacing.
 ///
 /// # Example
 /// ```rust,ignore
@@ -329,7 +325,7 @@ pub fn paragraphs(input: TokenStream) -> TokenStream {
     elements::paragraphs(input)
 }
 
-/// Create a [`Span`](ifengine::view::Span). Supports `{var}` interpolation in string literals.
+/// Create a [`Span`](ifengine::view::Span).
 ///
 /// # Example
 /// ```rust,ignore
@@ -340,7 +336,7 @@ pub fn s(input: TokenStream) -> TokenStream {
     elements::s(input)
 }
 
-/// Create a [`Line`](ifengine::view::Line) from one or more [`Span`](ifengine::view::Span)s. Supports `{var}` interpolation in string literals.
+/// Create a [`Line`](ifengine::view::Line) from one or more [`Span`](ifengine::view::Span)s.
 ///
 /// # Example
 /// ```rust,ignore
@@ -353,15 +349,12 @@ pub fn l(input: TokenStream) -> TokenStream {
 
 /// Create a clickable link [`Span`](ifengine::view::Span) navigating to a destination page.
 ///
-/// Supports `{var}` interpolation in the link text.
-///
 /// # Example
 /// ```rust,ignore
 /// link!("Visit {vendor}'s shop", shop_page)
+/// link!("text", target_page)
+/// link!("text")
 /// ```
-///
-/// - `link!("text", target_page)`
-/// - `link!("text")`
 #[proc_macro]
 pub fn link(input: TokenStream) -> TokenStream {
     elements::link(input)
@@ -369,15 +362,14 @@ pub fn link(input: TokenStream) -> TokenStream {
 
 /// Create a tunnel or exit link [`Span`](ifengine::view::Span).
 ///
-/// Supports `{var}` interpolation in the link text.
-///
 /// # Example
 /// ```rust,ignore
 /// tun!("Consult with {mentor}", mentor_tunnel)
+/// // push a new stack frame
+/// tun!("text", target_page)
+/// // exit the current tunnel (pop the stack)
+/// tun!("text")
 /// ```
-///
-/// - `tun!("text", target_page)` — push a new stack frame
-/// - `tun!("text")` — exit the current tunnel (pop the stack)
 #[proc_macro]
 pub fn tun(input: TokenStream) -> TokenStream {
     elements::tun(input)
@@ -399,7 +391,7 @@ pub fn img(input: TokenStream) -> TokenStream {
     elements::img(input)
 }
 
-/// Markdown heading. Supports `{var}` interpolation in the heading text.
+/// Markdown heading.
 ///
 /// # Example
 /// ```rust,ignore
@@ -466,17 +458,17 @@ pub fn alts(input: TokenStream) -> TokenStream {
 /// # Syntax
 /// ```rust,ignore
 /// let span_count = read_key!(6);
-/// let span = count!((6), |val| "span");
+/// let span = count!((6), |n| format!("Clicked {n} times"));
 /// ```
 #[proc_macro]
 pub fn count(input: TokenStream) -> TokenStream {
     state::count(input)
 }
 
-/// Run code on click. Supports `{var}` interpolation in the span text.
+/// Run code on click.
 ///
 /// If a key is not specified, it will be automatically generated.
-/// An optional `max_clicks` parameter can be provided in final position (defaults to `0`, unbounded).
+/// An optional `max_clicks` parameter can be provided in final position.
 ///
 /// # Syntax
 /// ```rust,ignore
@@ -491,8 +483,9 @@ pub fn click(input: TokenStream) -> TokenStream {
 
 /// Disappearing or replaceable paragraph with inline link trigger and View Transition support.
 ///
-/// Attaches an ID to the paragraph line. If the string contains `[[target]]`, the first bracketed section
+/// If the string contains `[[target]]`, the first bracketed section
 /// is used as the clickable link; otherwise, the entire string becomes the clickable link.
+///
 /// When clicked, if a replacement block/expression is present, it is evaluated and rendered in place of the line.
 /// The replacement shares the same element id as the original paragraph, enabling smooth transitions on supported frontends.
 ///
@@ -502,8 +495,6 @@ pub fn click(input: TokenStream) -> TokenStream {
 /// ```text
 /// replace!((maybe_key), string_expr [, block])
 /// ```
-///
-/// The `string_expr` supports `{var}` interpolation.
 ///
 /// # Examples
 /// ```rust,ignore
@@ -538,8 +529,6 @@ pub fn fresh(input: TokenStream) -> TokenStream {
 }
 
 /// Create a link [`Span`](ifengine::view::Span) that navigates backward.
-///
-/// Supports inline variable interpolation `{var}` in the display text.
 ///
 /// - `$e`: Display text.
 /// - `$n`: Optional number of steps to go back (defaults to 1).
