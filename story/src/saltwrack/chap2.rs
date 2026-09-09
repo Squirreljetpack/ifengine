@@ -817,6 +817,8 @@ pub fn you_spirelung(s: &mut State) {
         .cls("center")
         .style("margin-top", "2rem")
         .style("color", "#c33"));
+
+    *s = Default::default();
     choice!(link!("Restart Expedition", crate::saltwrack::chap1::p1));
 }
 

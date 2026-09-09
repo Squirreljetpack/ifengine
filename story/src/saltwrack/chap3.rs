@@ -672,5 +672,6 @@ pub fn milestone_act1_end(s: &mut State) {
             .style("font-style", "italic")
     );
 
+    *s = Default::default();
     choice!(link!("Restart from Hearth", crate::saltwrack::chap1::p1));
 }

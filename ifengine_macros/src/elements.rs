@@ -475,3 +475,191 @@ pub fn embed(input: TokenStream) -> TokenStream {
 
     TokenStream::from(expanded)
 }
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum ExtendKind {
+    Choice,
+    Object,
+    Span,
+}
+
+pub struct ExtendInput {
+    pub kind: ExtendKind,
+    pub exprs: Vec<Expr>,
+}
+
+impl syn::parse::Parse for ExtendInput {
+    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+        let mut kind = ExtendKind::Span;
+
+        let ahead = input.fork();
+        let mut matched_prefix = false;
+
+        if let Ok(lit) = ahead.parse::<LitStr>() {
+            if ahead.peek(Token![:]) {
+                let s = lit.value();
+                match s.as_str() {
+                    "object" => {
+                        kind = ExtendKind::Object;
+                        matched_prefix = true;
+                    }
+                    "choice" => {
+                        kind = ExtendKind::Choice;
+                        matched_prefix = true;
+                    }
+                    "span" => {
+                        kind = ExtendKind::Span;
+                        matched_prefix = true;
+                    }
+                    _ => {}
+                }
+            }
+        } else if let Ok(ident) = ahead.parse::<syn::Ident>() {
+            if ahead.peek(Token![:]) {
+                let s = ident.to_string();
+                match s.as_str() {
+                    "object" => {
+                        kind = ExtendKind::Object;
+                        matched_prefix = true;
+                    }
+                    "choice" => {
+                        kind = ExtendKind::Choice;
+                        matched_prefix = true;
+                    }
+                    "span" => {
+                        kind = ExtendKind::Span;
+                        matched_prefix = true;
+                    }
+                    _ => {}
+                }
+            }
+        }
+
+        if matched_prefix {
+            let _: proc_macro2::TokenTree = input.parse()?;
+            let _: Token![:] = input.parse()?;
+        }
+
+        let exprs = Punctuated::<Expr, Token![,]>::parse_terminated(input)?
+            .into_iter()
+            .collect();
+
+        Ok(ExtendInput { kind, exprs })
+    }
+}
+
+pub fn extend(input: TokenStream) -> TokenStream {
+    let ExtendInput { kind, exprs } = parse_macro_input!(input as ExtendInput);
+    let mut evals = Vec::new();
+    let mut pushes = Vec::new();
+
+    match kind {
+        ExtendKind::Choice => {
+            for (i, expr) in exprs.into_iter().enumerate() {
+                let temp_ident = syn::Ident::new(
+                    &format!("__ifengine_choice_{i}"),
+                    proc_macro2::Span::call_site(),
+                );
+                evals.push(quote! {
+                    let #temp_ident = ifengine::view::IntoNumberedLine::into_numbered_line(#expr);
+                });
+                pushes.push(quote! {
+                    let (__num, __line) = #temp_ident;
+                    let __num = match __num {
+                        Some(__n) => __n,
+                        None => __choices.last().map_or(0, |(prev, _)| prev.saturating_add(1)),
+                    };
+                    __choices.push((__num, __line));
+                });
+            }
+
+            let expanded = quote! {
+                {
+                    #(#evals)*
+                    if let Some(__ifengine_last) = __ifengine_page_state.last_mut() {
+                        if let ifengine::view::Object::Choice(__choices) = &mut __ifengine_last.object {
+                            #(#pushes)*
+                        }
+                    }
+                }
+            };
+            TokenStream::from(expanded)
+        }
+        ExtendKind::Object => {
+            for (i, expr) in exprs.into_iter().enumerate() {
+                let temp_ident = syn::Ident::new(
+                    &format!("__ifengine_obj_{i}"),
+                    proc_macro2::Span::call_site(),
+                );
+                evals.push(quote! {
+                    let #temp_ident = #expr;
+                });
+                pushes.push(quote! {
+                    __view.push(ifengine::view::StampedObject::from(#temp_ident));
+                });
+            }
+
+            let expanded = quote! {
+                {
+                    #(#evals)*
+                    if let Some(__ifengine_last) = __ifengine_page_state.last_mut() {
+                        if let ifengine::view::Object::Embed(__view, _) = &mut __ifengine_last.object {
+                            #(#pushes)*
+                        }
+                    }
+                }
+            };
+            TokenStream::from(expanded)
+        }
+        ExtendKind::Span => {
+            for (i, expr) in exprs.into_iter().enumerate() {
+                if let Expr::Lit(syn::ExprLit {
+                    lit: Lit::Str(_),
+                    ..
+                }) = &expr
+                {
+                    let spans = expand_spans(std::iter::once(expr));
+                    for (j, span) in spans.into_iter().enumerate() {
+                        let sub_ident = syn::Ident::new(
+                            &format!("__ifengine_span_{i}_{j}"),
+                            proc_macro2::Span::call_site(),
+                        );
+                        evals.push(quote! {
+                            let #sub_ident = #span;
+                        });
+                        pushes.push(quote! {
+                            __line.push(#sub_ident);
+                        });
+                    }
+                } else {
+                    let temp_ident = syn::Ident::new(
+                        &format!("__ifengine_span_{i}"),
+                        proc_macro2::Span::call_site(),
+                    );
+                    evals.push(quote! {
+                        let #temp_ident = #expr;
+                    });
+                    pushes.push(quote! {
+                        __line.push(#temp_ident);
+                    });
+                }
+            }
+
+            let expanded = quote! {
+                {
+                    #(#evals)*
+                    if let Some(__ifengine_last) = __ifengine_page_state.last_mut() {
+                        match &mut __ifengine_last.object {
+                            ifengine::view::Object::Text(__line, _)
+                            | ifengine::view::Object::Paragraph(__line) => {
+                                #(#pushes)*
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+            };
+            TokenStream::from(expanded)
+        }
+    }
+}
