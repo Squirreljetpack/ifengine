@@ -32,15 +32,15 @@ fn test_embed_view_and_context_mutation() {
 
     // Check parent view structure: Paragraph, Embed, Paragraph
     assert_eq!(view.inner.len(), 3);
-    assert!(matches!(view.inner[0], Object::Paragraph(_)));
-    if let Object::Embed(sub_view) = &view.inner[1] {
+    assert!(matches!(view.inner[0].object, Object::Paragraph(_)));
+    if let Object::Embed(sub_view, _) = &view.inner[1].object {
         assert_eq!(sub_view.inner.len(), 1);
-        assert!(matches!(sub_view.inner[0], Object::Paragraph(_)));
+        assert!(matches!(sub_view.inner[0].object, Object::Paragraph(_)));
         assert_eq!(sub_view.pageid, view.pageid);
     } else {
         panic!("expected Object::Embed at index 1");
     }
-    assert!(matches!(view.inner[2], Object::Paragraph(_)));
+    assert!(matches!(view.inner[2].object, Object::Paragraph(_)));
 
     // Check context mutations: 1 (parent before) + 10 (subpage) + 2 (parent after) = 13
     assert_eq!(game.context.counter, 13);
@@ -76,7 +76,7 @@ fn test_embed_propagates_transitions() {
 
     // View should have transitioned to target_destination!
     assert_eq!(view.inner.len(), 1);
-    if let Object::Paragraph(line) = &view.inner[0] {
+    if let Object::Paragraph(line) = &view.inner[0].object {
         assert_eq!(line.content(), "Destination page arrived!");
     } else {
         panic!("expected destination paragraph");
@@ -110,9 +110,9 @@ fn test_nested_embeds() {
     let view = game.view().expect("view should succeed");
 
     assert_eq!(view.inner.len(), 2);
-    if let Object::Embed(child_view) = &view.inner[1] {
+    if let Object::Embed(child_view, _) = &view.inner[1].object {
         assert_eq!(child_view.inner.len(), 2);
-        if let Object::Embed(grandchild_view) = &child_view.inner[1] {
+        if let Object::Embed(grandchild_view, _) = &child_view.inner[1].object {
             assert_eq!(grandchild_view.inner.len(), 1);
         } else {
             panic!("expected nested Object::Embed for grandchild");

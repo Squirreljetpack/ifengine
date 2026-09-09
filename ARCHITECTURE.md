@@ -98,21 +98,25 @@ A [`View`](file:///Users/absinthe/gh/OWN/ifengine/ifengine_core/src/view/mod.rs)
 classDiagram
     class View {
         +pageid: PageId
-        +inner: Vec~Object~
+        +inner: Vec~StampedObject~
         +tags: Vec~PageId~
+    }
+    class StampedObject {
+        +id: Option~PageKey~
+        +object: Object
     }
     class Object {
         <<enumeration>>
         Paragraph(Line)
         Text(Line, RenderData)
         Heading(Span, u8)
-        Choice(PageKey, Vec~(u8, Line)~)
+        Choice(Vec~(u8, Line)~)
         Image(Image)
         Note(Line, (u8, u8))
         Quote(Line, RenderData)
         Break
         Empty(u8)
-        Custom(RenderData)
+        Embed(View, RenderData)
     }
     class Line {
         +id: Option~PageKey~

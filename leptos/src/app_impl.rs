@@ -150,8 +150,8 @@ where
                 <article class=article_class>
                     {move || {
                         let view = current_view.get();
-                        view.inner.into_iter().map(|object| {
-                            view! { <ObjectView object=object /> }
+                        view.inner.into_iter().map(|stamped| {
+                            view! { <ObjectView stamped=stamped /> }
                         }).collect::<Vec<_>>()
                     }}
                 </article>

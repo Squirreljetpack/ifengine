@@ -6,7 +6,7 @@ use crate::{
         GameContext, GameTags, Page, PageId, Response,
         game_state::{PageKey, PageMap},
     },
-    view::{Object, View},
+    view::{Object, RenderData, StampedObject, View},
 };
 
 /// The mask for user keys (top 16 bits must be 0, allowing up to 48-bit user payloads).
@@ -100,10 +100,9 @@ impl<'a> PageState<'a> {
         *count = count.saturating_add(1);
         ((c as u64) << 48) | (loc & USER_KEY_MASK)
     }
-    /// Appends a view [`Object`] (such as a paragraph, choice list, heading, image, or break)
-    /// to the underlying [`View`].
-    pub fn push(&mut self, object: Object) {
-        self.view.push(object);
+    /// Appends a view element (wrapped in [`StampedObject`]) to the underlying [`View`].
+    pub fn push(&mut self, item: impl Into<StampedObject>) {
+        self.view.push(item.into());
     }
 
     /// Evaluates an embedded page function using a transient [`Game`] and attaches its [`View`].
@@ -113,12 +112,23 @@ impl<'a> PageState<'a> {
     /// [`Response::Switch`], [`Response::Back`], [`Response::Tunnel`], [`Response::Exit`], or [`Response::End`]),
     /// that response is returned directly so the caller can return it early.
     pub fn embed<C: GameContext>(&mut self, page: Page<C>, ctx: &mut C) -> Response {
+        self.embed_with_render_data(page, ctx, "")
+    }
+
+    /// Evaluates an embedded page function with attached [`RenderData`].
+    pub fn embed_with_render_data<C: GameContext>(
+        &mut self,
+        page: Page<C>,
+        ctx: &mut C,
+        render_data: RenderData,
+    ) -> Response {
         let context = std::mem::take(ctx);
         let tags = std::mem::take(self.game_tags);
         let parent_map = std::mem::take(&mut **self.page_state.borrow_mut());
 
         let mut transient_game = Game::new_transient_with_map(
             parent_map,
+            self.view.pageid.clone(),
             context,
             tags,
             self.simulating,
@@ -134,12 +144,23 @@ impl<'a> PageState<'a> {
         }
 
         if let Response::View(mut view) = response {
+            if view.inner.is_empty() {
+                return Response::View(view);
+            }
             view.pageid = self.view.pageid.clone();
-            self.push(Object::Embed(view.clone()));
+            let key = self.auto_key();
+            self.push(StampedObject::new(Object::Embed(view.clone(), render_data)).with_id(key));
             return Response::View(view);
         }
 
         response
+    }
+
+    /// Pushes an empty embedded view serving as an extensible custom marker.
+    pub fn push_empty_embed(&mut self, render_data: RenderData) {
+        let key = self.auto_key();
+        let empty_view = View::new(self.view.pageid.clone());
+        self.push(StampedObject::new(Object::Embed(empty_view, render_data)).with_id(key));
     }
 
     /// Returns the unique [`PageId`] of the current page being constructed.

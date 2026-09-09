@@ -1,7 +1,7 @@
 use super::State;
 use ifengine::{
     elements::{
-        EMBED, alts, back, choice, count, dchoice, dynamic_choice, fresh, img, link, mchoice, p,
+        EMBED, alts, back, choice, click, count, dchoice, dynamic_choice, fresh, img, link, mchoice, p,
         page_dbg, replace, s, text,
     },
     ifview,
@@ -79,10 +79,15 @@ pub fn rainy_day(state: &mut State) {
                 dbg!("B handled");
             }
             DChoices::C => {
-                todo!()
+                state.show_modal = true;
+                state.show_popup = true;
             }
         }
     };
+
+    if state.show_modal || state.show_popup {
+        EMBED!(rainy_popup :: "popup");
+    }
 
     img!(
         "https://thumb.wikimedia.org/wikipedia/commons/thumb/b/b6/SIPI_Jelly_Beans_4.1.07.tiff/lossy-page1-250px-SIPI_Jelly_Beans_4.1.07.tiff.jpg",
@@ -141,4 +146,18 @@ pub fn sensor_logs(_: &mut State) {
     p!("--- Historical Sensor Logs Archive ---");
     p!("Sensor record: anomalous salt squalls recorded in years 188, 204, and 214.");
     p!(back!("Back to main weather station"));
+}
+
+#[ifview]
+pub fn rainy_popup(state: &mut State) {
+    let dismiss = click!("Dismiss", {
+        state.show_modal = false;
+        state.show_popup = false;
+    });
+
+    if state.show_modal || state.show_popup {
+        p!("--- Popup Notice ---");
+        p!("Atmospheric disturbance detected in sector 7.");
+        p!(dismiss);
+    }
 }

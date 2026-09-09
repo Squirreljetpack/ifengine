@@ -42,8 +42,9 @@ impl View {
     pub fn interactables(&self) -> Vec<Vec<Interactable<'_>>> {
         let mut out = Vec::new();
 
-        for obj in &self.inner {
+        for stamped in &self.inner {
             let mut bucket = Vec::new();
+            let obj = &stamped.object;
 
             match obj {
                 Object::Text(line, _)
@@ -63,7 +64,11 @@ impl View {
                     }
                 }
 
-                Object::Choice(key, choices) => {
+                Object::Choice(choices) => {
+                    let key = stamped
+                        .id
+                        .as_ref()
+                        .expect("Object::Choice must have an id on StampedObject");
                     for (i, line) in choices {
                         let ignore = {
                             if true {
@@ -76,7 +81,7 @@ impl View {
                         };
 
                         if !ignore {
-                            bucket.push(Interactable::Choice(&key, &choices, *i));
+                            bucket.push(Interactable::Choice(key, choices, *i));
                         }
 
                         for span in &line.spans {
@@ -87,13 +92,13 @@ impl View {
                     }
                 }
 
-                Object::Embed(sub_view) => {
+                Object::Embed(sub_view, _render_data) => {
                     for nested_bucket in sub_view.interactables() {
                         bucket.extend(nested_bucket);
                     }
                 }
 
-                Object::Image(_) | Object::Break | Object::Empty(_) | Object::Custom(_) => {
+                Object::Image(_) | Object::Break | Object::Empty(_) => {
                     // no interactables
                 }
             }

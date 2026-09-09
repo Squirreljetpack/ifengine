@@ -98,18 +98,23 @@ pub fn choice(input: TokenStream) -> TokenStream {
                         _ => unreachable!(),
                     };
                     __ifengine_page_state.push(
-                        ifengine::view::Object::Paragraph(line.with_id(__ifengine_key))
+                        ifengine::view::StampedObject {
+                            id: Some(__ifengine_key),
+                            object: ifengine::view::Object::Paragraph(line),
+                        }
                     );
                 }
                 true
             } else {
                 __ifengine_page_state.push(
-                    ifengine::view::Object::Choice(
-                        __ifengine_key,
-                        vec![
-                        #(#lines),*
-                        ]
-                    )
+                    ifengine::view::StampedObject {
+                        id: Some(__ifengine_key),
+                        object: ifengine::view::Object::Choice(
+                            vec![
+                            #(#lines),*
+                            ]
+                        ),
+                    }
                 );
                 false
             }
@@ -171,7 +176,10 @@ pub fn mchoice(input: TokenStream) -> TokenStream {
 
             if ! __ifengine_tmp_lines.is_empty() {
                 __ifengine_page_state.push(
-                    ifengine::view::Object::Choice(__ifengine_key, __ifengine_tmp_lines)
+                    ifengine::view::StampedObject {
+                        id: Some(__ifengine_key),
+                        object: ifengine::view::Object::Choice(__ifengine_tmp_lines),
+                    }
                 );
             }
 
@@ -190,13 +198,15 @@ pub fn dynamic_choice(input: TokenStream) -> TokenStream {
         {
             let __ifengine_key = #key_tokens;
             // Push the DynamicChoice object
-            __ifengine_page_state.push(ifengine::view::Object::Choice(
-                __ifengine_key,
-                #expr
-                .into_iter()
-                .map(|(t, l)| (t as u8, ifengine::view::Line::from(l)))
-                .collect()
-            ));
+            __ifengine_page_state.push(ifengine::view::StampedObject {
+                id: Some(__ifengine_key),
+                object: ifengine::view::Object::Choice(
+                    #expr
+                    .into_iter()
+                    .map(|(t, l)| (t as u8, ifengine::view::Line::from(l)))
+                    .collect()
+                ),
+            });
 
             __ifengine_page_state.remove_mask_last(__ifengine_key).map(|x|
                 unsafe { std::mem::transmute::<u8, _>(x) }
@@ -265,14 +275,16 @@ pub fn dchoice(input: TokenStream) -> TokenStream {
     let expanded = quote! {
         {
             let __ifengine_key = #key_tokens;
-            __ifengine_page_state.push(ifengine::view::Object::Choice(
-                __ifengine_key,
-                #expr
-                .iter()
-                .enumerate()
-                .map(|(i, l)| (i as u8, ifengine::view::Line::from(l.clone())))
-                .collect()
-            ));
+            __ifengine_page_state.push(ifengine::view::StampedObject {
+                id: Some(__ifengine_key),
+                object: ifengine::view::Object::Choice(
+                    #expr
+                    .iter()
+                    .enumerate()
+                    .map(|(i, l)| (i as u8, ifengine::view::Line::from(l.clone())))
+                    .collect()
+                ),
+            });
 
             #match_block
         }
@@ -303,12 +315,15 @@ pub fn dparagraph(input: TokenStream) -> TokenStream {
             }
 
             __ifengine_page_state.push(
-                ifengine::view::Object::Paragraph(
-                    ifengine::view::Line::from_interleaved_actions::<false>(
-                        (__ifengine_page_state.id(), __ifengine_key),
-                        __ifengine_tmp_strings
-                    )
-                )
+                ifengine::view::StampedObject {
+                    id: Some(__ifengine_key),
+                    object: ifengine::view::Object::Paragraph(
+                        ifengine::view::Line::from_interleaved_actions::<false>(
+                            (__ifengine_page_state.id(), __ifengine_key),
+                            __ifengine_tmp_strings
+                        )
+                    ),
+                }
             );
         )*
 
@@ -330,12 +345,15 @@ pub fn mparagraph(input: TokenStream) -> TokenStream {
         let count = strings.len() / 2;
 
         __ifengine_page_state.push(
-            ifengine::view::Object::Paragraph(
-                ifengine::view::Line::from_interleaved_actions::<true>(
-                    (__ifengine_page_state.id(), __ifengine_key),
-                    strings
-                )
-            )
+            ifengine::view::StampedObject {
+                id: Some(__ifengine_key),
+                object: ifengine::view::Object::Paragraph(
+                    ifengine::view::Line::from_interleaved_actions::<true>(
+                        (__ifengine_page_state.id(), __ifengine_key),
+                        strings
+                    )
+                ),
+            }
         );
 
         __ifengine_page_state.get_mask::<64>(__ifengine_key)[..count].to_vec()
@@ -391,7 +409,10 @@ pub fn replace(input: TokenStream) -> TokenStream {
             let __ifengine_replacement: ifengine::view::Line = ifengine::view::Line::from(#block_token);
             if !__ifengine_replacement.spans.is_empty() {
                 __ifengine_page_state.push(
-                    ifengine::view::Object::Paragraph(__ifengine_replacement.with_id(__ifengine_key))
+                    ifengine::view::StampedObject {
+                        id: Some(__ifengine_key),
+                        object: ifengine::view::Object::Paragraph(__ifengine_replacement),
+                    }
                 );
             }
             true
@@ -426,9 +447,12 @@ pub fn replace(input: TokenStream) -> TokenStream {
                 );
             }
 
-            let __ifengine_line = ifengine::view::Line::from_spans(__ifengine_spans).with_id(__ifengine_key);
+            let __ifengine_line = ifengine::view::Line::from_spans(__ifengine_spans);
             __ifengine_page_state.push(
-                ifengine::view::Object::Paragraph(__ifengine_line)
+                ifengine::view::StampedObject {
+                    id: Some(__ifengine_key),
+                    object: ifengine::view::Object::Paragraph(__ifengine_line),
+                }
             );
             false
         }

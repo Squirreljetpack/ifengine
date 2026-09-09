@@ -115,6 +115,7 @@ impl<C: GameContext> Game<C> {
     /// Creates a transient [`Game`] instance sharing a [`PageMap`] with its caller.
     pub fn new_transient_with_map(
         shared: crate::core::game_state::PageMap,
+        parent_id: PageId,
         context: C,
         tags: GameTags,
         simulating: bool,
@@ -123,9 +124,14 @@ impl<C: GameContext> Game<C> {
         Self {
             context,
             tags,
-            inner: GameInner::new_transient_with_map(shared, fresh),
+            inner: GameInner::new_transient_with_map(shared, parent_id, fresh),
             simulating,
         }
+    }
+
+    /// Resolves the page identifier, returning the parent page ID if running in a transient embedded context.
+    pub fn page_id(&self, fallback: impl Into<PageId>) -> PageId {
+        self.inner.page_id(fallback)
     }
 
     /// Calls the active [page](PageHandle) in a loop, until a [`View`] is produced.
@@ -198,13 +204,26 @@ impl GameInner {
     }
 
     /// Creates a transient [`GameInner`] sharing a [`PageMap`] with its caller.
-    pub fn new_transient_with_map(shared: crate::core::game_state::PageMap, fresh: bool) -> Self {
+    pub fn new_transient_with_map(
+        shared: crate::core::game_state::PageMap,
+        parent_id: PageId,
+        fresh: bool,
+    ) -> Self {
         Self {
             state: GameState::new_with_shared(shared),
             pages: PageStack::default(),
             fresh,
-            last_id: "".into(),
+            last_id: parent_id,
             iterations: 0,
+        }
+    }
+
+    /// Resolves the page identifier, returning the parent page ID if running in a transient embedded context.
+    pub fn page_id(&self, fallback: impl Into<PageId>) -> PageId {
+        if self.state.is_transient() && !self.last_id.is_empty() {
+            self.last_id.clone()
+        } else {
+            fallback.into()
         }
     }
 

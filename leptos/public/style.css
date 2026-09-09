@@ -385,6 +385,42 @@ h6.passage-heading { font-size: 0.95rem; text-transform: uppercase; color: var(-
 }
 
 /* --------------------------------------------------------------------------
+   Popup / Modal Component
+   -------------------------------------------------------------------------- */
+
+.passage-popup-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: rgba(0, 0, 0, 0.72);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    backdrop-filter: blur(2px);
+    margin: 0 !important;
+}
+
+.passage-popup-dialog {
+    background-color: var(--color-backdrop, #1A1B1D);
+    border: 1px solid var(--color-border, #2C2E33);
+    border-radius: 8px;
+    padding: 2rem;
+    max-width: min(90vw, var(--page-width, 44rem));
+    max-height: 85vh;
+    overflow-y: auto;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6);
+    display: flex;
+    flex-direction: column;
+    row-gap: 1.25rem;
+    box-sizing: border-box;
+}
+
+/* --------------------------------------------------------------------------
    Transitions & Keyframe Animations
    -------------------------------------------------------------------------- */
 

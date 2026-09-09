@@ -42,14 +42,15 @@ pub fn ifview(_attr: TokenStream, item: TokenStream) -> TokenStream {
             if mac.path.is_ident("EMBED")
                 || mac.path.segments.last().map_or(false, |s| s.ident == "EMBED")
             {
-                use syn::parse::Parser;
-                let tokens = &mac.tokens;
-                let parser = syn::punctuated::Punctuated::<syn::Expr, syn::Token![,]>::parse_terminated;
-                if let Ok(exprs) = parser.parse2(tokens.clone()) {
-                    if exprs.len() == 1 {
-                        let first = &exprs[0];
+                if let Ok(embed_input) = syn::parse2::<crate::elements::EmbedInput>(mac.tokens.clone()) {
+                    if embed_input.ctx.is_none() && embed_input.target_fn.is_some() {
+                        let target = embed_input.target_fn.unwrap();
                         let ctx = self.ctx_ident;
-                        mac.tokens = quote!(#first, #ctx);
+                        let trailer = match embed_input.render_data {
+                            Some(rd) => quote!(:: #rd),
+                            None => quote!(),
+                        };
+                        mac.tokens = quote!(#target, #ctx #trailer);
                     }
                 }
             }
@@ -64,18 +65,11 @@ pub fn ifview(_attr: TokenStream, item: TokenStream) -> TokenStream {
 
     let original_block = &input.block;
 
-    let bind_ctx = if ctx_ident == "__ifengine_ctx" {
-        quote! {
-            #[allow(unused_variables, unused_mut)]
-            let mut __ifengine_ctx = &mut __ifengine_game.context;
-            #[allow(unused_variables)]
-            let #ctx_arg = &mut *__ifengine_ctx;
-        }
-    } else {
-        quote! {
-            #[allow(unused_variables)]
-            let #ctx_arg = &mut __ifengine_game.context;
-        }
+    let bind_ctx = quote! {
+        #[allow(unused_variables, unused_mut)]
+        let mut __ifengine_ctx = &mut __ifengine_game.context;
+        #[allow(unused_variables)]
+        let #ctx_arg = &mut *__ifengine_ctx;
     };
 
     let expanded = quote! {
@@ -87,7 +81,7 @@ pub fn ifview(_attr: TokenStream, item: TokenStream) -> TokenStream {
             let __ifengine_game_tags = &mut __ifengine_game.tags;
             let __ifengine_game = &mut __ifengine_game.inner;
             let mut __ifengine_page_state = ifengine::core::PageState::new(
-                format!("{}::{}", module_path!(), stringify!(#name)),
+                __ifengine_game.page_id(format!("{}::{}", module_path!(), stringify!(#name))),
                 __ifengine_game.fresh(),
                 __ifengine_simulating,
                 __ifengine_game.state.get_page_mut(format!("{}::{}", module_path!(), stringify!(#name))),

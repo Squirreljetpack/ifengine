@@ -60,7 +60,7 @@ The frontend dispatches all 11 [`Object`](file:///Users/absinthe/gh/OWN/ifengine
 | `Object` Variant | DOM Tag / Component | Features & CSS Classes |
 | :--- | :--- | :--- |
 | [`Object::Paragraph`](file:///Users/absinthe/gh/OWN/ifengine/ifengine_core/src/view/mod.rs) | `<p class="passage-paragraph">` | Standard book paragraph rhythm (1.35rem bottom margin, word break). Collapses margins to `0` when child elements are empty or pending entrance delay. |
-| [`Object::Text`](file:///Users/absinthe/gh/OWN/ifengine/ifengine_core/src/view/mod.rs) | `<div class="passage-text" data-render="...">` | Tighter vertical rhythm (`1rem`). Emits raw `data-render` attribute on DOM node for author-level scripting or CSS targeting. |
+| [`Object::Text`](file:///Users/absinthe/gh/OWN/ifengine/ifengine_core/src/view/mod.rs) | `<div class="passage-text" data-render="...">` | Tighter vertical rhythm (`1rem`). Emits raw `data-render` attribute on DOM node. When `data-render` is `"popup"` (or `"modal"`), wraps text in `.passage-popup-backdrop` and `.passage-popup-dialog` without built-in close buttons. |
 | [`Object::Heading`](file:///Users/absinthe/gh/OWN/ifengine/ifengine_core/src/view/mod.rs) | `<h1..h6 class="passage-heading h{level}">` | Serif headings (`h1`=2.1rem, `h2`=1.7rem, `h3`=1.4rem with letter spacing, `h4`=1.2rem, `h5`=1.05rem, `h6`=0.95rem uppercase). Supports child span modifiers and styles. |
 | [`Object::Image`](file:///Users/absinthe/gh/OWN/ifengine/ifengine_core/src/view/mod.rs) | `<div class="passage-image-wrapper">` | Responsive centering, dimensions, interactive click actions, view transition names. (See Section 3). |
 | [`Object::Choice`](file:///Users/absinthe/gh/OWN/ifengine/ifengine_core/src/view/mod.rs) | `<div class="passage-choices choice-container">` | Flex column list of options. Renders `<button>` for simple choices or `<div>` for inline interactive links. (See Section 4). |
@@ -68,8 +68,7 @@ The frontend dispatches all 11 [`Object`](file:///Users/absinthe/gh/OWN/ifengine
 | [`Object::Empty`](file:///Users/absinthe/gh/OWN/ifengine/ifengine_core/src/view/mod.rs) | `<div class="passage-empty">` | Configurable vertical whitespace spacer sized dynamically as `style="height: {n * 1.5}em;"`. |
 | [`Object::Quote`](file:///Users/absinthe/gh/OWN/ifengine/ifengine_core/src/view/mod.rs) | `<blockquote class="passage-quote" data-render="...">` | Callout block with left accent border (`3px solid var(--color-border)`), subtle translucent background, italic styling, and muted text. |
 | [`Object::Note`](file:///Users/absinthe/gh/OWN/ifengine/ifengine_core/src/view/mod.rs) | `<aside class="passage-note">` | Dashed border callout (`1px dashed var(--color-border)`) with padding and secondary text color. |
-| [`Object::Custom`](file:///Users/absinthe/gh/OWN/ifengine/ifengine_core/src/view/mod.rs) | `<div class="passage-custom" data-custom="...">` | Extensible element for story-specific integrations (e.g. ambient audio triggers, analytics). |
-| [`Object::Embed`](file:///Users/absinthe/gh/OWN/ifengine/ifengine_core/src/view/mod.rs) | `<div class="passage-embed" data-page="...">` | Embeds sub-page views hierarchically while maintaining isolated page IDs and transition scopes. |
+| [`Object::Embed`](file:///Users/absinthe/gh/OWN/ifengine/ifengine_core/src/view/mod.rs) | `<div class="passage-embed" data-page="..." data-render="...">` | Embeds sub-page views with optional `RenderData`. When `data-render` is `"popup"` (or `"modal"`), wraps the embedded view in `.passage-popup-backdrop` and `.passage-popup-dialog` without built-in close buttons. An empty embed (`.inner.is_empty()`) receives `.passage-custom` and serves as an extensible custom marker. |
 
 ---
 

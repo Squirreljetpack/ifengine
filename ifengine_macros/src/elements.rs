@@ -5,6 +5,25 @@ use syn::{Error, Expr, Lit, LitStr, Token, parse_macro_input};
 
 pub use crate::helpers::{expand_line_expr, expand_spans, expand_string_expr};
 
+fn is_trailer_next(input: syn::parse::ParseStream) -> bool {
+    let ahead = input.fork();
+    if ahead.parse::<Token![::]>().is_ok() {
+        if ahead.parse::<LitStr>().is_ok() && ahead.is_empty() {
+            return true;
+        }
+    }
+    false
+}
+
+fn parse_until_delimiter(input: syn::parse::ParseStream) -> syn::Result<proc_macro2::TokenStream> {
+    let mut tokens = proc_macro2::TokenStream::new();
+    while !input.is_empty() && !input.peek(Token![,]) && !is_trailer_next(input) {
+        let tt: proc_macro2::TokenTree = input.parse()?;
+        tokens.extend(std::iter::once(tt));
+    }
+    Ok(tokens)
+}
+
 pub struct LineArgs {
     pub exprs: Vec<Expr>,
     pub trailer: Option<LitStr>,
@@ -16,17 +35,25 @@ impl syn::parse::Parse for LineArgs {
         let mut trailer = None;
 
         while !input.is_empty() {
-            if input.peek(Token![::]) {
+            if is_trailer_next(input) {
                 let _coloncolon: Token![::] = input.parse()?;
                 let lit: LitStr = input.parse()?;
                 trailer = Some(lit);
                 break;
             }
 
-            exprs.push(input.parse()?);
+            let expr_tokens = parse_until_delimiter(input)?;
+            if !expr_tokens.is_empty() {
+                exprs.push(syn::parse2(expr_tokens)?);
+            }
 
             if input.peek(Token![,]) {
                 let _ = input.parse::<Token![,]>()?;
+            } else if is_trailer_next(input) {
+                let _coloncolon: Token![::] = input.parse()?;
+                let lit: LitStr = input.parse()?;
+                trailer = Some(lit);
+                break;
             } else {
                 break;
             }
@@ -62,12 +89,15 @@ pub fn text(input: TokenStream) -> TokenStream {
 
     let expanded = quote! {
         __ifengine_page_state.push(
-            ifengine::view::Object::Text(
-                ifengine::view::Line::from_spans(
-                    vec![#(#spans),*]
+            ifengine::view::StampedObject {
+                id: Some(__ifengine_page_state.auto_key()),
+                object: ifengine::view::Object::Text(
+                    ifengine::view::Line::from_spans(
+                        vec![#(#spans),*]
+                    ),
+                    #string_expr
                 ),
-                #string_expr
-            )
+            }
         );
     };
 
@@ -86,10 +116,13 @@ pub fn texts(input: TokenStream) -> TokenStream {
         let line = expand_line_expr(expr);
         quote! {
             __ifengine_page_state.push(
-                ifengine::view::Object::Text(
-                    #line,
-                    #string_expr
-                )
+                ifengine::view::StampedObject {
+                    id: Some(__ifengine_page_state.auto_key()),
+                    object: ifengine::view::Object::Text(
+                        #line,
+                        #string_expr
+                    ),
+                }
             );
         }
     });
@@ -107,9 +140,12 @@ pub fn paragraph(input: TokenStream) -> TokenStream {
 
     let expanded = quote! {
         __ifengine_page_state.push(
-            ifengine::view::Object::Paragraph(
-                ifengine::view::Line::from_spans(vec![#(#spans),*])
-            )
+            ifengine::view::StampedObject {
+                id: Some(__ifengine_page_state.auto_key()),
+                object: ifengine::view::Object::Paragraph(
+                    ifengine::view::Line::from_spans(vec![#(#spans),*])
+                ),
+            }
         );
     };
 
@@ -123,9 +159,12 @@ pub fn paragraphs(input: TokenStream) -> TokenStream {
         let line = expand_line_expr(expr);
         quote! {
             __ifengine_page_state.push(
-                ifengine::view::Object::Paragraph(
-                    #line
-                )
+                ifengine::view::StampedObject {
+                    id: Some(__ifengine_page_state.auto_key()),
+                    object: ifengine::view::Object::Paragraph(
+                        #line
+                    ),
+                }
             );
         }
     });
@@ -274,10 +313,13 @@ pub fn h(input: TokenStream) -> TokenStream {
 
     let expanded = quote! {
         __ifengine_page_state.push(
-            ifengine::view::Object::Heading(
-                ifengine::view::Span::from_lingual(#text),
-                #level
-            )
+            ifengine::view::StampedObject {
+                id: Some(__ifengine_page_state.auto_key()),
+                object: ifengine::view::Object::Heading(
+                    ifengine::view::Span::from_lingual(#text),
+                    #level
+                ),
+            }
         );
     };
 
@@ -286,7 +328,12 @@ pub fn h(input: TokenStream) -> TokenStream {
 
 pub fn hr(_input: TokenStream) -> TokenStream {
     let expanded = quote! {
-        __ifengine_page_state.push(ifengine::view::Object::Break);
+        __ifengine_page_state.push(
+            ifengine::view::StampedObject {
+                id: Some(__ifengine_page_state.auto_key()),
+                object: ifengine::view::Object::Break,
+            }
+        );
     };
 
     TokenStream::from(expanded)
@@ -331,43 +378,86 @@ pub fn img(input: TokenStream) -> TokenStream {
 
     let expanded = quote! {
         __ifengine_page_state.push(
-            ifengine::view::Object::Image(
-                #image_tokens.with_id(__ifengine_page_state.auto_key())
-            )
+            ifengine::view::StampedObject {
+                id: Some(__ifengine_page_state.auto_key()),
+                object: ifengine::view::Object::Image(#image_tokens),
+            }
         );
     };
 
     TokenStream::from(expanded)
 }
 
-pub fn embed(input: TokenStream) -> TokenStream {
-    let exprs = parse_macro_input!(input with Punctuated<Expr, Token![,]>::parse_terminated);
-    let exprs: Vec<Expr> = exprs.into_iter().collect();
+pub struct EmbedInput {
+    pub target_fn: Option<Expr>,
+    pub ctx: Option<Expr>,
+    pub render_data: Option<LitStr>,
+}
 
-    let (target_fn, ctx_expr) = match exprs.len() {
-        1 => {
-            let f = &exprs[0];
-            (quote!(#f), quote!(__ifengine_ctx))
+impl syn::parse::Parse for EmbedInput {
+    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+        let mut target_fn = None;
+        let mut ctx = None;
+        let mut render_data = None;
+
+        if is_trailer_next(input) {
+            let _ = input.parse::<Token![::]>()?;
+            render_data = Some(input.parse()?);
+            return Ok(EmbedInput { target_fn, ctx, render_data });
         }
-        2 => {
-            let f = &exprs[0];
-            let ctx = &exprs[1];
-            (quote!(#f), quote!(#ctx))
+
+        if !input.is_empty() {
+            let fn_tokens = parse_until_delimiter(input)?;
+            if !fn_tokens.is_empty() {
+                target_fn = Some(syn::parse2(fn_tokens)?);
+            }
+
+            if input.peek(Token![,]) {
+                let _ = input.parse::<Token![,]>()?;
+                if !is_trailer_next(input) && !input.is_empty() {
+                    let ctx_tokens = parse_until_delimiter(input)?;
+                    if !ctx_tokens.is_empty() {
+                        ctx = Some(syn::parse2(ctx_tokens)?);
+                    }
+                }
+            }
+
+            if is_trailer_next(input) {
+                let _ = input.parse::<Token![::]>()?;
+                render_data = Some(input.parse()?);
+            }
         }
-        _ => {
-            return Error::new(
-                proc_macro2::Span::call_site(),
-                "EMBED! expects 1 or 2 arguments: EMBED!(target_page) or EMBED!(target_page, ctx)",
-            )
-            .to_compile_error()
-            .into();
-        }
+
+        Ok(EmbedInput { target_fn, ctx, render_data })
+    }
+}
+
+pub fn embed(input: TokenStream) -> TokenStream {
+    let EmbedInput { target_fn, ctx, render_data } = syn::parse_macro_input!(input as EmbedInput);
+
+    let data = match render_data {
+        Some(s) => quote!(#s),
+        None => quote!(""),
     };
 
-    let expanded = quote! {
-        match __ifengine_page_state.embed(#target_fn, #ctx_expr) {
-            ifengine::core::Response::View(__v) => __v,
-            __other => return __other,
+    let expanded = match target_fn {
+        None => {
+            quote! {
+                __ifengine_page_state.push_empty_embed(#data)
+            }
+        }
+        Some(f) => {
+            let ctx_expr = match ctx {
+                Some(c) => quote!(#c),
+                None => quote!(__ifengine_ctx),
+            };
+
+            quote! {
+                match __ifengine_page_state.embed_with_render_data(#f, #ctx_expr, #data) {
+                    ifengine::core::Response::View(__v) => __v,
+                    __other => return __other,
+                }
+            }
         }
     };
 

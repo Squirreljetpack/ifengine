@@ -15,8 +15,9 @@ use crate::{
 
 pub fn render(view: View, ui: &mut Ui, mut game: Option<&mut GameInner>) {
     let mut first = true;
-    for object in view {
-        match object {
+    for stamped in view {
+        let key = stamped.id;
+        match stamped.object {
             Object::Paragraph(line) => {
                 if !first {
                     ui.draw_empty(1);
@@ -29,7 +30,8 @@ pub fn render(view: View, ui: &mut Ui, mut game: Option<&mut GameInner>) {
                     .ui(ui, game.as_deref_mut())
                     .interact(egui::Sense::click());
             }
-            Object::Choice(key, choices) => {
+            Object::Choice(choices) => {
+                let key = key.unwrap_or(0);
                 ui.vertical(|ui| {
                     ui.draw_empty(1);
                     ui.spacing_mut().item_spacing = egui::vec2(0.0, 10.0);
@@ -60,10 +62,7 @@ pub fn render(view: View, ui: &mut Ui, mut game: Option<&mut GameInner>) {
             Object::Note(_, _) => {
                 todo!()
             }
-            Object::Custom(_) => {
-                unimplemented!()
-            }
-            Object::Embed(embedded_view) => {
+            Object::Embed(embedded_view, _) => {
                 render(embedded_view, ui, game.as_deref_mut());
             }
         };

@@ -106,6 +106,11 @@ impl GameState {
     pub fn take_shared(&mut self) -> Option<PageMap> {
         self.shared.take()
     }
+
+    /// Returns `true` if this [`GameState`] is routing page queries to a shared parent map.
+    pub fn is_transient(&self) -> bool {
+        self.shared.is_some()
+    }
 }
 
 // --------------------------------------------------------
