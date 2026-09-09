@@ -14,7 +14,6 @@ use crate::{
 // i don't think theres a nice way to extract this to ifengine crate, so this logic ig is fine to require each project to reimplement
 
 pub fn render(view: View, ui: &mut Ui, mut game: Option<&mut GameInner>) {
-    let name = view.name();
     let mut first = true;
     for object in view {
         match object {
@@ -38,7 +37,7 @@ pub fn render(view: View, ui: &mut Ui, mut game: Option<&mut GameInner>) {
                     for (i, line) in choices.into_iter() {
                         if line.ui_clicked(ui, game.as_deref_mut()) {
                             if let Some(game) = game.as_mut() {
-                                game.handle_choice((name.clone(), key.clone()), i);
+                                game.handle_choice(key, i);
                             }
                         }
                     }
@@ -63,6 +62,9 @@ pub fn render(view: View, ui: &mut Ui, mut game: Option<&mut GameInner>) {
             }
             Object::Custom(_) => {
                 unimplemented!()
+            }
+            Object::Embed(embedded_view) => {
+                render(embedded_view, ui, game.as_deref_mut());
             }
         };
         first = false;

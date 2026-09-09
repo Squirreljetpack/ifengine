@@ -138,7 +138,7 @@ fn test_choice_and_element_ids() {
     };
 
     // 6. Select Choice 0
-    game.handle_choice((view.pageid.clone(), choice_key), 0);
+    game.handle_choice(choice_key, 0);
     let updated_view = game.view().expect("view after choice should succeed");
 
     // 7. Choice transitioned to its replacement Paragraph with the EXACT SAME KEY!

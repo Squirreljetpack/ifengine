@@ -14,6 +14,9 @@ use crate::core::PageId;
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct GameState {
     inner: HashMap<PageId, PageMap>,
+    #[cfg_attr(feature = "serde", serde(skip))]
+    // Force a PageMap (i.e. embeds)
+    shared: Option<PageMap>,
 }
 
 impl GameState {
@@ -77,12 +80,31 @@ impl GameState {
 
     /// Get a reference to the chapter state for a given chapter ID.
     pub fn get_page(&mut self, pageid: impl Into<PageId>) -> &PageMap {
+        if let Some(ref map) = self.shared {
+            return map;
+        }
         self.inner.entry(pageid.into()).or_default()
     }
 
     /// Get a mutable reference to the chapter state for a given chapter ID.
     pub fn get_page_mut(&mut self, pageid: impl Into<PageId>) -> &mut PageMap {
+        if let Some(ref mut map) = self.shared {
+            return map;
+        }
         self.inner.entry(pageid.into()).or_default()
+    }
+
+    /// Creates a transient [`GameState`] that routes all page queries to `shared`.
+    pub fn new_with_shared(shared: PageMap) -> Self {
+        Self {
+            inner: HashMap::new(),
+            shared: Some(shared),
+        }
+    }
+
+    /// Takes the shared [`PageMap`], leaving `None`.
+    pub fn take_shared(&mut self) -> Option<PageMap> {
+        self.shared.take()
     }
 }
 
@@ -105,6 +127,7 @@ impl GameState {
     pub fn new() -> Self {
         Self {
             inner: HashMap::new(),
+            shared: None,
         }
     }
 }

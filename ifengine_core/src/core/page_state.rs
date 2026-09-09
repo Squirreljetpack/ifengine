@@ -1,8 +1,9 @@
 use std::cell::RefCell;
 
 use crate::{
+    Game,
     core::{
-        GameTags, PageId, Response,
+        GameContext, GameTags, Page, PageId, Response,
         game_state::{PageKey, PageMap},
     },
     view::{Object, View},
@@ -103,6 +104,42 @@ impl<'a> PageState<'a> {
     /// to the underlying [`View`].
     pub fn push(&mut self, object: Object) {
         self.view.push(object);
+    }
+
+    /// Evaluates an embedded page function using a transient [`Game`] and attaches its [`View`].
+    ///
+    /// If the page returns [`Response::View`], the view is pushed as an [`Object::Embed`]
+    /// into the current page and returned. If it returns any other [`Response`] variant (such as
+    /// [`Response::Switch`], [`Response::Back`], [`Response::Tunnel`], [`Response::Exit`], or [`Response::End`]),
+    /// that response is returned directly so the caller can return it early.
+    pub fn embed<C: GameContext>(&mut self, page: Page<C>, ctx: &mut C) -> Response {
+        let context = std::mem::take(ctx);
+        let tags = std::mem::take(self.game_tags);
+        let parent_map = std::mem::take(&mut **self.page_state.borrow_mut());
+
+        let mut transient_game = Game::new_transient_with_map(
+            parent_map,
+            context,
+            tags,
+            self.simulating,
+            self.fresh,
+        );
+
+        let response = page(&mut transient_game);
+
+        *ctx = transient_game.context;
+        *self.game_tags = transient_game.tags;
+        if let Some(map) = transient_game.inner.state.take_shared() {
+            **self.page_state.borrow_mut() = map;
+        }
+
+        if let Response::View(mut view) = response {
+            view.pageid = self.view.pageid.clone();
+            self.push(Object::Embed(view.clone()));
+            return Response::View(view);
+        }
+
+        response
     }
 
     /// Returns the unique [`PageId`] of the current page being constructed.

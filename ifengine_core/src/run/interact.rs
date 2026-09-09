@@ -87,6 +87,12 @@ impl View {
                     }
                 }
 
+                Object::Embed(sub_view) => {
+                    for nested_bucket in sub_view.interactables() {
+                        bucket.extend(nested_bucket);
+                    }
+                }
+
                 Object::Image(_) | Object::Break | Object::Empty(_) | Object::Custom(_) => {
                     // no interactables
                 }
@@ -120,10 +126,10 @@ impl View {
 
 impl<C: GameContext> Game<C> {
     /// Applies an interaction event on the game state for the given page ID.
-    pub fn interact(&mut self, e: Interactable<'_>, pageid: &PageId) -> Result<(), GameError> {
+    pub fn interact(&mut self, e: Interactable<'_>, _pageid: &PageId) -> Result<(), GameError> {
         match e {
             Interactable::Choice(key, _, index) => {
-                self.handle_choice((pageid.clone(), *key), index);
+                self.handle_choice(*key, index);
                 Ok(())
             }
             Interactable::Span(_, s) => {

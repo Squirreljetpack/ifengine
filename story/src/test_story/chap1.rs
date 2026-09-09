@@ -1,7 +1,7 @@
 use ifengine::{
     elements::{
-        alts, choice, count, dchoice, dynamic_choice, fresh, img, link, mchoice, p, page_dbg, replace, s,
-        text,
+        alts, back, choice, count, dchoice, dynamic_choice, fresh, img, link, mchoice, p,
+        page_dbg, replace, s, text, EMBED,
     },
     ifview,
 };
@@ -33,7 +33,7 @@ pub fn rainy_day(_: &mut ()) {
         },
     };
 
-    // next!(sunny_day);
+    EMBED!(weather_station);
 
     fresh!(|| {
         dbg!("hello");
@@ -124,3 +124,21 @@ pub fn sunny_day(_: &mut ()) {
     // ]
     // add!(element)
 }
+
+#[ifview]
+pub fn weather_station(_: &mut ()) {
+    p!("--- Weather Station (Embedded) ---");
+    choice! {
+        "Check barometer" => "The needle is falling rapidly; barometric pressure is 982 hPa.",
+        "Inspect wind vane" => "The vane spins wildly before locking north-northeast.",
+    };
+    p!(link!("View historical sensor logs", sensor_logs));
+}
+
+#[ifview]
+pub fn sensor_logs(_: &mut ()) {
+    p!("--- Historical Sensor Logs Archive ---");
+    p!("Sensor record: anomalous salt squalls recorded in years 188, 204, and 214.");
+    p!(back!("Back to main weather station"));
+}
+

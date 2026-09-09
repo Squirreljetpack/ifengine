@@ -63,10 +63,10 @@ impl<C: GameContext> Game<C> {
         ret
     }
 
-    fn interact_sim(&mut self, e: Interactable<'_>, pageid: &PageId) -> Result<(), SimEnd> {
+    fn interact_sim(&mut self, e: Interactable<'_>, _pageid: &PageId) -> Result<(), SimEnd> {
         match e {
             Interactable::Choice(key, _, index) => {
-                self.handle_choice((pageid.clone(), *key), index);
+                self.handle_choice(*key, index);
                 Ok(())
             }
             Interactable::Span(_, s) => {

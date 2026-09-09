@@ -323,3 +323,37 @@ pub fn img(input: TokenStream) -> TokenStream {
 
     TokenStream::from(expanded)
 }
+
+pub fn embed(input: TokenStream) -> TokenStream {
+    let exprs = parse_macro_input!(input with Punctuated<Expr, Token![,]>::parse_terminated);
+    let exprs: Vec<Expr> = exprs.into_iter().collect();
+
+    let (target_fn, ctx_expr) = match exprs.len() {
+        1 => {
+            let f = &exprs[0];
+            (quote!(#f), quote!(__ifengine_ctx))
+        }
+        2 => {
+            let f = &exprs[0];
+            let ctx = &exprs[1];
+            (quote!(#f), quote!(#ctx))
+        }
+        _ => {
+            return Error::new(
+                proc_macro2::Span::call_site(),
+                "EMBED! expects 1 or 2 arguments: EMBED!(target_page) or EMBED!(target_page, ctx)",
+            )
+            .to_compile_error()
+            .into();
+        }
+    };
+
+    let expanded = quote! {
+        match __ifengine_page_state.embed(#target_fn, #ctx_expr) {
+            ifengine::core::Response::View(__v) => __v,
+            __other => return __other,
+        }
+    };
+
+    TokenStream::from(expanded)
+}

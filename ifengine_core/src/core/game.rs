@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
-use crate::core::game_state::{GameState, InternalKey};
+use crate::core::game_state::{GameState, PageKey};
 use crate::core::{Page, PageHandle, PageId, Response};
 use crate::view::View;
 use crate::{Action, GameError};
@@ -97,6 +97,37 @@ impl<C: GameContext> Game<C> {
         self.simulating
     }
 
+    /// Creates a transient [`Game`] instance used for temporary execution during sub-page embedding.
+    pub fn new_transient(
+        context: C,
+        tags: GameTags,
+        simulating: bool,
+        fresh: bool,
+    ) -> Self {
+        Self {
+            context,
+            tags,
+            inner: GameInner::new_transient(fresh),
+            simulating,
+        }
+    }
+
+    /// Creates a transient [`Game`] instance sharing a [`PageMap`] with its caller.
+    pub fn new_transient_with_map(
+        shared: crate::core::game_state::PageMap,
+        context: C,
+        tags: GameTags,
+        simulating: bool,
+        fresh: bool,
+    ) -> Self {
+        Self {
+            context,
+            tags,
+            inner: GameInner::new_transient_with_map(shared, fresh),
+            simulating,
+        }
+    }
+
     /// Calls the active [page](PageHandle) in a loop, until a [`View`] is produced.
     pub fn view(&mut self) -> Result<View, GameError> {
         let Some(mut page) = self.pages.current() else {
@@ -155,9 +186,31 @@ impl<C: GameContext> Game<C> {
 }
 
 impl GameInner {
+    /// Creates a transient empty [`GameInner`] instance.
+    pub fn new_transient(fresh: bool) -> Self {
+        Self {
+            state: GameState::new(),
+            pages: PageStack::default(),
+            fresh,
+            last_id: "".into(),
+            iterations: 0,
+        }
+    }
+
+    /// Creates a transient [`GameInner`] sharing a [`PageMap`] with its caller.
+    pub fn new_transient_with_map(shared: crate::core::game_state::PageMap, fresh: bool) -> Self {
+        Self {
+            state: GameState::new_with_shared(shared),
+            pages: PageStack::default(),
+            fresh,
+            last_id: "".into(),
+            iterations: 0,
+        }
+    }
+
     // --------------- action handling -----------------------
-    pub fn handle_choice(&mut self, key: InternalKey, index: u8) {
-        self.state.set_bit(key, index)
+    pub fn handle_choice(&mut self, key: PageKey, index: u8) {
+        self.state.set_bit((self.last_id.clone(), key), index)
     }
 
     pub fn handle_action(&mut self, action: Action) -> Result<(), GameError> {

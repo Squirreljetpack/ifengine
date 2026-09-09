@@ -134,5 +134,21 @@ pub fn ObjectView(object: Object, page_id: PageId) -> impl IntoView {
             <div class="passage-custom" data-custom=render_data />
         }
         .into_any(),
+
+        Object::Embed(embedded_view) => {
+            let pid = embedded_view.pageid.clone();
+            let pid_str = pid.0.to_string();
+            view! {
+                <div class="passage-embed" data-page=pid_str>
+                    {embedded_view.inner.into_iter().map(move |obj| {
+                        let pid = pid.clone();
+                        view! {
+                            <ObjectView object=obj page_id=pid />
+                        }
+                    }).collect_view()}
+                </div>
+            }
+            .into_any()
+        }
     }
 }

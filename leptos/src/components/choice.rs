@@ -21,7 +21,6 @@ pub fn ChoiceView(key: PageKey, choices: Vec<(u8, Line)>, page_id: PageId) -> im
     view! {
         <div class="passage-choices choice-container" style=vt_style>
             {choices.into_iter().map(|(idx, line)| {
-                let choice_key = (page_id.clone(), key);
                 let choice_idx = idx;
                 let page_id_clone = page_id.clone();
 
@@ -43,7 +42,7 @@ pub fn ChoiceView(key: PageKey, choices: Vec<(u8, Line)>, page_id: PageId) -> im
                             class="choice-item choice-button"
                             on:click=move |e: leptos::ev::MouseEvent| {
                                 e.prevent_default();
-                                ctx.dispatch_choice.run((choice_key.clone(), choice_idx));
+                                ctx.dispatch_choice.run((key, choice_idx));
                             }
                         >
                             <LineView

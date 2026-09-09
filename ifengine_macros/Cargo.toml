@@ -13,7 +13,7 @@
     proc-macro = true
 
 [dependencies]
-    syn         = { version = "2", features = [ "full" ] }
+    syn         = { version = "2", features = [ "full", "visit-mut" ] }
     quote       = "1"
     proc-macro2 = "1"
     ifengine_core = { version = "0.0.6", path = "../ifengine_core" }

@@ -565,3 +565,16 @@ pub fn page_dbg(input: TokenStream) -> TokenStream {
 pub fn view_dbg(input: TokenStream) -> TokenStream {
     state::view_dbg(input)
 }
+
+/// Embed a sub-page view into the current page.
+///
+/// Calls the target page with a transient Game.
+/// If the target page returns `Response::View`, the view is embedded as an `Object::Embed`
+/// into the current page and returned as the expression value.
+/// If the target page returns any other `Response` variant (`Switch`, `Back`, `Tunnel`, `Exit`, `End`),
+/// it is returned immediately from the enclosing page function.
+#[proc_macro]
+#[allow(non_snake_case)]
+pub fn EMBED(input: TokenStream) -> TokenStream {
+    elements::embed(input)
+}

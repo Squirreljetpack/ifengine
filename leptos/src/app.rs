@@ -1,6 +1,6 @@
 use std::sync::{Arc, RwLock};
 
-use ifengine::core::{Action, PageId, game_state::PageKey};
+use ifengine::core::{Action, game_state::PageKey};
 use leptos::prelude::*;
 
 use crate::components::{Footer, Header, ObjectView};
@@ -124,9 +124,9 @@ where
     // Choice dispatcher: applies bitmask selection on dynamic or branching choices
     let game_for_choice = Arc::clone(&game_lock);
     let header_extractor_for_choice = header_extractor.clone();
-    let dispatch_choice = Callback::new(move |(choice_target, index): ((PageId, PageKey), u8)| {
+    let dispatch_choice = Callback::new(move |(choice_key, index): (PageKey, u8)| {
         let mut game = game_for_choice.write().unwrap();
-        game.handle_choice(choice_target, index);
+        game.handle_choice(choice_key, index);
 
         match game.view() {
             Ok(new_view) => {

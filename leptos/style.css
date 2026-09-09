@@ -144,6 +144,11 @@ html, body {
     margin-bottom: 1rem;
 }
 
+.passage-embed {
+    display: block;
+    margin: 0.5rem 0;
+}
+
 .passage-line {
     display: inline;
 }

@@ -45,6 +45,8 @@ pub enum Object {
     /// Custom marker.
     /// For example, can be used to signal the frontend to play music when this object enters the screen.
     Custom(RenderData),
+    /// An embedded sub-page view.
+    Embed(View),
 }
 
 /// The resolved visual representation of a page returned by [`Game::view`](crate::Game::view).
