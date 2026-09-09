@@ -1,4 +1,3 @@
-use ifengine::core::PageId;
 use ifengine::view::{ImageVariant, Object};
 use leptos::prelude::*;
 
@@ -10,24 +9,24 @@ use crate::transition::generate_view_transition_style;
 
 /// Renders an [`Object`] variant from the resolved page [`View`](ifengine::View).
 #[component]
-pub fn ObjectView(object: Object, page_id: PageId) -> impl IntoView {
+pub fn ObjectView(object: Object) -> impl IntoView {
     match object {
         Object::Paragraph(line) => view! {
             <p class="passage-paragraph">
-                <LineView line=line page_id=page_id />
+                <LineView line=line />
             </p>
         }
         .into_any(),
 
         Object::Text(line, render_data) => view! {
             <div class="passage-text" data-render=render_data>
-                <LineView line=line page_id=page_id />
+                <LineView line=line />
             </div>
         }
         .into_any(),
 
         Object::Choice(key, choices) => view! {
-            <ChoiceView key=key choices=choices page_id=page_id />
+            <ChoiceView key=key choices=choices />
         }
         .into_any(),
 
@@ -46,7 +45,7 @@ pub fn ObjectView(object: Object, page_id: PageId) -> impl IntoView {
             let is_changed = ctx
                 .transitions
                 .write_untracked()
-                .is_content_changed(&page_id, img.id, img_hash);
+                .is_content_changed(img.id, img_hash);
             let vt_style = generate_view_transition_style(img.id, is_changed);
 
             let mut style_parts = Vec::new();
@@ -90,7 +89,7 @@ pub fn ObjectView(object: Object, page_id: PageId) -> impl IntoView {
 
         Object::Heading(span, level) => {
             let heading_view = view! {
-                <SpanView span=span page_id=page_id />
+                <SpanView span=span />
             };
 
             match level {
@@ -118,14 +117,14 @@ pub fn ObjectView(object: Object, page_id: PageId) -> impl IntoView {
 
         Object::Quote(line, render_data) => view! {
             <blockquote class="passage-quote" data-render=render_data>
-                <LineView line=line page_id=page_id />
+                <LineView line=line />
             </blockquote>
         }
         .into_any(),
 
         Object::Note(line, _indices) => view! {
             <aside class="passage-note">
-                <LineView line=line page_id=page_id />
+                <LineView line=line />
             </aside>
         }
         .into_any(),
@@ -136,14 +135,12 @@ pub fn ObjectView(object: Object, page_id: PageId) -> impl IntoView {
         .into_any(),
 
         Object::Embed(embedded_view) => {
-            let pid = embedded_view.pageid.clone();
-            let pid_str = pid.0.to_string();
+            let pid_str = embedded_view.pageid.0.to_string();
             view! {
                 <div class="passage-embed" data-page=pid_str>
                     {embedded_view.inner.into_iter().map(move |obj| {
-                        let pid = pid.clone();
                         view! {
-                            <ObjectView object=obj page_id=pid />
+                            <ObjectView object=obj />
                         }
                     }).collect_view()}
                 </div>

@@ -2,7 +2,6 @@ use crate::{
     chap1d::*,
     saltwrack::{Oracle, State, Walker},
 };
-#[allow(unused_imports)]
 use ifengine::elements::*;
 use ifengine::{ifview, utils::MaskExt};
 

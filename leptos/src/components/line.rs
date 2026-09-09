@@ -1,4 +1,3 @@
-use ifengine::core::PageId;
 use ifengine::view::Line;
 use leptos::prelude::*;
 
@@ -11,13 +10,13 @@ use crate::transition::{
 
 /// Renders a [`Line`] consisting of multiple spans, with line-level animation and class support.
 #[component]
-pub fn LineView(line: Line, page_id: PageId) -> impl IntoView {
+pub fn LineView(line: Line) -> impl IntoView {
     let ctx = expect_context::<StoryContext>();
     let config = parse_transition_classes(&line.classes);
     let is_changed = ctx
         .transitions
         .write_untracked()
-        .is_content_changed(&page_id, line.id, line.content_hash());
+        .is_content_changed(line.id, line.content_hash());
     let should_animate = config.has_transition() && is_changed;
 
     let (phase, set_phase) = signal(compute_initial_phase(&config, should_animate));
@@ -68,12 +67,8 @@ pub fn LineView(line: Line, page_id: PageId) -> impl IntoView {
     view! {
         <span class=class_str style=line_style>
             {spans.into_iter().map(|span| {
-                let page_id_clone = page_id.clone();
                 view! {
-                    <SpanView
-                        span=span
-                        page_id=page_id_clone
-                    />
+                    <SpanView span=span />
                 }
             }).collect::<Vec<_>>()}
         </span>

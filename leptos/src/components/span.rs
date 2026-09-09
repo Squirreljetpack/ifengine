@@ -1,4 +1,3 @@
-use ifengine::core::PageId;
 use ifengine::view::{Span, SpanVariant};
 use leptos::prelude::*;
 
@@ -12,13 +11,13 @@ use crate::transition::{
 /// Renders a single [`Span`] element with styling, modifiers, transition animation,
 /// and interactive action handling.
 #[component]
-pub fn SpanView(span: Span, page_id: PageId) -> impl IntoView {
+pub fn SpanView(span: Span) -> impl IntoView {
     let ctx = expect_context::<StoryContext>();
     let config = parse_transition_classes(&span.classes);
     let is_changed = ctx
         .transitions
         .write_untracked()
-        .is_content_changed(&page_id, span.id, span.content_hash());
+        .is_content_changed(span.id, span.content_hash());
     let should_animate = config.has_transition() && is_changed;
 
     let (phase, set_phase) = signal(compute_initial_phase(&config, should_animate));

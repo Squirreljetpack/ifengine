@@ -2,26 +2,6 @@
 
 use ifengine::view::{Modifier, Span, SpanVariant};
 
-/// Extracts header statistics (Day, Miles travelled, Rations) from story state if available.
-#[cfg(all(feature = "saltwrack", not(feature = "test")))]
-pub fn extract_header(game: &story::Game) -> Vec<String> {
-    if game.context.miles != 0 {
-        vec![
-            format!("Day: {}", game.context.days),
-            format!("Miles travelled: {}", game.context.miles),
-            format!("Rations: {}", game.context.rations),
-        ]
-    } else {
-        vec![]
-    }
-}
-
-/// Extracts header statistics when using `test_story` (empty status header).
-#[cfg(any(feature = "test", not(feature = "saltwrack")))]
-pub fn extract_header(_game: &story::Game) -> Vec<String> {
-    vec![]
-}
-
 /// Converts [`Modifier`] bitflags and custom span inline styles to a CSS style string.
 pub fn span_to_css_style(span: &Span) -> String {
     let mut styles = Vec::new();

@@ -9,12 +9,7 @@
 //! A starting page is used to initialize the [`Game`](struct@Game), which can then be called upon to yield its current view through [`Game::view`], and updated by interacting with the view.
 //! A view consists of a sequence of [`Object`](view::Object)s which you can attach by calling the provided [elements and macros](elements) within the page.
 
-extern crate self as ifengine;
-
-pub use ifengine_core::{
-    core, run, utils, view,
-    Action, Game, GameError, SimEnd, View,
-};
+pub use ifengine_core::*;
 
 #[cfg(feature = "macros")]
 pub use ifengine_macros::ifview;
@@ -71,7 +66,6 @@ pub mod elements {
     //! | [`read_key_mask!`](read_key_mask) | `read_key_mask!(KEY_ID)` | Unpacks a `u64` state value into a boolean bitmask array. |
 
     pub use ifengine_core::elements::*;
-    pub use ifengine_core::view::RenderData;
     pub use ifengine_core::{BACK, END, NEXT, TUN};
 
     #[cfg(feature = "macros")]
@@ -79,12 +73,7 @@ pub mod elements {
 
     #[cfg(feature = "macros")]
     pub use ifengine_macros::{
-        dparagraph as dp,
-        mchoice as choices,
-        mparagraph as mp,
-        paragraph as p,
-        paragraphs as ps,
-        text,
-        texts as ts,
+        dparagraph as dp, mchoice as choices, mparagraph as mp, paragraph as p, paragraphs as ps,
+        text, texts as ts,
     };
 }

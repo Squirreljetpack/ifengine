@@ -1,5 +1,4 @@
 use crate::saltwrack::{Oracle, State, Walker, chap1d::*};
-#[allow(unused_imports)]
 use ifengine::elements::*;
 use ifengine::ifview;
 
