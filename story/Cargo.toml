@@ -14,9 +14,10 @@ workspace = true
 
 [dependencies]
 serde = { version = "1.0", features = ["derive"], optional = true}
-ifengine = { path = "../ifengine", features = ["macros"] }
+ifengine = { path = "../ifengine", features = ["macros", "rand"] }
 
 [features]
 default = ["saltwrack"]
 saltwrack = []
+test = []
 serde = ["serde/derive"]

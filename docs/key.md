@@ -89,23 +89,43 @@ Almost all interactive macros accept an optional `(key)` prefix:
 - `mchoice!((key), ...)`
 - `dparagraph!((key), "text with [[link]]")`
 - `mparagraph!((key), "text with [[link]]")`
+- `replace!((key), "text with [[link]]", { ... })`
 
 When a manual key is passed, the macro masks it to the lower 48 bits (`expr as u64 & 0x0000_FFFF_FFFF_FFFF`), guaranteeing it stays in the user domain.
 
 ---
 
-## 5. Structural Element Keys (`Span` and `Line`)
+## 5. Structural Element Keys & View Transitions
 
-In addition to interactive stateful elements, structural view elements also carry an `id: Option<PageKey>`:
+In addition to interactive state storage, element keys participate in frontend UI transitions (such as CSS View Transitions in Leptos: `style="view-transition-name: item-{id}"`).
 
-- Both [`Span`](file:///Users/absinthe/gh/OWN/ifengine/ifengine_core/src/view/line.rs) and [`Line`](file:///Users/absinthe/gh/OWN/ifengine/ifengine_core/src/view/line.rs) have an optional `id` field.
-- Element macros (`s!`, `l!`, `link!`, `tun!`) automatically assign deterministic keys via `__ifengine_page_state.auto_key()` during macro expansion (calling internal `.with_id(...)`).
+### Macro Stamping Matrix
 
-### Frontend Identity & Stable Tracking
-Frontends and UI renderers (such as `egui`, web virtual DOMs, or reactive frameworks like Leptos) rely on stable keys across page re-renders for:
-- **Element Diffing & Reconciliation**: Matching unchanged DOM/UI nodes when re-rendering dynamic pages.
-- **Animations & Transitions**: Tracking the lifecycle of specific spans or lines across state updates.
-- **Text Selection & Focus**: Maintaining focus or selection state across page mutations without resetting UI trees.
+| Macro | Stamped? | Target Element Stamped | Key Source | View Transition Behavior |
+| :--- | :---: | :--- | :--- | :--- |
+| **`choice!`** | **Yes** | **Container** (`Object::Choice`) & **Replacement Line** (`Object::Paragraph(line.with_id(k))`) | Author `(key)` or `auto_key()` | Choice block morphs directly into the replacement text line. Inner option lines have no subkeys. |
+| **`mchoice!`** | **Yes** | **Container** (`Object::Choice(k, ...)`) | Author `(key)` or `auto_key()` | Choice container is identified. Inner option lines have no subkeys. |
+| **`dynamic_choice!` / `dchoice!`** | **Yes** | **Container** (`Object::Choice(k, ...)`) | Author `(key)` or `auto_key()` | Choice container is identified. Inner option lines have no subkeys. |
+| **`alts!`** | **Yes** | Returned interactive **`Span`** (`span.with_id(k)`) | Author `(key)` or `auto_key()` | Changing cycle/stopping variants morph smoothly in-place across clicks. |
+| **`count!`** | **Yes** | Returned interactive **`Span`** (`span.with_id(k)`) | Author `(key)` or `auto_key()` | Dynamic counter span transitions smoothly across clicks. |
+| **`click!`** | **Yes** | Returned link **`Span`** (`span.with_id(k)`) | Author `(key)` or `auto_key()` | Interactive link span is identified for in-page actions. |
+| **`dparagraph!` / `mparagraph!`** | **Yes** | Outer **`Line`** (`line.id = Some(k)`) | Author `(key)` or `auto_key()` | Paragraph line is identified. Bracketed link spans have no subkeys. |
+| **`replace!`** | **Yes** | Outer **`Line`** (`line.id = Some(k)`) | Author `(key)` or `auto_key()` | Clickable paragraph line morphs into replacement text or collapses to 0 height with exit transition. |
+| **`link!`** | **Yes** | Returned navigation **`Span`** (`span.with_id(auto_key)`) | `auto_key()` | Link span is identified. |
+| **`tun!`** | **Yes** | Returned subroutine **`Span`** (`span.with_id(auto_key)`) | `auto_key()` | Tunnel span is identified. |
+| **`back!`** | **Yes** | Returned rewind **`Span`** (`span.with_id(auto_key)`) | `auto_key()` | History rewind span is identified. |
+| **`s!`** | **Yes** | Returned inline **`Span`** (`span.with_id(auto_key)`) | `auto_key()` | Explicit inline span constructor. |
+| **`l!`** | **Yes** | Returned composite **`Line`** (`line.with_id(auto_key)`) | `auto_key()` | Explicit line constructor. |
+| **`paragraph!` / `paragraphs!`** | **No** | None (`line.id = None`) | N/A | Static text; natural browser reflow without raster layer snapshots. |
+| **`text!` / `texts!`** | **No** | None (`line.id = None`) | N/A | Static text; natural browser reflow without raster layer snapshots. |
+| **`h!`** | **No** | None (`span.id = None`) | N/A | Static heading; natural browser reflow without raster layer snapshots. |
+| **`img!`** | **Yes** | Returned **`Image`** (`image.with_id(auto_key)`) | `auto_key()` | Smooth crossfade / dimension morphing when illustrations or portraits swap. |
+| **`hr!`** | **No** | None (`Break`) | N/A | Horizontal divider lines do not carry `PageKey`s. |
+
+### Design Rules
+1. **Container vs. Item Level**: All choice macros (`choice!`, `mchoice!`, `dchoice!`) identify the choice block as a single unit on `Object::Choice`. Inner option lines are NOT stamped with derived subkeys, preventing bit-shift overflows and redundant nested transition layers.
+2. **Choice Morphing**: `choice!` shares its key with the produced `Object::Paragraph`. When selected, the browser pairs `item-{key}` on the old choice container with `item-{key}` on the new paragraph, morphing the choice block into the replacement line.
+3. **Static Text Exclusion**: Plain prose blocks (`paragraph!`, `paragraphs!`, `text!`, `texts!`, `h!`) do not carry IDs. This avoids isolating dozens of paragraphs into individual bitmap snapshot layers, eliminating sub-pixel raster blur and reflow jitter.
 
 ---
 

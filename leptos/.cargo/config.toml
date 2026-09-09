@@ -1,0 +1,6 @@
+[target.wasm32-unknown-unknown]
+rustflags = ["--cfg", "getrandom_backend=\"wasm_js\""]
+
+[alias]
+"@saltwrack" = "exec trunk serve"
+"@test" = "exec trunk serve --no-default-features --features test"

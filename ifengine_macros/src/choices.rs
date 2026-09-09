@@ -90,14 +90,15 @@ pub fn choice(input: TokenStream) -> TokenStream {
             let __ifengine_key = #key_tokens;
             if let Some(__ifengine_tmp_idx) = __ifengine_page_state.get_mask_last(__ifengine_key) {
                 #[allow(unreachable_code)]
-                __ifengine_page_state.push(
-                    ifengine::view::Object::Paragraph(
-                        match __ifengine_tmp_idx {
-                            #(#index_arms),*,
-                            _ => unreachable!(),
-                        }
-                    )
-                );
+                {
+                    let line: ifengine::view::Line = match __ifengine_tmp_idx {
+                        #(#index_arms),*,
+                        _ => unreachable!(),
+                    };
+                    __ifengine_page_state.push(
+                        ifengine::view::Object::Paragraph(line.with_id(__ifengine_key))
+                    );
+                }
                 true
             } else {
                 __ifengine_page_state.push(
@@ -327,6 +328,96 @@ pub fn mparagraph(input: TokenStream) -> TokenStream {
         );
 
         __ifengine_page_state.get_mask::<64>(__ifengine_key)[..count].to_vec()
+    }};
+
+    expanded.into()
+}
+
+pub struct ReplaceInput {
+    pub maybe_key: MaybeKey,
+    pub expr: Expr,
+    pub block: Option<Expr>,
+}
+
+impl Parse for ReplaceInput {
+    fn parse(input: ParseStream) -> Result<Self> {
+        let maybe_key = input.parse()?;
+        let expr: Expr = input.parse()?;
+        let block = if input.parse::<Token![=>]>().is_ok() {
+            Some(input.parse()?)
+        } else if input.parse::<Token![,]>().is_ok() && !input.is_empty() {
+            Some(input.parse()?)
+        } else {
+            None
+        };
+        Ok(ReplaceInput {
+            maybe_key,
+            expr,
+            block,
+        })
+    }
+}
+
+pub fn replace(input: TokenStream) -> TokenStream {
+    let ReplaceInput {
+        maybe_key,
+        expr,
+        block,
+    } = syn::parse_macro_input!(input as ReplaceInput);
+
+    let key = maybe_key.into_tokens();
+
+    let block_token = match block {
+        Some(b) => quote! { #b },
+        None => quote! { () },
+    };
+
+    let expanded = quote! {{
+        let __ifengine_key = #key;
+
+        if __ifengine_page_state.get(__ifengine_key).is_some() {
+            let __ifengine_replacement: ifengine::view::Line = ifengine::view::Line::from(#block_token);
+            if !__ifengine_replacement.spans.is_empty() {
+                __ifengine_page_state.push(
+                    ifengine::view::Object::Paragraph(__ifengine_replacement.with_id(__ifengine_key))
+                );
+            }
+        } else {
+            let __ifengine_raw_str = #expr;
+            let __ifengine_trimmed = ifengine::utils::trim_lines(&__ifengine_raw_str);
+            let mut __ifengine_spans = Vec::new();
+
+            if let Some((__before, __inside, __after)) = ifengine::utils::split_first_braced(&__ifengine_trimmed) {
+                if !__before.is_empty() {
+                    __ifengine_spans.push(ifengine::view::Span::from_lingual(__before));
+                }
+                __ifengine_spans.push(
+                    ifengine::view::Span::from_lingual(__inside)
+                        .as_link()
+                        .with_action(ifengine::Action::Set(
+                            (__ifengine_page_state.id(), __ifengine_key),
+                            1
+                        ))
+                );
+                if !__after.is_empty() {
+                    __ifengine_spans.push(ifengine::view::Span::from_lingual(__after));
+                }
+            } else {
+                __ifengine_spans.push(
+                    ifengine::view::Span::from_lingual(&__ifengine_trimmed)
+                        .as_link()
+                        .with_action(ifengine::Action::Set(
+                            (__ifengine_page_state.id(), __ifengine_key),
+                            1
+                        ))
+                );
+            }
+
+            let __ifengine_line = ifengine::view::Line::from_spans(__ifengine_spans).with_id(__ifengine_key);
+            __ifengine_page_state.push(
+                ifengine::view::Object::Paragraph(__ifengine_line)
+            );
+        }
     }};
 
     expanded.into()

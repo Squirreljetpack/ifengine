@@ -1,6 +1,8 @@
-#[allow(unused_imports)]
 use ifengine::{
-    elements::{alts, choice, count, dchoice, dynamic_choice, fresh, img, link, mchoice, p, page_dbg, text},
+    elements::{
+        alts, choice, count, dchoice, dynamic_choice, fresh, img, link, mchoice, p, page_dbg, replace, s,
+        text,
+    },
     ifview,
 };
 
@@ -15,8 +17,11 @@ enum DChoices {
 pub fn rainy_day(_: &mut ()) {
     p!("text1", "text2");
 
+    replace!((77), "The ancient lock is [[sealed]].");
+
     text!(
         link!("next", sunny_day),
+        s!(" up is: "),
         alts!(["alt1", "alt2", "alt3"], Shuffle)
     );
 
@@ -55,19 +60,20 @@ pub fn rainy_day(_: &mut ()) {
     };
 
     img!(
-        "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b6/SIPI_Jelly_Beans_4.1.07.tiff/lossy-page1-256px-SIPI_Jelly_Beans_4.1.07.tiff.jpg",
+        "https://thumb.wikimedia.org/wikipedia/commons/thumb/b/b6/SIPI_Jelly_Beans_4.1.07.tiff/lossy-page1-250px-SIPI_Jelly_Beans_4.1.07.tiff.jpg",
     );
 
+    let dchoice_items = ["Option A", "Option B", "Option C"];
     dchoice!(
-        choices,
-        DChoices::A => {
+        dchoice_items,
+        0 => {
             dbg!("A handled");
         }
-        DChoices::B => {
+        1 => {
             dbg!("B handled");
         }
-        DChoices::C => {
-            todo!()
+        _ => {
+            dbg!("C handled");
         }
     );
 

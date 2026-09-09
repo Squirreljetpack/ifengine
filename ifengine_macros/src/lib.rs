@@ -215,6 +215,31 @@ pub fn mparagraph(input: TokenStream) -> TokenStream {
     choices::mparagraph(input)
 }
 
+/// Disappearing or replaceable paragraph with inline link trigger and View Transition support.
+///
+/// Attaches an ID to the paragraph line. If the string contains `[[target]]`, the first bracketed section
+/// is used as the clickable link; otherwise, the entire string becomes the clickable link.
+/// When clicked, if a replacement block/expression is present, it is evaluated and rendered in place of the line;
+/// otherwise, an empty paragraph is rendered, collapsing the line with a smooth exit transition.
+///
+/// # Syntax
+/// ```text
+/// replace!((maybe_key), string_expr [, block])
+/// ```
+///
+/// # Examples
+/// ```rust,ignore
+/// // Disappears on click
+/// replace!("The old chest is [[locked]].");
+///
+/// // Replaces paragraph on click
+/// replace!("The gate is [[closed]].", "The gate swings open.");
+/// ```
+#[proc_macro]
+pub fn replace(input: TokenStream) -> TokenStream {
+    choices::replace(input)
+}
+
 // =========================================================================
 // Elements
 // =========================================================================

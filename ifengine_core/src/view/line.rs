@@ -55,7 +55,9 @@ impl Span {
     }
 
     pub fn with_id(mut self, id: PageKey) -> Self {
-        self.id = Some(id);
+        if self.id.is_none() {
+            self.id = Some(id);
+        }
         self
     }
 
@@ -127,6 +129,25 @@ impl Span {
         self.no_sim = false;
         self
     }
+
+    /// Computes a non-zero 64-bit hash of the span's text content.
+    ///
+    /// Always returns a non-zero value (substituting `1` if the hash collides with `0`)
+    /// to distinguish actual content from sentinel zero values (such as choices).
+    pub fn content_hash(&self) -> u64 {
+        use std::hash::{DefaultHasher, Hash, Hasher};
+        let mut hasher = DefaultHasher::new();
+        self.content.hash(&mut hasher);
+        match hasher.finish() {
+            0 => 1,
+            h => h,
+        }
+    }
+
+    /// Computes a non-zero 64-bit hash of the span's text content.
+    pub fn hash(&self) -> u64 {
+        self.content_hash()
+    }
 }
 
 /// A collection of [`Span`]'s, rendered in a wrapped line, joined without spacing.
@@ -147,7 +168,9 @@ impl Line {
     }
 
     pub fn with_id(mut self, id: PageKey) -> Self {
-        self.id = Some(id);
+        if self.id.is_none() {
+            self.id = Some(id);
+        }
         self
     }
 
@@ -167,6 +190,27 @@ impl Line {
             s.push_str(&span.content)
         }
         s
+    }
+
+    /// Computes a non-zero 64-bit hash of the combined spans' text content.
+    ///
+    /// Always returns a non-zero value (substituting `1` if the hash collides with `0`)
+    /// to distinguish actual content from sentinel zero values (such as choices).
+    pub fn content_hash(&self) -> u64 {
+        use std::hash::{DefaultHasher, Hash, Hasher};
+        let mut hasher = DefaultHasher::new();
+        for span in &self.spans {
+            span.content.hash(&mut hasher);
+        }
+        match hasher.finish() {
+            0 => 1,
+            h => h,
+        }
+    }
+
+    /// Computes a non-zero 64-bit hash of the line's text content.
+    pub fn hash(&self) -> u64 {
+        self.content_hash()
     }
 
     pub fn from_lingual(v: impl Into<Self>) -> Self {
@@ -232,7 +276,7 @@ impl Line {
         }
 
         Line {
-            id: None,
+            id: Some(key.1),
             spans,
             classes: Vec::new(),
         }
@@ -289,6 +333,30 @@ impl<T: ToString> From<T> for Span {
     }
 }
 
+impl From<Line> for Span {
+    fn from(mut line: Line) -> Self {
+        if line.spans.len() == 1 {
+            let mut span = line.spans.remove(0);
+            span.classes.extend(line.classes);
+            if span.id.is_none() {
+                span.id = line.id;
+            }
+            span
+        } else {
+            Span {
+                id: line.id,
+                action: None,
+                content: line.content(),
+                variant: SpanVariant::None,
+                modifiers: Modifier::empty(),
+                style: HashMap::new(),
+                classes: line.classes,
+                no_sim: false,
+            }
+        }
+    }
+}
+
 // Line: From Into<Span>
 impl From<&str> for Line {
     fn from(item: &str) -> Self {
@@ -305,6 +373,12 @@ impl From<String> for Line {
 impl From<Span> for Line {
     fn from(item: Span) -> Self {
         Line::from_iter(std::iter::once(item))
+    }
+}
+
+impl From<()> for Line {
+    fn from(_: ()) -> Self {
+        Line::new()
     }
 }
 
@@ -381,13 +455,13 @@ mod tests {
     fn test_span_builders() {
         let span = Span::new("hello".into())
             .with_id(42)
-            .cls("fade")
-            .classes(["delay-100", "bold"])
+            .cls("in-100")
+            .classes(["out-200", "bold"])
             .style("color", "red")
             .styles([("font-size", "14px"), ("opacity", "0.8")]);
 
         assert_eq!(span.id, Some(42));
-        assert_eq!(span.classes, vec!["fade", "delay-100", "bold"]);
+        assert_eq!(span.classes, vec!["in-100", "out-200", "bold"]);
         assert_eq!(span.style.get("color").map(|s| s.as_str()), Some("red"));
         assert_eq!(
             span.style.get("font-size").map(|s| s.as_str()),
@@ -405,5 +479,26 @@ mod tests {
 
         assert_eq!(line.id, Some(100));
         assert_eq!(line.classes, vec!["my-line", "line-fade"]);
+    }
+
+    #[test]
+    fn test_content_hash() {
+        let s1 = Span::new("hello".into());
+        let s2 = Span::new("hello".into());
+        let s3 = Span::new("world".into());
+
+        assert_ne!(s1.content_hash(), 0);
+        assert_eq!(s1.content_hash(), s2.content_hash());
+        assert_ne!(s1.content_hash(), s3.content_hash());
+        assert_eq!(s1.hash(), s1.content_hash());
+
+        let l1 = Line::from_iter(["hello", " ", "world"]);
+        let l2 = Line::from_iter(["hello", " ", "world"]);
+        let l3 = Line::from_iter(["different"]);
+
+        assert_ne!(l1.content_hash(), 0);
+        assert_eq!(l1.content_hash(), l2.content_hash());
+        assert_ne!(l1.content_hash(), l3.content_hash());
+        assert_eq!(l1.hash(), l1.content_hash());
     }
 }

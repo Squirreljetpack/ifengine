@@ -37,31 +37,75 @@ pub struct AltsInput {
 
 impl Parse for AltsInput {
     fn parse(input: ParseStream<'_>) -> Result<Self> {
-        let content;
-        syn::bracketed!(content in input);
-
         let maybe_key = input.parse()?;
 
-        let mut list = Vec::new();
-        while !content.is_empty() {
-            list.push(content.parse()?);
-            if content.peek(Token![,]) {
-                let _: Token![,] = content.parse()?;
+        if input.peek(syn::token::Bracket) {
+            let content;
+            syn::bracketed!(content in input);
+
+            let mut list = Vec::new();
+            while !content.is_empty() {
+                list.push(content.parse()?);
+                if content.peek(Token![,]) {
+                    let _: Token![,] = content.parse()?;
+                }
             }
-        }
 
-        let variant = if !input.is_empty() {
-            input.parse::<Token![,]>()?;
-            Some(input.parse()?)
+            let variant = if !input.is_empty() {
+                input.parse::<Token![,]>()?;
+                Some(input.parse()?)
+            } else {
+                None
+            };
+
+            Ok(Self {
+                maybe_key,
+                list,
+                variant,
+            })
         } else {
-            None
-        };
+            let mut exprs: Vec<Expr> = Vec::new();
+            while !input.is_empty() {
+                exprs.push(input.parse()?);
+                if input.peek(Token![,]) {
+                    let _: Token![,] = input.parse()?;
+                } else {
+                    break;
+                }
+            }
 
-        Ok(Self {
-            maybe_key,
-            list,
-            variant,
-        })
+            let mut variant = None;
+            if let Some(last_expr) = exprs.last() {
+                if let Expr::Path(syn::ExprPath { path, qself: None, .. }) = last_expr {
+                    if let Some(ident) = path.get_ident() {
+                        let ident_str = ident.to_string();
+                        if ident_str == "Stop" {
+                            variant = Some(AltVariant::Stop);
+                            exprs.pop();
+                        } else if ident_str == "Shuffle" {
+                            variant = Some(AltVariant::Shuffle);
+                            exprs.pop();
+                        } else if ident_str == "Cycle" {
+                            variant = Some(AltVariant::Cycle);
+                            exprs.pop();
+                        }
+                    }
+                }
+            }
+
+            if exprs.is_empty() {
+                return Err(Error::new(
+                    input.span(),
+                    "alts! requires at least one alternative",
+                ));
+            }
+
+            Ok(Self {
+                maybe_key,
+                list: exprs,
+                variant,
+            })
+        }
     }
 }
 
@@ -87,11 +131,13 @@ pub fn alts(input: TokenStream) -> TokenStream {
                     ifengine::view::Span::from(
                         alts[(idx as usize + 1).min(alts.len() - 1)]
                     )
+                    .with_id(__ifengine_key)
                     .with_action(ifengine::Action::Inc((__ifengine_page_state.id(), __ifengine_key)))
                 } else {
                     ifengine::view::Span::from(
                         alts[0]
                     )
+                    .with_id(__ifengine_key)
                     .with_action(ifengine::Action::Inc((__ifengine_page_state.id(), __ifengine_key)))
                 }
             }}
@@ -120,6 +166,7 @@ pub fn alts(input: TokenStream) -> TokenStream {
 
                 // Use it and store back with last bit set
                 ifengine::view::Span::from(alts[idx])
+                .with_id(__ifengine_key)
                 .with_action(ifengine::Action::Set(
                     (__ifengine_page_state.id(), __ifengine_key),
                     ((idx as u64) << 1) + 1
@@ -137,12 +184,14 @@ pub fn alts(input: TokenStream) -> TokenStream {
                     ifengine::view::Span::from(
                         alts[(idx as usize) % alts.len()]
                     )
+                    .with_id(__ifengine_key)
                     .with_action(ifengine::Action::Inc((__ifengine_page_state.id(), __ifengine_key)))
                     .no_sim()
                 } else {
                     ifengine::view::Span::from(
                         alts[0]
                     )
+                    .with_id(__ifengine_key)
                     .with_action(ifengine::Action::Inc((__ifengine_page_state.id(), __ifengine_key)))
                     .no_sim()
                 }
@@ -176,6 +225,7 @@ pub fn count(input: TokenStream) -> TokenStream {
         ifengine::view::Span::from(
             (#closure)(__ifengine_page_state.get(__ifengine_key).unwrap_or_default())
         )
+        .with_id(__ifengine_key)
         .with_action(ifengine::Action::Inc((__ifengine_page_state.id(), __ifengine_key)))
         .no_sim()
     }};
@@ -227,6 +277,7 @@ pub fn click(input: TokenStream) -> TokenStream {
         let span = ifengine::view::Span::from(
             #expr
         )
+        .with_id(__ifengine_key)
         .with_action(ifengine::Action::Inc((__ifengine_page_state.id(), __ifengine_key)))
         .as_link();
 
@@ -261,12 +312,14 @@ pub fn back(input: TokenStream) -> TokenStream {
             ifengine::view::Span::from(#expr)
             .as_link()
             .with_action(ifengine::Action::Back(#n_expr))
+            .with_id(__ifengine_page_state.auto_key())
         }
     } else {
         quote! {
             ifengine::view::Span::from(#expr)
             .as_link()
             .with_action(ifengine::Action::Back(1))
+            .with_id(__ifengine_page_state.auto_key())
             .no_sim()
         }
     };

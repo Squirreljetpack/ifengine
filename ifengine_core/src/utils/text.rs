@@ -107,6 +107,16 @@ pub fn split_braced(s: &str) -> Vec<String> {
     result
 }
 
+/// Splits a string around its first `[[target]]` delimiter into `(before, inside, after)`.
+///
+/// Returns `Some((before, inside, after))` if a bracketed section exists,
+/// or `None` if no `[[...]]` delimiter is present.
+pub fn split_first_braced(s: &str) -> Option<(&str, &str, &str)> {
+    let start = s.find("[[")?;
+    let end = s[start + 2..].find("]]")? + start + 2;
+    Some((&s[..start], &s[start + 2..end], &s[end + 2..]))
+}
+
 #[cfg(feature = "rand")]
 pub fn find_hash_match<'a, I>(strings: I, target: u64) -> Option<&'a String>
 where

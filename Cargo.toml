@@ -4,6 +4,7 @@ members = [
     "ifengine",
     "egui",
     "ifengine_macros",
+    "leptos",
 ]
 resolver = "3"
 

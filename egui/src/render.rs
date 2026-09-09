@@ -75,6 +75,7 @@ fn render_image(img: Image, ui: &mut Ui, mut game: Option<&mut GameInner>) {
         variant,
         action,
         alt,
+        ..
     } = img;
 
     let img = match variant {

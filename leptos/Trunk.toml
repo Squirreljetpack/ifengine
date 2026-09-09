@@ -1,0 +1,8 @@
+[build]
+target = "index.html"
+filehash = false
+
+[serve]
+port = 8081
+watch = true
+headers = { "Cache-Control" = "no-cache", "Cross-Origin-Opener-Policy" = "same-origin" }

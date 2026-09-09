@@ -1,11 +1,12 @@
 use std::borrow::Cow;
 
-use crate::core::Action;
+use crate::core::{Action, game_state::PageKey};
 
 /// Image type.
 /// See [`Object`](crate::view::Object).
 #[derive(Debug, Clone)]
 pub struct Image {
+    pub id: Option<PageKey>,
     pub size: [usize; 2],
     pub variant: ImageVariant,
     pub action: Option<Action>,
@@ -23,6 +24,7 @@ pub enum ImageVariant {
 impl Image {
     pub fn new_url(url: impl Into<String>) -> Self {
         Image {
+            id: None,
             size: [0, 0],
             variant: ImageVariant::Url(url.into()),
             action: None,
@@ -32,6 +34,7 @@ impl Image {
 
     pub fn new_local(path: impl Into<Cow<'static, str>>, bytes: &'static [u8]) -> Self {
         Image {
+            id: None,
             size: [0, 0],
             variant: ImageVariant::Local(path.into(), bytes),
             action: None,
@@ -45,6 +48,13 @@ impl Image {
 
     pub fn height(&self) -> usize {
         self.size[1]
+    }
+
+    pub fn with_id(mut self, id: PageKey) -> Self {
+        if self.id.is_none() {
+            self.id = Some(id);
+        }
+        self
     }
 
     pub fn with_size(mut self, size: [usize; 2]) -> Self {

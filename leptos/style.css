@@ -1,0 +1,474 @@
+/* ==========================================================================
+   ifengine_leptos - Story Presentation Stylesheet
+   Inspired by Saltwrack / Chapbook typography and minimal dark layout.
+   ========================================================================== */
+
+:root {
+    --color-backdrop: #1A1B1D;
+    --color-page-bg: #1A1B1D;
+    --color-text: #F1F3F5;
+    --color-text-dim: #ADB5BD;
+    --color-text-muted: #868E96;
+    --color-link: #F1F3F5;
+    --color-link-hover: #FFFFFF;
+    --color-link-active: #CED4DA;
+    --color-border: #2C2E33;
+    --font-serif: "Iowan Old Style", "Constantia", "Georgia", "Cambria", "Times New Roman", serif;
+    --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
+    --page-width: 44rem;
+
+    /* Page transitions */
+    --page-transition-out-duration: 0.3s;
+    --page-transition-out-timing: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    --page-transition-in-duration: 0.2s;
+    --page-transition-in-timing: linear;
+
+    /* Element transitions for same-id elements (e.g. alts!) */
+    --element-transition-out-duration: 0.3s;
+    --element-transition-out-timing: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    --element-transition-in-duration: 0.2s;
+    --element-transition-in-timing: linear;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html, body {
+    background-color: var(--color-backdrop);
+    color: var(--color-text);
+    font-family: var(--font-serif);
+    font-size: 19px;
+    line-height: 1.75;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+/* --------------------------------------------------------------------------
+   Layout & Container
+   -------------------------------------------------------------------------- */
+
+#backdrop {
+    display: flex;
+    justify-content: center;
+    align-items: stretch;
+    min-height: 100vh;
+    width: 100%;
+    background-color: var(--color-backdrop);
+}
+
+#page {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    max-width: var(--page-width);
+    min-height: 100vh;
+    padding: 3.5rem 2rem 0.5rem;
+    position: relative;
+}
+
+/* --------------------------------------------------------------------------
+   Header
+   -------------------------------------------------------------------------- */
+
+.passage-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-family: var(--font-sans);
+    font-size: 0.85rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+    min-height: 1.8rem;
+    margin-bottom: 2.5rem;
+    transition: border-color 0.2s ease;
+}
+
+.header-has-content {
+    border-bottom: 1px solid var(--color-border);
+    padding-bottom: 0.75rem;
+}
+
+.header-empty {
+    display: none !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+}
+
+.header-section {
+    flex: 1;
+}
+
+.header-left {
+    text-align: left;
+}
+
+.header-center {
+    text-align: center;
+}
+
+.header-right {
+    text-align: right;
+}
+
+/* --------------------------------------------------------------------------
+   Article & Passage Content
+   -------------------------------------------------------------------------- */
+
+.passage-article {
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1;
+}
+
+.passage-paragraph {
+    margin-top: 0;
+    margin-bottom: 1.35rem;
+    word-break: break-word;
+}
+
+.passage-paragraph:has(> .passage-line:empty) {
+    margin: 0 !important;
+    padding: 0 !important;
+    min-height: 0 !important;
+    height: 0 !important;
+}
+
+.passage-text {
+    margin-bottom: 1rem;
+}
+
+.passage-line {
+    display: inline;
+}
+
+/* --------------------------------------------------------------------------
+   Headings
+   -------------------------------------------------------------------------- */
+
+.passage-heading {
+    color: #FFFFFF;
+    font-weight: 600;
+    line-height: 1.3;
+    letter-spacing: 0.04em;
+    margin-top: 1.8rem;
+    margin-bottom: 0.8rem;
+}
+
+h1.passage-heading { font-size: 2.1rem; }
+h2.passage-heading { font-size: 1.7rem; }
+h3.passage-heading { font-size: 1.4rem; letter-spacing: 0.08em; text-transform: uppercase; }
+h4.passage-heading { font-size: 1.2rem; }
+h5.passage-heading { font-size: 1.05rem; }
+h6.passage-heading { font-size: 0.95rem; text-transform: uppercase; color: var(--color-text-dim); }
+
+/* --------------------------------------------------------------------------
+   Links & Interactivity
+   -------------------------------------------------------------------------- */
+
+.passage-link {
+    color: var(--color-link);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    cursor: pointer;
+    background: none;
+    border: none;
+    font: inherit;
+    padding: 0;
+    display: inline;
+    transition: color 0.15s ease, text-decoration-color 0.15s ease;
+}
+
+.passage-link:hover,
+.passage-link:focus {
+    color: var(--color-link-hover);
+    text-decoration-color: var(--color-link-hover);
+}
+
+.passage-link:active {
+    color: var(--color-link-active);
+}
+
+.passage-link-static {
+    color: var(--color-link);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+
+.variant-muted {
+    color: var(--color-text-muted);
+}
+
+.variant-secondary {
+    color: var(--color-text-dim);
+}
+
+/* --------------------------------------------------------------------------
+   Layout Utilities
+   -------------------------------------------------------------------------- */
+
+.center,
+.text-center {
+    display: block;
+    text-align: center;
+}
+
+/* --------------------------------------------------------------------------
+   Choices
+   -------------------------------------------------------------------------- */
+
+.choice-container {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    margin: 1.5rem 0;
+}
+
+.choice-item {
+    font-family: inherit;
+    font-size: inherit;
+    color: var(--color-text);
+    text-align: left;
+    line-height: 1.6;
+    background: transparent;
+    border: none;
+}
+
+.choice-button {
+    cursor: pointer;
+    width: 100%;
+    background: none;
+    border: none;
+    padding: 0;
+    font: inherit;
+    color: var(--color-link);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    transition: color 0.15s ease;
+}
+
+.choice-button:hover,
+.choice-button:focus {
+    color: var(--color-link-hover);
+}
+
+.choice-button:active {
+    color: var(--color-link-active);
+}
+
+.choice-item-inline {
+    border-left: none;
+    background: transparent;
+    padding-left: 0;
+}
+
+/* --------------------------------------------------------------------------
+   Media, Quotes, Breaks, Empties
+   -------------------------------------------------------------------------- */
+
+.passage-image-wrapper {
+    margin: 1.5rem 0;
+    text-align: center;
+}
+
+.passage-image {
+    max-width: 100%;
+    height: auto;
+    border-radius: 4px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.image-action-button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+}
+
+.passage-break {
+    border: none;
+    text-align: center;
+    margin: 2.25rem 0;
+}
+
+.passage-break::after {
+    content: "*  *  *";
+    display: block;
+    color: var(--color-text-muted);
+    letter-spacing: 0.4em;
+    font-size: 1.1rem;
+}
+
+.passage-empty {
+    width: 100%;
+}
+
+.passage-quote {
+    margin: 1.5rem 0;
+    padding: 0.6rem 1.5rem;
+    border-left: 3px solid var(--color-border);
+    background: rgba(255, 255, 255, 0.02);
+    font-style: italic;
+    color: #CED4DA;
+}
+
+.passage-note {
+    margin: 1rem 0;
+    padding: 0.75rem 1.25rem;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px dashed var(--color-border);
+    border-radius: 4px;
+    font-size: 0.95rem;
+    color: var(--color-text-dim);
+}
+
+/* --------------------------------------------------------------------------
+   Footer
+   -------------------------------------------------------------------------- */
+
+.passage-footer {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    margin-top: auto;
+    padding-top: 0.5rem;
+    padding-bottom: 0.25rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    font-family: var(--font-sans);
+    font-size: 0.65rem;
+    line-height: 1.2;
+    letter-spacing: 0.04em;
+    color: rgba(255, 255, 255, 0.25);
+}
+
+.footer-attribution-link {
+    color: inherit;
+    text-decoration: none;
+    opacity: 0.6;
+    transition: opacity 0.15s ease, color 0.15s ease;
+}
+
+.footer-attribution-link:hover {
+    opacity: 1;
+    color: var(--color-text-dim);
+    text-decoration: underline;
+}
+
+/* --------------------------------------------------------------------------
+   Transitions & Keyframe Animations
+   -------------------------------------------------------------------------- */
+
+@keyframes fade-in {
+    0% {
+        opacity: 0;
+    }
+    100% {
+        opacity: 1;
+    }
+}
+
+@keyframes fade-out {
+    0% {
+        opacity: 1;
+    }
+    100% {
+        opacity: 0;
+    }
+}
+
+.skip-animation {
+    animation: none !important;
+    animation-duration: 0s !important;
+    animation-delay: 0s !important;
+}
+
+.transition-active {
+    will-change: opacity;
+}
+
+/* --------------------------------------------------------------------------
+   Page Transitions (Traditional DOM Swap & CSS Keyframe Model)
+   -------------------------------------------------------------------------- */
+
+.page-fade-out {
+    animation: fade-out var(--page-transition-out-duration, 0.3s) var(--page-transition-out-timing, cubic-bezier(0.25, 0.46, 0.45, 0.94)) both;
+    pointer-events: none;
+}
+
+.page-fade-in {
+    animation: fade-in var(--page-transition-in-duration, 0.2s) var(--page-transition-in-timing, linear) both;
+}
+
+/* --------------------------------------------------------------------------
+   View Transitions API
+   -------------------------------------------------------------------------- */
+
+/* Suppress viewport/root level view transitions */
+html, :root {
+    color-scheme: dark;
+    view-transition-name: none;
+}
+
+/* Ensure background does not block page content during transitions */
+::view-transition {
+    background-color: transparent;
+}
+
+/* Element transitions for same-id elements (e.g. alts!, choice morphing) */
+::view-transition-group(*) {
+    animation-duration: calc(var(--element-transition-out-duration, 0.3s) + var(--element-transition-in-duration, 0.2s));
+    animation-timing-function: var(--element-transition-out-timing, cubic-bezier(0.25, 0.46, 0.45, 0.94));
+}
+
+::view-transition-old(*),
+::view-transition-new(*) {
+    mix-blend-mode: normal !important;
+    object-fit: none !important;
+    object-position: top left !important;
+    height: 100% !important;
+}
+
+/* Unchanged elements during same-page reflow: hide old snapshot and keep single new element with solid opacity */
+::view-transition-old(.reflow) {
+    display: none !important;
+}
+
+::view-transition-new(.reflow) {
+    animation: none !important;
+}
+
+/* Changed elements (e.g. alts!, choices collapsing to replacement line):
+   Fade out with quadratic easing (0.3s), fade in with linear easing (0.2s) after 0.3s delay */
+::view-transition-old(.fade),
+::view-transition-old(*):only-child {
+    animation: fade-out var(--element-transition-out-duration, 0.3s) var(--element-transition-out-timing, cubic-bezier(0.25, 0.46, 0.45, 0.94)) both;
+}
+
+::view-transition-new(.fade),
+::view-transition-new(*):only-child {
+    animation: fade-in var(--element-transition-in-duration, 0.2s) var(--element-transition-in-timing, linear) var(--element-transition-out-duration, 0.3s) both;
+}
+
+/* --------------------------------------------------------------------------
+   Responsive Breakpoints
+   -------------------------------------------------------------------------- */
+
+@media screen and (max-width: 768px) {
+    #page {
+        padding: 2rem 1.25rem 0.5rem;
+    }
+
+    html, body {
+        font-size: 17.5px;
+    }
+
+    .choice-item {
+        padding: 0.8rem 1.1rem;
+    }
+}

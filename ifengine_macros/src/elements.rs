@@ -258,7 +258,10 @@ pub fn h(input: TokenStream) -> TokenStream {
 
     let expanded = quote! {
         __ifengine_page_state.push(
-            ifengine::view::Object::Heading(ifengine::view::Span::from_lingual(#text), #level)
+            ifengine::view::Object::Heading(
+                ifengine::view::Span::from_lingual(#text),
+                #level
+            )
         );
     };
 
@@ -311,7 +314,11 @@ pub fn img(input: TokenStream) -> TokenStream {
     };
 
     let expanded = quote! {
-        __ifengine_page_state.push(ifengine::view::Object::Image(#image_tokens));
+        __ifengine_page_state.push(
+            ifengine::view::Object::Image(
+                #image_tokens.with_id(__ifengine_page_state.auto_key())
+            )
+        );
     };
 
     TokenStream::from(expanded)

@@ -11,12 +11,7 @@ use ifengine::{
 impl Span {
     pub fn as_rich_text(&self) -> RichText {
         let mut txt = RichText::new(&self.content);
-        let mut m = self.modifiers;
-
-        match self.variant {
-            SpanVariant::Link => m |= Modifier::ITALIC,
-            _ => {}
-        }
+        let m = self.modifiers;
 
         // ---- font variants (True Italic/Bold) ----
         let has_bold = m.contains(Modifier::BOLD);

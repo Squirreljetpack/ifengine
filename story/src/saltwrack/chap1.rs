@@ -14,8 +14,14 @@ pub fn p1(s: &mut State) {
 
 #[ifview]
 pub fn p2(s: &mut State) {
-    h!("SALTWRACK", 3);
-    p!(link!("BEGIN", p3));
+    h!(
+        s!("SALTWRACK")
+            .cls("center")
+            .style("display", "block")
+            .style("margin-top", "clamp(6rem, 15vh, 16rem)"),
+        3
+    );
+    p!(link!("BEGIN", p3).cls("center"));
 }
 
 #[ifview]
@@ -51,15 +57,12 @@ pub fn p3(state: &mut State) {
     //     .chunks_exact(2)
     //     .map(|x| [link!(x[0]), s!(".  ", x[1])])
     //     .collect();
-
     // dchoice! { choices,
     //     c => {
     //         state.myname = names[c * 2].to_string();
     //         NEXT!(p4);
     //     }
     // }
-
-    // dchoice!(choices);
 
     // // Key override:
     //
@@ -68,9 +71,7 @@ pub fn p3(state: &mut State) {
     //     .enumerate()
     //     .map(|(i, x)| [click!((i as u64), x[0]), s!(".  ", x[1])])
     //     .collect();
-
     // dchoice!(choices);
-
     // for i in 0..3 {
     //     if read_key!(i).is_some() {
     //         state.myname = names[i as usize * 2].to_string();
