@@ -1,3 +1,13 @@
+## [0.1.1] - 2026-09-09
+
+### 🚀 Features
+
+- *(leptos)* adjust styles
+- *(core)* uniform stamping for objects
+- *(core)* global pagehandle registry
+- *(leptos)* save/load
+- *(macros)* extend!
+
 ## [0.1.0] - 2026-09-09
 
 ### 🚀 Features
