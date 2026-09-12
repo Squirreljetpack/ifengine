@@ -64,8 +64,7 @@ pub fn clear(input: TokenStream) -> TokenStream {
 /// to target different view object variants. If no prefix is supplied, it defaults to pushing spans.
 ///
 /// # Prefixes & Targets
-/// - **`"span":` (or omitted default)**: Appends one or more spans to a preceding [`Object::Paragraph`](ifengine::view::Object::Paragraph)
-///   or [`Object::Text`](ifengine::view::Object::Text).
+/// - **`"span":` (or omitted default)**: Appends one or more spans to a preceding [`Object::Paragraph`](ifengine::view::Object::Paragraph).
 /// - **`"choice":`**: Appends choices to a preceding [`Object::Choice`](ifengine::view::Object::Choice).
 ///   Accepts any type implementing [`IntoNumberedLine`](ifengine::view::IntoNumberedLine), such as `(u8, Into<Line>)`
 ///   or directly `Into<Line>` (`&str`, `String`, `Line`, etc.). If the index is omitted (`None`), it automatically
@@ -98,43 +97,48 @@ pub fn extend(input: TokenStream) -> TokenStream {
     view::extend(input)
 }
 
-/// Push a single plain text line ([`Object::Text`](ifengine::view::Object::Text)) to the view without paragraph (y) margins.
+/// Push a single paragraph block ([`Object::Paragraph`](ifengine::view::Object::Paragraph)) to the view.
 ///
 /// Constructed from one or more spans, or string literals.
-///
-/// # Custom Styling Metadata
-/// A trailing [`RenderData`](ifengine::view::RenderData) can be specified following `::`.
+/// Supports optional trailing `:: "metadata"` to attach [`RenderData`](ifengine::view::RenderData).
 ///
 /// # Example
 /// ```rust,ignore
-/// text!("Hello, world!");
-/// text!("HP: {hp}/{max_hp}" :: "stat-line");
+/// p!("A dark hallway stretches before you.");
+/// p!("HP: {hp}/{max_hp}" :: "stat-line");
 /// ```
 #[proc_macro]
-pub fn text(input: TokenStream) -> TokenStream {
-    view::text(input)
+pub fn p(input: TokenStream) -> TokenStream {
+    view::paragraph(input)
 }
 
-/// Push multiple plain text lines ([`Object::Text`](ifengine::view::Object::Text)) in sequence to the view.
+/// Push multiple separate paragraph blocks ([`Object::Paragraph`](ifengine::view::Object::Paragraph)) to the view.
 ///
-/// Each argument is a separate line without paragraph (y) margins. See [`text!`].
+/// Each argument is its own block with standard vertical spacing.
+/// Supports optional trailing `:: "metadata"` to attach [`RenderData`](ifengine::view::RenderData).
 ///
 /// # Example
 /// ```rust,ignore
-/// texts!("Line 1", "Line 2");
+/// ps!(
+///     "First paragraph.",
+///     "Second paragraph.",
+/// );
+/// ps!("Line 1", "Line 2" :: "stat-block");
 /// ```
 #[proc_macro]
-pub fn texts(input: TokenStream) -> TokenStream {
-    view::texts(input)
+pub fn ps(input: TokenStream) -> TokenStream {
+    view::paragraphs(input)
 }
 
 /// Push a single paragraph block ([`Object::Paragraph`](ifengine::view::Object::Paragraph)) to the view with standard vertical margins.
 ///
 /// Constructed from one or more spans, or string literals.
+/// Supports optional trailing `:: "metadata"` to attach [`RenderData`](ifengine::view::RenderData).
 ///
 /// # Example
 /// ```rust,ignore
 /// paragraph!("A dark hallway stretches before you.");
+/// paragraph!("HP: {hp}/{max_hp}" :: "stat-line");
 /// ```
 #[proc_macro]
 pub fn paragraph(input: TokenStream) -> TokenStream {
@@ -144,6 +148,7 @@ pub fn paragraph(input: TokenStream) -> TokenStream {
 /// Push multiple separate paragraph blocks ([`Object::Paragraph`](ifengine::view::Object::Paragraph)) to the view.
 ///
 /// Each argument is its own block with standard vertical spacing.
+/// Supports optional trailing `:: "metadata"` to attach [`RenderData`](ifengine::view::RenderData).
 ///
 /// # Example
 /// ```rust,ignore
@@ -156,6 +161,7 @@ pub fn paragraph(input: TokenStream) -> TokenStream {
 pub fn paragraphs(input: TokenStream) -> TokenStream {
     view::paragraphs(input)
 }
+
 
 /// Markdown heading.
 ///

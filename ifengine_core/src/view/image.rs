@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 
-use crate::core::Action;
+use crate::{core::Action, view::RenderData};
 
 /// Image type.
 /// See [`Object`](crate::view::Object).
@@ -10,6 +10,7 @@ pub struct Image {
     pub variant: ImageVariant,
     pub action: Option<Action>,
     pub alt: String, // caption and alt_text
+    pub render_data: RenderData,
 }
 
 /// Local or Remote image.
@@ -27,6 +28,7 @@ impl Image {
             variant: ImageVariant::Url(url.into()),
             action: None,
             alt: String::new(),
+            render_data: "",
         }
     }
 
@@ -36,6 +38,7 @@ impl Image {
             variant: ImageVariant::Local(path.into(), bytes),
             action: None,
             alt: String::new(),
+            render_data: "",
         }
     }
 

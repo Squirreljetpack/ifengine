@@ -16,12 +16,8 @@ pub type RenderData = &'static str;
 /// The frontend is responsible for the display of each variant, but should adhere to their description in doing so.
 #[derive(Debug, Clone)]
 pub enum Object {
-    /// A single line, rendered with wrapping, carrying optional data which can be used for customization by the frontend.
-    ///
-    /// N.B. spans are allowed to carry newlines.
-    Text(Line, RenderData),
-    /// Text with a single-spaced y-margin.
-    Paragraph(Line),
+    /// Text with a single-spaced y-margin, carrying optional data which can be used for customization by the frontend.
+    Paragraph(Line, RenderData),
     /// A list of selectable choices which stores the selected index on click.
     ///
     /// Like the paragraph variant, this includes a single-spaced y-margin.
@@ -40,8 +36,6 @@ pub enum Object {
     ///   - `Line`: The content to display.
     ///   - `(u8, u8)`: Indices into a `Span` from `View[Line[Span]]`, e.g., for annotations.
     Note(Line, (u8, u8)),
-    /// Quoted block style.
-    Quote(Line, RenderData),
     /// An embedded sub-page view with optional custom styling or presentation metadata (e.g. modal).
     /// An empty embedded view serves the role of an extensible custom marker.
     Embed(View, RenderData),
@@ -53,8 +47,7 @@ impl Object {
     pub fn content_hash(&self) -> u64 {
         use std::hash::{DefaultHasher, Hash, Hasher};
         match self {
-            Object::Paragraph(line) => line.content_hash(),
-            Object::Text(line, render_data) => {
+            Object::Paragraph(line, render_data) => {
                 let mut hasher = DefaultHasher::new();
                 line.content_hash().hash(&mut hasher);
                 render_data.hash(&mut hasher);
@@ -91,15 +84,6 @@ impl Object {
                 let mut hasher = DefaultHasher::new();
                 line.content_hash().hash(&mut hasher);
                 indices.hash(&mut hasher);
-                match hasher.finish() {
-                    0 => 1,
-                    h => h,
-                }
-            }
-            Object::Quote(line, render_data) => {
-                let mut hasher = DefaultHasher::new();
-                line.content_hash().hash(&mut hasher);
-                render_data.hash(&mut hasher);
                 match hasher.finish() {
                     0 => 1,
                     h => h,

@@ -18,17 +18,12 @@ pub fn render(view: View, ui: &mut Ui, mut game: Option<&mut GameInner>) {
     for stamped in view {
         let key = stamped.id;
         match stamped.object {
-            Object::Paragraph(line) => {
+            Object::Paragraph(line, _) => {
                 if !first {
                     ui.draw_empty(1);
                 }
                 line.ui(ui, game.as_deref_mut());
                 ui.draw_empty(1);
-            }
-            Object::Text(line, _) => {
-                let _ = line
-                    .ui(ui, game.as_deref_mut())
-                    .interact(egui::Sense::click());
             }
             Object::Choice(choices) => {
                 let key = key.unwrap_or(0);
@@ -55,9 +50,6 @@ pub fn render(view: View, ui: &mut Ui, mut game: Option<&mut GameInner>) {
             }
             Object::Empty(n) => {
                 ui.draw_empty(n);
-            }
-            Object::Quote(_, _) => {
-                todo!()
             }
             Object::Note(_, _) => {
                 todo!()

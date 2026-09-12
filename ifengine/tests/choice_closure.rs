@@ -45,7 +45,7 @@ fn test_choice_closure_keep() {
     game.inner.handle_choice(choice_key, 0);
     let view2 = game.view().expect("view should succeed");
     assert_eq!(view2.inner.len(), 1);
-    let Object::Paragraph(line) = &view2.inner[0].object else {
+    let Object::Paragraph(line, _) = &view2.inner[0].object else {
         panic!("expected Object::Paragraph");
     };
     assert_eq!(line.content(), "Keep choice");
@@ -61,7 +61,7 @@ fn test_choice_closure_extend_add() {
     // Select choice 1: Extend choice with +
     game.inner.handle_choice(choice_key, 1);
     let view2 = game.view().expect("view should succeed");
-    let Object::Paragraph(line) = &view2.inner[0].object else {
+    let Object::Paragraph(line, _) = &view2.inner[0].object else {
         panic!("expected Object::Paragraph");
     };
     assert_eq!(line.content(), "Extend choice with + — now extended!");
@@ -76,7 +76,7 @@ fn test_choice_closure_extend_add_assign() {
     // Select choice 2: Extend choice with +=
     game.inner.handle_choice(choice_key, 2);
     let view2 = game.view().expect("view should succeed");
-    let Object::Paragraph(line) = &view2.inner[0].object else {
+    let Object::Paragraph(line, _) = &view2.inner[0].object else {
         panic!("expected Object::Paragraph");
     };
     assert_eq!(line.content(), "Extend choice with += — with add assign!");
@@ -91,7 +91,7 @@ fn test_choice_closure_non_closure_unchanged() {
     // Select choice 3: Standard replacement
     game.inner.handle_choice(choice_key, 3);
     let view2 = game.view().expect("view should succeed");
-    let Object::Paragraph(line) = &view2.inner[0].object else {
+    let Object::Paragraph(line, _) = &view2.inner[0].object else {
         panic!("expected Object::Paragraph");
     };
     assert_eq!(line.content(), "Replaced completely");
@@ -114,7 +114,7 @@ fn test_choice_closure_multi_lhs() {
     // Select choice 1: "South"
     game.inner.handle_choice(choice_key, 1);
     let view2 = game.view().expect("view should succeed");
-    let Object::Paragraph(line) = &view2.inner[0].object else {
+    let Object::Paragraph(line, _) = &view2.inner[0].object else {
         panic!("expected Object::Paragraph");
     };
     assert_eq!(line.content(), "South path taken");
@@ -147,7 +147,7 @@ fn test_choice_static_omitted_arrow_and_cleaned() {
     // Select choice 0: omitted arrow keeps choice text, and .clean() strips classes
     game.inner.handle_choice(choice_key, 0);
     let view2 = game.view().expect("view should succeed");
-    let Object::Paragraph(line) = &view2.inner[0].object else {
+    let Object::Paragraph(line, _) = &view2.inner[0].object else {
         panic!("expected Object::Paragraph");
     };
     assert_eq!(line.content(), "Styled static choice");
@@ -178,7 +178,7 @@ fn test_choice_closure_cleans_input_line() {
     // Select choice 0
     game.inner.handle_choice(choice_key, 0);
     let view2 = game.view().expect("view should succeed");
-    let Object::Paragraph(line) = &view2.inner[0].object else {
+    let Object::Paragraph(line, _) = &view2.inner[0].object else {
         panic!("expected Object::Paragraph");
     };
     assert_eq!(line.content(), "Styled choice — processed");
@@ -199,7 +199,7 @@ fn test_replace_closure_and_non_closure() {
     let view = game.view().expect("view should succeed");
 
     // 1. Initial render for chest (key 100)
-    let action_100 = if let Object::Paragraph(line) = &view.inner[0].object {
+    let action_100 = if let Object::Paragraph(line, _) = &view.inner[0].object {
         assert_eq!(line.content(), "The iron chest is locked tight.");
         line.spans[1].action.clone().unwrap()
     } else {
@@ -209,7 +209,7 @@ fn test_replace_closure_and_non_closure() {
     // 2. Click chest link (key 100)
     game.handle_action(action_100).expect("action should succeed");
     let view2 = game.view().expect("view should succeed");
-    if let Object::Paragraph(line) = &view2.inner[0].object {
+    if let Object::Paragraph(line, _) = &view2.inner[0].object {
         assert_eq!(
             line.content(),
             "The iron chest is locked tight. You broke the latch open!"
@@ -220,14 +220,14 @@ fn test_replace_closure_and_non_closure() {
     }
 
     // 3. Click door link (key 200) - non-closure
-    let action_200 = if let Object::Paragraph(line) = &view2.inner[1].object {
+    let action_200 = if let Object::Paragraph(line, _) = &view2.inner[1].object {
         line.spans[1].action.clone().unwrap()
     } else {
         panic!("expected Object::Paragraph for door");
     };
     game.handle_action(action_200).expect("action should succeed");
     let view3 = game.view().expect("view should succeed");
-    if let Object::Paragraph(line) = &view3.inner[1].object {
+    if let Object::Paragraph(line, _) = &view3.inner[1].object {
         assert_eq!(line.content(), "The wooden door is wide open.");
     } else {
         panic!("expected Object::Paragraph for door");

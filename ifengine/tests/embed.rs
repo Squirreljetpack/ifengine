@@ -32,7 +32,7 @@ fn test_embed_view_and_context_mutation() {
 
     // Check parent view structure: Paragraph, Embed, Paragraph
     assert_eq!(view.inner.len(), 3);
-    assert!(matches!(view.inner[0].object, Object::Paragraph(_)));
+    assert!(matches!(view.inner[0].object, Object::Paragraph(..)));
     if let Object::Embed(sub_view, _) = &view.inner[1].object {
         assert_eq!(sub_view.inner.len(), 1);
         assert!(sub_view.pageid.0.ends_with("subpage_view"));
@@ -40,7 +40,7 @@ fn test_embed_view_and_context_mutation() {
     } else {
         panic!("expected Object::Embed at index 1");
     }
-    assert!(matches!(view.inner[2].object, Object::Paragraph(_)));
+    assert!(matches!(view.inner[2].object, Object::Paragraph(..)));
 
     // Check context mutations: 1 (parent before) + 10 (subpage) + 2 (parent after) = 13
     assert_eq!(game.context.counter, 13);
@@ -77,7 +77,7 @@ fn test_embed_propagates_transitions() {
 
     // View should have transitioned to target_destination!
     assert_eq!(view.inner.len(), 1);
-    if let Object::Paragraph(line) = &view.inner[0].object {
+    if let Object::Paragraph(line, _) = &view.inner[0].object {
         assert_eq!(line.content(), "Destination page arrived!");
     } else {
         panic!("expected destination paragraph");

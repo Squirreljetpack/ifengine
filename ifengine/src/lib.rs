@@ -49,10 +49,8 @@ pub mod elements {
     //! | [`click!`](click) | `click!("Search desk", { state.found_key = true; })` | Creates an interactive `Span` that triggers a callback when clicked. |
     //! | [`count!`](count) | `count!(\|n\| format!("Clicked {n} times"))` | Creates a dynamic counter `Span` incremented on each click. |
     //! | [`alts!`](alts) | `alts!(Cycle, ["North", "South", "East", "West"])` | Creates cycling, stopping, or shuffled text alternative spans. |
-    //! | [`p!`](p) | `p!("Hello {name}, welcome back!")` | Adds a single paragraph block with `{var}` interpolation. |
-    //! | [`ps!`](ps) | `ps!("Welcome {name}.", "You have {gold} gold.")` | Adds multiple separate paragraph blocks with `{var}` interpolation. |
-    //! | [`text!`](text) | `text!("Status: {hp}/{max_hp} HP")` | Appends an unspaced text line with `{var}` interpolation and optional `:: "metadata"`. |
-    //! | [`ts!`](ts) | `ts!("Player: {name}", "Score: {score}")` | Appends multiple unspaced text lines with `{var}` interpolation. |
+    //! | [`p!`](p) | `p!("Hello {name}")` or `p!("HP: {hp}" :: "stats")` | Adds a single paragraph block with `{var}` interpolation and optional trailing `:: "metadata"`. |
+    //! | [`ps!`](ps) | `ps!("Line 1", "Line 2" :: "stats")` | Adds multiple separate paragraph blocks with `{var}` interpolation and optional trailing `:: "metadata"`. |
     //! | [`choice!`](choice) | `choice!(("Open door", p_door), ("Turn back", p_back))` | Displays a static list of clickable choices for page navigation or actions. |
     //! | [`dchoice!`](dchoice) | `dchoice!(items.into_iter().map(...))` | Displays a dynamic choice list generated at runtime from an iterator/collection. |
     //! | [`mchoice!`](mchoice) | `mchoice!((key), ...)` | Choice menu with an explicit state key override. |
@@ -66,7 +64,7 @@ pub mod elements {
     //! | [`BACK!`](BACK) | `BACK!()` or `BACK!(2)` | Flow control: navigate back 1 (or `n`) steps in history. |
     //! | [`TUN!`](TUN) | `TUN!(tunnel_page)` | Flow control: enter a tunnel subroutine page. |
     //! | [`END!`](END) | `END!()` | Flow control: terminate story execution. |
-    //! | [`extend!`](extend) | `extend!("more text")` or `extend!("choice": "new choice")` | Extends the previous object in the view (Text, Choice, Embed). |
+    //! | [`extend!`](extend) | `extend!("more text")` or `extend!("choice": "new choice")` | Extends the previous object in the view (Paragraph, Choice, Embed). |
     //! | [`x!`](x) | `x!("more text")` or `x!("choice": "new choice")` | Alias for [`extend!`]. |
     //! | [`read_key!`](read_key) | `read_key!(KEY_ID)` | Reads the stored `u64` state value for a key. |
     //! | [`set_key!`](set_key) | `set_key!(KEY_ID, val)` | Stores or updates the `u64` state value for a key. |
@@ -81,6 +79,6 @@ pub mod elements {
     #[cfg(feature = "macros")]
     pub use ifengine_macros::{
         EMBED as emb, dparagraph as dp, extend as x, mchoice as choices, mparagraph as mp,
-        paragraph as p, paragraphs as ps, replacement as repl, text, texts as ts,
+        paragraph as p, paragraphs as ps, replacement as repl,
     };
 }

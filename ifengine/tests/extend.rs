@@ -1,4 +1,4 @@
-use ifengine::elements::{EMBED, choice, extend, p, s, text, x};
+use ifengine::elements::{EMBED, choice, extend, p, s, x};
 use ifengine::view::Object;
 
 #[derive(Debug, Default, Clone, PartialEq)]
@@ -24,7 +24,7 @@ fn test_paragraph_extend() {
     let view = game.view().expect("view should succeed");
 
     assert_eq!(view.inner.len(), 1);
-    if let Object::Paragraph(line) = &view.inner[0].object {
+    if let Object::Paragraph(line, _) = &view.inner[0].object {
         assert_eq!(
             line.content(),
             "Hello, Adventurer! Welcome to the dungeon. (HP: 75/100) Good luck!"
@@ -37,7 +37,7 @@ fn test_paragraph_extend() {
 
 #[ifengine::ifview]
 fn page_text_extend(_: &mut GameState) {
-    text!("Initial");
+    p!("Initial");
     x!("span": " text", " line");
 }
 
@@ -47,11 +47,11 @@ fn test_text_extend() {
     let view = game.view().expect("view should succeed");
 
     assert_eq!(view.inner.len(), 1);
-    if let Object::Text(line, _) = &view.inner[0].object {
+    if let Object::Paragraph(line, _) = &view.inner[0].object {
         assert_eq!(line.content(), "Initial text line");
         assert_eq!(line.spans.len(), 3);
     } else {
-        panic!("expected Object::Text");
+        panic!("expected Object::Paragraph");
     }
 }
 
@@ -120,7 +120,7 @@ fn test_embed_extend() {
     assert_eq!(view.inner.len(), 1);
     if let Object::Embed(sub_view, _) = &view.inner[0].object {
         assert_eq!(sub_view.inner.len(), 3);
-        assert!(matches!(sub_view.inner[0].object, Object::Paragraph(_)));
+        assert!(matches!(sub_view.inner[0].object, Object::Paragraph(..)));
         assert!(matches!(sub_view.inner[1].object, Object::Break));
         assert!(matches!(sub_view.inner[2].object, Object::Break));
     } else {
@@ -142,7 +142,7 @@ fn test_shape_mismatch_does_nothing() {
     let view = game.view().expect("view should succeed");
 
     assert_eq!(view.inner.len(), 1);
-    if let Object::Paragraph(line) = &view.inner[0].object {
+    if let Object::Paragraph(line, _) = &view.inner[0].object {
         assert_eq!(line.content(), "Just a paragraph");
         assert_eq!(line.spans.len(), 1);
     } else {

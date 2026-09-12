@@ -19,14 +19,7 @@ pub fn ObjectView(stamped: StampedObject) -> impl IntoView {
     let vt_style = generate_view_transition_style(id, is_changed);
 
     match stamped.object {
-        Object::Paragraph(line) => view! {
-            <p class="passage-paragraph" style=vt_style>
-                <LineView line=line />
-            </p>
-        }
-        .into_any(),
-
-        Object::Text(line, render_data) => {
+        Object::Paragraph(line, render_data) => {
             if render_data == "popup" || render_data == "modal" {
                 view! {
                     <div class="passage-popup-backdrop passage-popup" data-render=render_data>
@@ -38,13 +31,49 @@ pub fn ObjectView(stamped: StampedObject) -> impl IntoView {
                     </div>
                 }
                 .into_any()
-            } else {
+            } else if let Some(speaker) = render_data.strip_prefix(':') {
+                let speaker = speaker.trim().to_string();
                 view! {
-                    <div class="passage-text" data-render=render_data style=vt_style>
+                    <p class="passage-paragraph passage-dialogue" data-render=render_data style=vt_style>
+                        <span class="dialogue-speaker">{speaker}</span>
                         <LineView line=line />
-                    </div>
+                    </p>
                 }
                 .into_any()
+            } else {
+                let mut style = vt_style.clone();
+                if let Some(m_str) = render_data.strip_prefix("m-") {
+                    let margin_style = if let Ok(val) = m_str.parse::<f32>() {
+                        if val == 0.0 {
+                            "margin: 0;".to_string()
+                        } else {
+                            format!("margin: {val}rem;")
+                        }
+                    } else {
+                        format!("margin: {m_str};")
+                    };
+                    if style.is_empty() {
+                        style = margin_style;
+                    } else {
+                        style = format!("{margin_style} {style}");
+                    }
+                }
+
+                if !render_data.is_empty() {
+                    view! {
+                        <p class="passage-paragraph" data-render=render_data style=style>
+                            <LineView line=line />
+                        </p>
+                    }
+                    .into_any()
+                } else {
+                    view! {
+                        <p class="passage-paragraph" style=style>
+                            <LineView line=line />
+                        </p>
+                    }
+                    .into_any()
+                }
             }
         }
 
@@ -136,12 +165,6 @@ pub fn ObjectView(stamped: StampedObject) -> impl IntoView {
             .into_any()
         }
 
-        Object::Quote(line, render_data) => view! {
-            <blockquote class="passage-quote" data-render=render_data style=vt_style>
-                <LineView line=line />
-            </blockquote>
-        }
-        .into_any(),
 
         Object::Note(line, _indices) => view! {
             <aside class="passage-note" style=vt_style>

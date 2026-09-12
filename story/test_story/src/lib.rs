@@ -60,7 +60,7 @@ mod tests {
         // Find the link to sensor_logs in the embedded sub_view
         let mut link_action = None;
         for obj in &sub_view.inner {
-            if let Object::Paragraph(line) = &obj.object {
+            if let Object::Paragraph(line, _) = &obj.object {
                 for span in &line.spans {
                     if let Some(action) = &span.action {
                         link_action = Some(action.clone());
@@ -83,7 +83,7 @@ mod tests {
         // Find the back button in sensor_logs
         let mut back_action = None;
         for obj in &logs_view.inner {
-            if let Object::Paragraph(line) = &obj.object {
+            if let Object::Paragraph(line, _) = &obj.object {
                 for span in &line.spans {
                     if let Some(action) = &span.action {
                         back_action = Some(action.clone());
@@ -151,7 +151,7 @@ mod tests {
         );
 
         let has_replacement = updated_sub_view.inner.iter().any(|obj| {
-            if let Object::Paragraph(line) = &obj.object {
+            if let Object::Paragraph(line, _) = &obj.object {
                 line.content().contains("barometric pressure is 982 hPa")
             } else {
                 false
@@ -173,7 +173,7 @@ mod tests {
         // 1. Initial state: verify linkreplace is displayed as a link
         let mut replace_link_action = None;
         for obj in &view.inner {
-            if let Object::Paragraph(line) = &obj.object {
+            if let Object::Paragraph(line, _) = &obj.object {
                 if line.content().contains("wanted criminal") {
                     for span in &line.spans {
                         if span.content.contains("wanted criminal") {
@@ -193,7 +193,7 @@ mod tests {
             Object::Choice(choices) => choices
                 .iter()
                 .any(|(_, l)| l.content().contains("treasure hunter")),
-            Object::Paragraph(l) => l.content().contains("treasure hunter"),
+            Object::Paragraph(l, _) => l.content().contains("treasure hunter"),
             _ => false,
         });
         assert!(
@@ -210,7 +210,7 @@ mod tests {
 
         // Verify link was replaced with cover story paragraph
         let has_obviously = view2.inner.iter().any(|obj| {
-            if let Object::Paragraph(line) = &obj.object {
+            if let Object::Paragraph(line, _) = &obj.object {
                 line.content().contains("cover story")
             } else {
                 false
@@ -261,7 +261,7 @@ mod tests {
 
         // Verify job is displayed after the choice
         let has_job_display = view3.inner.iter().any(|obj| {
-            if let Object::Paragraph(line) = &obj.object {
+            if let Object::Paragraph(line, _) = &obj.object {
                 line.content().contains("Job: treasure hunter")
             } else {
                 false
@@ -285,7 +285,7 @@ mod tests {
         assert!(!game.context.popup);
         let has_popup = view.inner.iter().any(|obj| match &obj.object {
             Object::Embed(_, rd) => *rd == "popup" || *rd == "modal",
-            Object::Text(_, rd) => *rd == "popup" || *rd == "modal",
+            Object::Paragraph(_, rd) => *rd == "popup" || *rd == "modal",
             _ => false,
         });
         assert!(!has_popup, "popup should not be rendered initially");
@@ -339,7 +339,7 @@ mod tests {
         // Find the click! element in the popup
         let mut dismiss_action = None;
         for obj in &sub_view.inner {
-            if let Object::Paragraph(line) = &obj.object {
+            if let Object::Paragraph(line, _) = &obj.object {
                 for span in &line.spans {
                     if span.content.contains("Dismiss") {
                         dismiss_action = span.action.clone();
@@ -357,12 +357,10 @@ mod tests {
             .handle_action(dismiss_action.unwrap())
             .expect("dismiss action should succeed");
 
-        // Re-render: click is processed and popup is gone!
+        // Re-render: click is processed and popup is now closed!
         let view_after_dismiss = game
             .view()
             .expect("should render rainy_day after popup dismissal");
-
-        // Now show_modal and show_popup are false
         assert!(
             !game.context.popup,
             "dismiss should set show_modal to false"
@@ -372,20 +370,38 @@ mod tests {
             "dismiss should set show_popup to false"
         );
 
-        let has_popup_after = view_after_dismiss
+        let has_popup_after = view_after_dismiss.inner.iter().any(|obj| match &obj.object {
+            Object::Embed(_, rd) => *rd == "popup" || *rd == "modal",
+            _ => false,
+        });
+        assert!(!has_popup_after, "popup should be gone after dismissal");
+
+        // Re-open popup by selecting choice C again
+        let reopen_choice_obj = view_after_dismiss
             .inner
             .iter()
-            .any(|obj| match &obj.object {
-                Object::Embed(_, rd) => *rd == "popup" || *rd == "modal",
-                _ => false,
-            });
-        assert!(
-            !has_popup_after,
-            "popup should be gone after first dismissal"
-        );
+            .find(|obj| {
+                if let Object::Choice(choices) = &obj.object {
+                    choices.iter().any(|(_, l)| l.content() == "C")
+                } else {
+                    false
+                }
+            })
+            .expect("must find choice with option C after dismiss");
 
-        // Re-open modal via Choice C a second time
-        game.inner.handle_choice(choice_key, c_index as u8);
+        let reopen_choice_key = reopen_choice_obj.id.expect("choice must have key");
+        let Object::Choice(reopen_choices) = &reopen_choice_obj.object else {
+            unreachable!()
+        };
+        let reopen_c_index = reopen_choices
+            .iter()
+            .position(|(_, l)| l.content() == "C")
+            .expect("index of C");
+
+        game.inner
+            .handle_choice(reopen_choice_key, reopen_c_index as u8);
+
+        // Render view again: popup is back!
         let reopened_view = game
             .view()
             .expect("should render rainy_day with reopened popup");
@@ -412,7 +428,7 @@ mod tests {
         };
         let mut second_dismiss_action = None;
         for obj in &reopened_sub_view.inner {
-            if let Object::Paragraph(line) = &obj.object {
+            if let Object::Paragraph(line, _) = &obj.object {
                 for span in &line.spans {
                     if span.content.contains("Dismiss") {
                         second_dismiss_action = span.action.clone();
@@ -474,7 +490,7 @@ mod tests {
         // Find the "tomorrow" link to sunny_day
         let mut tomorrow_action = None;
         for obj in &view.inner {
-            if let Object::Text(line, _) = &obj.object {
+            if let Object::Paragraph(line, _) = &obj.object {
                 for span in &line.spans {
                     if span.content == "tomorrow" {
                         tomorrow_action = span.action.clone();
@@ -491,7 +507,7 @@ mod tests {
         assert!(sunny_view.pageid.0.ends_with("sunny_day"));
 
         // First paragraph of sunny_day must display the exact weather string from state
-        let Object::Paragraph(p) = &sunny_view.inner[0].object else {
+        let Object::Paragraph(p, _) = &sunny_view.inner[0].object else {
             panic!("first object in sunny_day must be Paragraph");
         };
         assert_eq!(p.content(), weather);

@@ -195,7 +195,7 @@ pub fn clear(_input: TokenStream) -> TokenStream {
     TokenStream::from(expanded)
 }
 
-pub fn text(input: TokenStream) -> TokenStream {
+pub fn paragraph(input: TokenStream) -> TokenStream {
     let LineArgs { exprs, trailer } = syn::parse_macro_input!(input as LineArgs);
 
     let string_expr = match trailer {
@@ -209,7 +209,7 @@ pub fn text(input: TokenStream) -> TokenStream {
         __ifengine_page_state.push(
             ifengine::view::StampedObject {
                 id: Some(__ifengine_page_state.auto_key()),
-                object: ifengine::view::Object::Text(
+                object: ifengine::view::Object::Paragraph(
                     ifengine::view::Line::from_spans(
                         vec![#(#spans),*]
                     ),
@@ -222,7 +222,7 @@ pub fn text(input: TokenStream) -> TokenStream {
     TokenStream::from(expanded)
 }
 
-pub fn texts(input: TokenStream) -> TokenStream {
+pub fn paragraphs(input: TokenStream) -> TokenStream {
     let LineArgs { exprs, trailer } = syn::parse_macro_input!(input as LineArgs);
 
     let string_expr = match trailer {
@@ -236,7 +236,7 @@ pub fn texts(input: TokenStream) -> TokenStream {
             __ifengine_page_state.push(
                 ifengine::view::StampedObject {
                     id: Some(__ifengine_page_state.auto_key()),
-                    object: ifengine::view::Object::Text(
+                    object: ifengine::view::Object::Paragraph(
                         #line,
                         #string_expr
                     ),
@@ -252,47 +252,6 @@ pub fn texts(input: TokenStream) -> TokenStream {
     TokenStream::from(expanded)
 }
 
-pub fn paragraph(input: TokenStream) -> TokenStream {
-    let exprs_parsed = parse_macro_input!(input with Punctuated<Expr, Token![,]>::parse_terminated);
-    let spans = expand_spans(exprs_parsed);
-
-    let expanded = quote! {
-        __ifengine_page_state.push(
-            ifengine::view::StampedObject {
-                id: Some(__ifengine_page_state.auto_key()),
-                object: ifengine::view::Object::Paragraph(
-                    ifengine::view::Line::from_spans(vec![#(#spans),*])
-                ),
-            }
-        );
-    };
-
-    TokenStream::from(expanded)
-}
-
-pub fn paragraphs(input: TokenStream) -> TokenStream {
-    let exprs_parsed = parse_macro_input!(input with Punctuated<Expr, Token![,]>::parse_terminated);
-
-    let push_lines = exprs_parsed.iter().map(|expr| {
-        let line = expand_line_expr(expr);
-        quote! {
-            __ifengine_page_state.push(
-                ifengine::view::StampedObject {
-                    id: Some(__ifengine_page_state.auto_key()),
-                    object: ifengine::view::Object::Paragraph(
-                        #line
-                    ),
-                }
-            );
-        }
-    });
-
-    let expanded = quote! {
-        #(#push_lines)*
-    };
-
-    TokenStream::from(expanded)
-}
 
 pub fn h(input: TokenStream) -> TokenStream {
     let exprs_parsed = parse_macro_input!(input with Punctuated<Expr, Token![,]>::parse_terminated);
@@ -656,8 +615,7 @@ pub fn extend(input: TokenStream) -> TokenStream {
                     #(#evals)*
                     if let Some(__ifengine_last) = __ifengine_page_state.last_mut() {
                         match &mut __ifengine_last.object {
-                            ifengine::view::Object::Text(__line, _)
-                            | ifengine::view::Object::Paragraph(__line) => {
+                            ifengine::view::Object::Paragraph(__line, _) => {
                                 #(#pushes)*
                             }
                             _ => {}

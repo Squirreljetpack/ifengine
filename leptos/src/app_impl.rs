@@ -264,7 +264,7 @@ fn has_modal(view: &ifengine::View) -> bool {
 
 fn stamped_has_modal(stamped: &ifengine::view::StampedObject) -> bool {
     match &stamped.object {
-        ifengine::view::Object::Text(_, rd) | ifengine::view::Object::Quote(_, rd) => {
+        ifengine::view::Object::Paragraph(_, rd) => {
             *rd == "popup" || *rd == "modal"
         }
         ifengine::view::Object::Embed(embedded, rd) => {

@@ -47,7 +47,7 @@ pub struct GameInner {
 /// // Iterate over the view elements directly:
 /// for object in &view {
 ///     match object {
-///         Object::Paragraph(line) => {
+///         Object::Paragraph(line, _) => {
 ///             println!("{}", line.content());
 ///         }
 ///         Object::Choice(key, choices) => {

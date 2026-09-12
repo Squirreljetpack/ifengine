@@ -20,7 +20,7 @@ fn test_element_macros_and_keys() {
         view.inner[0].id.is_some(),
         "paragraph must have an object id"
     );
-    if let Object::Paragraph(line) = &view.inner[0].object {
+    if let Object::Paragraph(line, _) = &view.inner[0].object {
         assert_eq!(line.classes, vec!["my-line"]);
 
         assert_eq!(line.spans.len(), 2);
@@ -58,7 +58,7 @@ fn test_alts_macro_and_keys() {
     let view = game.view().expect("view should succeed");
 
     assert_eq!(view.inner.len(), 2);
-    if let Object::Paragraph(l1) = &view.inner[0].object {
+    if let Object::Paragraph(l1, _) = &view.inner[0].object {
         let s0 = &l1.spans[0];
         assert_eq!(s0.content, "option_a");
         let id0 = s0.id.expect("alts span must have an id");
@@ -68,7 +68,7 @@ fn test_alts_macro_and_keys() {
         panic!("expected Object::Paragraph");
     }
 
-    if let Object::Paragraph(l2) = &view.inner[1].object {
+    if let Object::Paragraph(l2, _) = &view.inner[1].object {
         let s0 = &l2.spans[0];
         assert_eq!(s0.content, "c1");
         let id0 = s0.id.expect("alts span must have an id");
@@ -122,7 +122,7 @@ fn test_choice_and_element_ids() {
         view.inner[1].id.is_some(),
         "paragraph must have an object id"
     );
-    if let Object::Paragraph(line) = &view.inner[1].object {
+    if let Object::Paragraph(line, _) = &view.inner[1].object {
         assert_eq!(line.spans.len(), 1);
     } else {
         panic!("expected Object::Paragraph");
@@ -133,7 +133,7 @@ fn test_choice_and_element_ids() {
         view.inner[2].id.is_some(),
         "paragraph with count/click must have an object id"
     );
-    if let Object::Paragraph(line) = &view.inner[2].object {
+    if let Object::Paragraph(line, _) = &view.inner[2].object {
         assert!(
             line.spans[0].id.is_some(),
             "count span must have an element id"
@@ -170,7 +170,7 @@ fn test_choice_and_element_ids() {
         Some(choice_key),
         "replacement paragraph must share the choice's key"
     );
-    if let Object::Paragraph(line) = &updated_view.inner[4].object {
+    if let Object::Paragraph(line, _) = &updated_view.inner[4].object {
         assert_eq!(line.content(), "Chose A");
     } else {
         panic!("expected replacement Object::Paragraph");
@@ -202,7 +202,7 @@ fn test_replace_macro() {
 
     // Initial render for chest (key 100)
     assert_eq!(view.inner[0].id, Some(100));
-    let action_100 = if let Object::Paragraph(line) = &view.inner[0].object {
+    let action_100 = if let Object::Paragraph(line, _) = &view.inner[0].object {
         assert_eq!(line.spans.len(), 3);
         assert_eq!(line.spans[0].content, "The chest is ");
         assert_eq!(line.spans[1].content, "locked");
@@ -215,7 +215,7 @@ fn test_replace_macro() {
 
     // Initial render for door (key 200)
     assert_eq!(view.inner[1].id, Some(200));
-    let action_200 = if let Object::Paragraph(line) = &view.inner[1].object {
+    let action_200 = if let Object::Paragraph(line, _) = &view.inner[1].object {
         assert_eq!(line.spans.len(), 3);
         assert_eq!(line.spans[0].content, "The door is ");
         assert_eq!(line.spans[1].content, "closed");
@@ -228,7 +228,7 @@ fn test_replace_macro() {
 
     // Initial render for magic (key 300)
     assert_eq!(view.inner[2].id, Some(300));
-    let action_300 = if let Object::Paragraph(line) = &view.inner[2].object {
+    let action_300 = if let Object::Paragraph(line, _) = &view.inner[2].object {
         assert_eq!(line.spans.len(), 3);
         assert_eq!(line.spans[0].content, "Click ");
         assert_eq!(line.spans[1].content, "here");
@@ -241,7 +241,7 @@ fn test_replace_macro() {
 
     // Initial render for multi-link (key 400)
     assert_eq!(view.inner[3].id, Some(400));
-    let action_400_right = if let Object::Paragraph(line) = &view.inner[3].object {
+    let action_400_right = if let Object::Paragraph(line, _) = &view.inner[3].object {
         assert_eq!(line.spans.len(), 5);
         assert_eq!(line.spans[0].content, "Choose ");
         assert_eq!(line.spans[1].content, "left");
@@ -262,7 +262,7 @@ fn test_replace_macro() {
     // Chest is now completely disappeared from the view (length reduced from 4 to 3)
     assert_eq!(view2.inner.len(), 3);
     assert_eq!(view2.inner[0].id, Some(200));
-    assert!(matches!(&view2.inner[0].object, Object::Paragraph(_)));
+    assert!(matches!(&view2.inner[0].object, Object::Paragraph(..)));
 
     // Click door link (key 200)
     game.handle_action(action_200)
@@ -272,7 +272,7 @@ fn test_replace_macro() {
     // Door is now replaced with "The door is open." with the exact same key 200
     assert_eq!(view3.inner.len(), 3);
     assert_eq!(view3.inner[0].id, Some(200));
-    if let Object::Paragraph(line) = &view3.inner[0].object {
+    if let Object::Paragraph(line, _) = &view3.inner[0].object {
         assert_eq!(line.content(), "The door is open.");
     } else {
         panic!("expected Object::Paragraph for door");
@@ -285,7 +285,7 @@ fn test_replace_macro() {
 
     // Magic is now replaced with the block's evaluated result
     assert_eq!(view4.inner[1].id, Some(300));
-    if let Object::Paragraph(line) = &view4.inner[1].object {
+    if let Object::Paragraph(line, _) = &view4.inner[1].object {
         assert_eq!(line.content(), "Magic number is 4");
     } else {
         panic!("expected Object::Paragraph for magic");
@@ -297,7 +297,7 @@ fn test_replace_macro() {
     let view5 = game.view().expect("view should succeed");
 
     assert_eq!(view5.inner[2].id, Some(400));
-    if let Object::Paragraph(line) = &view5.inner[2].object {
+    if let Object::Paragraph(line, _) = &view5.inner[2].object {
         assert_eq!(line.content(), "You moved forward.");
     } else {
         panic!("expected Object::Paragraph for key 400");
@@ -306,7 +306,7 @@ fn test_replace_macro() {
 
 #[ifengine::ifview]
 fn test_interpolation_page(_: &mut ()) {
-    use ifengine::elements::{dparagraph, h, l, link, mparagraph, p, ps, s, text, texts};
+    use ifengine::elements::{dparagraph, h, l, link, mparagraph, p, ps, s};
 
     let name = "Sen";
     let score = 42;
@@ -315,8 +315,8 @@ fn test_interpolation_page(_: &mut ()) {
     h!("Welcome to {name}'s Quest", 1);
     p!("Hello {name}, you have {gold} gold.");
     ps!("Score: {score}", "Player: {name}");
-    text!("Stats: {gold} gold");
-    texts!("Gold: {gold}", "Score: {score}");
+    p!("Stats: {gold} gold");
+    ps!("Gold: {gold}", "Score: {score}");
 
     let line = l!("Line with {name} and score {score}");
     p!(line);
@@ -347,7 +347,7 @@ fn test_variable_interpolation_macros() {
     }
 
     // 1: p! with interpolation
-    if let Object::Paragraph(line) = &view.inner[1].object {
+    if let Object::Paragraph(line, _) = &view.inner[1].object {
         assert!(line.content().contains("Sen"));
         assert!(line.content().contains("100"));
         assert_eq!(line.spans.len(), 5); // "Hello ", "Sen", ", you have ", "100", " gold."
@@ -356,38 +356,38 @@ fn test_variable_interpolation_macros() {
     }
 
     // 2 & 3: ps! with interpolation
-    if let Object::Paragraph(line) = &view.inner[2].object {
+    if let Object::Paragraph(line, _) = &view.inner[2].object {
         assert!(line.content().contains("42"));
     } else {
         panic!("expected Paragraph for index 2");
     }
-    if let Object::Paragraph(line) = &view.inner[3].object {
+    if let Object::Paragraph(line, _) = &view.inner[3].object {
         assert!(line.content().contains("Sen"));
     } else {
         panic!("expected Paragraph for index 3");
     }
 
-    // 4: text! with interpolation
-    if let Object::Text(line, _) = &view.inner[4].object {
+    // 4: p! with interpolation
+    if let Object::Paragraph(line, _) = &view.inner[4].object {
         assert!(line.content().contains("100"));
     } else {
-        panic!("expected Text for index 4");
+        panic!("expected Paragraph for index 4");
     }
 
-    // 5 & 6: texts! with interpolation
-    if let Object::Text(line, _) = &view.inner[5].object {
+    // 5 & 6: ps! with interpolation
+    if let Object::Paragraph(line, _) = &view.inner[5].object {
         assert!(line.content().contains("100"));
     } else {
-        panic!("expected Text for index 5");
+        panic!("expected Paragraph for index 5");
     }
-    if let Object::Text(line, _) = &view.inner[6].object {
+    if let Object::Paragraph(line, _) = &view.inner[6].object {
         assert!(line.content().contains("42"));
     } else {
-        panic!("expected Text for index 6");
+        panic!("expected Paragraph for index 6");
     }
 
     // 7: p!(l!("Line with {name} and score {score}"))
-    if let Object::Paragraph(line) = &view.inner[7].object {
+    if let Object::Paragraph(line, _) = &view.inner[7].object {
         assert!(line.content().contains("Sen"));
         assert!(line.content().contains("42"));
     } else {
@@ -395,7 +395,7 @@ fn test_variable_interpolation_macros() {
     }
 
     // 8: p!(s!("Badge: {name}"), link!("Visit {name}"))
-    if let Object::Paragraph(line) = &view.inner[8].object {
+    if let Object::Paragraph(line, _) = &view.inner[8].object {
         assert!(line.spans[0].content.contains("Sen"));
         assert!(line.spans[1].content.contains("Sen"));
         assert!(matches!(
@@ -407,26 +407,26 @@ fn test_variable_interpolation_macros() {
     }
 
     // 9 & 10: non-copy string borrowing
-    if let Object::Paragraph(line) = &view.inner[9].object {
+    if let Object::Paragraph(line, _) = &view.inner[9].object {
         assert!(line.content().contains("Unmoved"));
     } else {
         panic!("expected Paragraph for index 9");
     }
-    if let Object::Paragraph(line) = &view.inner[10].object {
+    if let Object::Paragraph(line, _) = &view.inner[10].object {
         assert!(line.content().contains("Unmoved"));
     } else {
         panic!("expected Paragraph for index 10");
     }
 
     // 11: mparagraph! with interpolation
-    if let Object::Paragraph(line) = &view.inner[11].object {
+    if let Object::Paragraph(line, _) = &view.inner[11].object {
         assert!(line.content().contains("Sen"));
     } else {
         panic!("expected Paragraph for index 11");
     }
 
     // 12: dparagraph! with interpolation
-    if let Object::Paragraph(line) = &view.inner[12].object {
+    if let Object::Paragraph(line, _) = &view.inner[12].object {
         assert!(line.content().contains("Sen"));
     } else {
         panic!("expected Paragraph for index 12");
@@ -468,7 +468,7 @@ fn test_click_macro_repeatable_and_max_clicks() {
     assert_eq!(game.context.unbounded_count, 0);
     assert_eq!(game.context.bounded_count, 0);
 
-    let Object::Paragraph(line) = &view1.inner[0].object else {
+    let Object::Paragraph(line, _) = &view1.inner[0].object else {
         panic!("expected paragraph");
     };
     let unbounded_action = line.spans[0].action.clone().expect("unbounded action");

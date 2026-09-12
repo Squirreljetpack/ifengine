@@ -2,7 +2,7 @@ use super::State;
 use ifengine::{
     elements::{
         EMBED, alts, back, choice, click, count, dchoice, dynamic_choice, fresh, img, link,
-        mchoice, p, repl, replace, s, text,
+        mchoice, p, repl, replace, s,
     },
     ifview,
 };
@@ -32,10 +32,10 @@ pub fn rainy_day(s: &mut State) {
         )
     );
 
-    text!(
+    p!(
         "Well, never mind all that. What brings you out here in the middle of nowhere? We don't exactly get a lot of tourists around these parts."
         ::
-        "them"
+        ":Solis"
     );
 
     if replace!(
@@ -63,15 +63,16 @@ pub fn rainy_day(s: &mut State) {
     }
 
     let weathers = ["sunny", "cloudy", "rainy"];
-    text!(
+    p!(
         link!("tomorrow", sunny_day),
         s!(" will be: "),
         alts!(weathers, Shuffle, |idx| {
             s.weather = weathers[idx].to_string();
         })
+        :: "m-0"
     );
 
-    text!(alts!(["Click once", "Done"], Stop));
+    p!(alts!(["Click once", "Done"], Stop) :: "m-0");
 
     choice! {
         (64),
@@ -144,11 +145,12 @@ pub fn rainy_day(s: &mut State) {
 pub fn sunny_day(state: &mut State) {
     p!(state.weather.clone());
 
-    text!(
+    p!(
         "go back to ",
         link!("yesterday", rainy_day),
         "... or ",
         count!(|n: u64| s!("click me: {n}"))
+        :: "m-0"
     );
 }
 

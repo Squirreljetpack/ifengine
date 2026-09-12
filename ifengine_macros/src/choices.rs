@@ -141,7 +141,7 @@ pub fn choice(input: TokenStream) -> TokenStream {
                     __ifengine_page_state.push(
                         ifengine::view::StampedObject {
                             id: Some(__ifengine_key),
-                            object: ifengine::view::Object::Paragraph(line),
+                            object: ifengine::view::Object::Paragraph(line, ""),
                         }
                     );
                 }
@@ -205,7 +205,7 @@ pub fn mchoice(input: TokenStream) -> TokenStream {
                             __ifengine_page_state.push(
                                 ifengine::view::StampedObject {
                                     id: None,
-                                    object: ifengine::view::Object::Paragraph(__arm_line),
+                                    object: ifengine::view::Object::Paragraph(__arm_line, ""),
                                 }
                             );
                         }
@@ -380,7 +380,8 @@ pub fn dparagraph(input: TokenStream) -> TokenStream {
                         ifengine::view::Line::from_interleaved_actions::<false>(
                             __ifengine_key,
                             __ifengine_tmp_strings
-                        )
+                        ),
+                        ""
                     ),
                 }
             );
@@ -411,7 +412,8 @@ pub fn mparagraph(input: TokenStream) -> TokenStream {
                     ifengine::view::Line::from_interleaved_actions::<true>(
                         __ifengine_key,
                         strings
-                    )
+                    ),
+                    ""
                 ),
             }
         );
@@ -503,7 +505,7 @@ pub fn replace(input: TokenStream) -> TokenStream {
                 __ifengine_page_state.push(
                     ifengine::view::StampedObject {
                         id: Some(__ifengine_stamp_key),
-                        object: ifengine::view::Object::Paragraph(__ifengine_replacement),
+                        object: ifengine::view::Object::Paragraph(__ifengine_replacement, ""),
                     }
                 );
             }
@@ -522,7 +524,8 @@ pub fn replace(input: TokenStream) -> TokenStream {
                         ifengine::view::Line::from_interleaved_actions::<true>(
                             __ifengine_internal_key,
                             __ifengine_strings,
-                        )
+                        ),
+                        ""
                     ),
                 }
             );

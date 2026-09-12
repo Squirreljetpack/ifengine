@@ -47,10 +47,8 @@ impl View {
             let obj = &stamped.object;
 
             match obj {
-                Object::Text(line, _)
-                | Object::Paragraph(line)
-                | Object::Note(line, _)
-                | Object::Quote(line, _) => {
+                Object::Paragraph(line, _)
+                | Object::Note(line, _) => {
                     for span in &line.spans {
                         if span.action.is_some() {
                             bucket.push(Interactable::Span(obj, span));
