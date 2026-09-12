@@ -153,11 +153,10 @@ impl<'a> PageState<'a> {
             **self.page_state.borrow_mut() = map;
         }
 
-        if let Response::View(mut view) = response {
+        if let Response::View(view) = response {
             if view.inner.is_empty() {
                 return Response::View(view);
             }
-            view.pageid = self.view.pageid.clone();
             let key = self.auto_key();
             self.push(StampedObject::new(Object::Embed(view.clone(), render_data)).with_id(key));
             return Response::View(view);

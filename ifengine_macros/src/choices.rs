@@ -378,7 +378,7 @@ pub fn dparagraph(input: TokenStream) -> TokenStream {
                     id: Some(__ifengine_key),
                     object: ifengine::view::Object::Paragraph(
                         ifengine::view::Line::from_interleaved_actions::<false>(
-                            (__ifengine_page_state.id(), __ifengine_key),
+                            __ifengine_key,
                             __ifengine_tmp_strings
                         )
                     ),
@@ -409,7 +409,7 @@ pub fn mparagraph(input: TokenStream) -> TokenStream {
                 id: Some(__ifengine_key),
                 object: ifengine::view::Object::Paragraph(
                     ifengine::view::Line::from_interleaved_actions::<true>(
-                        (__ifengine_page_state.id(), __ifengine_key),
+                        __ifengine_key,
                         strings
                     )
                 ),
@@ -510,7 +510,7 @@ pub fn replace(input: TokenStream) -> TokenStream {
                     id: Some(__ifengine_key),
                     object: ifengine::view::Object::Paragraph(
                         ifengine::view::Line::from_interleaved_actions::<true>(
-                            (__ifengine_page_state.id(), __ifengine_key),
+                            __ifengine_key,
                             __ifengine_strings,
                         )
                     ),

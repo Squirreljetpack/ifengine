@@ -35,8 +35,8 @@ fn test_embed_view_and_context_mutation() {
     assert!(matches!(view.inner[0].object, Object::Paragraph(_)));
     if let Object::Embed(sub_view, _) = &view.inner[1].object {
         assert_eq!(sub_view.inner.len(), 1);
-        assert!(matches!(sub_view.inner[0].object, Object::Paragraph(_)));
-        assert_eq!(sub_view.pageid, view.pageid);
+        assert!(sub_view.pageid.0.ends_with("subpage_view"));
+        assert_ne!(sub_view.pageid, view.pageid);
     } else {
         panic!("expected Object::Embed at index 1");
     }

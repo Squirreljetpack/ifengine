@@ -23,41 +23,40 @@ impl GameState {
     /// Increment the value at the given key by 1.
     /// Initializes the chapter or entry to 0 if it does not exist.
     /// The click action uses [`was_zero`](crate::core::PageState::was_zero) to run its closure exactly once.
-    pub fn inc(&mut self, key: &InternalKey) {
-        let (chapter_id, entry_key) = key;
+    pub fn inc(&mut self, page_id: &PageId, key: PageKey) {
         let chapter = self
             .inner
-            .entry(chapter_id.clone())
+            .entry(page_id.clone())
             .or_insert_with(|| PageMap {
                 inner: HashMap::new(),
             });
         chapter
             .inner
-            .entry(entry_key.clone())
+            .entry(key)
             .and_modify(|v| *v += 1) // increment if already exists
             .or_insert(1);
     }
 
     /// Insert a specific value at the given key.
     /// Creates the chapter if it does not exist.
-    pub fn insert(&mut self, key: InternalKey, value: u64) {
-        let (chapter_id, entry_key) = key;
-        let chapter = self.inner.entry(chapter_id).or_insert_with(|| PageMap {
-            inner: HashMap::new(),
-        });
-        chapter.inner.insert(entry_key, value);
+    pub fn insert(&mut self, page_id: &PageId, key: PageKey, value: u64) {
+        let chapter = self
+            .inner
+            .entry(page_id.clone())
+            .or_insert_with(|| PageMap {
+                inner: HashMap::new(),
+            });
+        chapter.inner.insert(key, value);
     }
 
     /// Remove a specific value at the given key.
-    pub fn remove(&mut self, key: &InternalKey) {
-        let (chapter_id, entry_key) = key;
-
-        if let Some(chapter) = self.inner.get_mut(chapter_id) {
-            chapter.inner.remove(&entry_key);
+    pub fn remove(&mut self, page_id: &PageId, key: PageKey) {
+        if let Some(chapter) = self.inner.get_mut(page_id) {
+            chapter.inner.remove(&key);
 
             // Optional: remove chapter if it is now empty
             if chapter.inner.is_empty() {
-                self.inner.remove(chapter_id);
+                self.inner.remove(page_id);
             }
         }
     }
@@ -65,25 +64,18 @@ impl GameState {
     /// Treating the contained value as a bitmask, set the specified position to true.
     /// Creates the chapter or entry if it does not exist.
     /// pos is u8 but max value should be 64
-    pub fn set_bit(&mut self, key: InternalKey, pos: u8) {
-        let (chapter_id, entry_key) = key;
+    pub fn set_bit(&mut self, page_id: &PageId, key: PageKey, pos: u8) {
+        let chapter = self
+            .inner
+            .entry(page_id.clone())
+            .or_insert_with(|| PageMap {
+                inner: HashMap::new(),
+            });
 
-        let chapter = self.inner.entry(chapter_id).or_insert_with(|| PageMap {
-            inner: HashMap::new(),
-        });
-
-        let current = chapter.inner.get(&entry_key).copied().unwrap_or(0);
+        let current = chapter.inner.get(&key).copied().unwrap_or(0);
         let updated = current | (1 << pos);
 
-        chapter.inner.insert(entry_key, updated);
-    }
-
-    /// Get a reference to the chapter state for a given chapter ID.
-    pub fn get_page(&mut self, pageid: impl Into<PageId>) -> &PageMap {
-        if let Some(ref map) = self.shared {
-            return map;
-        }
-        self.inner.entry(pageid.into()).or_default()
+        chapter.inner.insert(key, updated);
     }
 
     /// Get a mutable reference to the chapter state for a given chapter ID.
@@ -122,7 +114,6 @@ pub struct PageMap {
     inner: HashMap<PageKey, u64>,
 }
 
-pub type InternalKey = (PageId, PageKey);
 /// The key used by [`PageState`](crate::core::PageState) to track state
 pub type PageKey = u64;
 

@@ -20,7 +20,7 @@ pub struct GameInner {
     pub state: GameState,
     pub(crate) pages: PageStack,
     fresh: bool,
-    last_id: PageId,
+    pub(crate) last_id: PageId,
     pub(crate) iterations: usize, // todo
 }
 
@@ -123,7 +123,7 @@ impl<C: GameContext> Game<C> {
         }
     }
 
-    /// Resolves the page identifier, returning the parent page ID if running in a transient embedded context.
+    /// Resolves the page identifier.
     pub fn page_id(&self, fallback: impl Into<PageId>) -> PageId {
         self.inner.page_id(fallback)
     }
@@ -212,34 +212,30 @@ impl GameInner {
         }
     }
 
-    /// Resolves the page identifier, returning the parent page ID if running in a transient embedded context.
+    /// Resolves the page identifier.
     pub fn page_id(&self, fallback: impl Into<PageId>) -> PageId {
-        if self.state.is_transient() && !self.last_id.is_empty() {
-            self.last_id.clone()
-        } else {
-            fallback.into()
-        }
+        fallback.into()
     }
 
     // --------------- action handling -----------------------
     pub fn handle_choice(&mut self, key: PageKey, index: u8) {
-        self.state.set_bit((self.last_id.clone(), key), index)
+        self.state.set_bit(&self.last_id, key, index)
     }
 
     pub fn handle_action(&mut self, action: Action) -> Result<(), GameError> {
         match action {
             Action::None => {}
             Action::SetBit(k, v) => {
-                self.state.set_bit(k, v);
+                self.state.set_bit(&self.last_id, k, v);
             }
             Action::Set(k, v) => {
-                self.state.insert(k, v);
+                self.state.insert(&self.last_id, k, v);
             }
             Action::Inc(k) => {
-                self.state.inc(&k);
+                self.state.inc(&self.last_id, k);
             }
             Action::Reset(k) => {
-                self.state.remove(&k);
+                self.state.remove(&self.last_id, k);
             }
             Action::Next(mut page) => {
                 page.id = "".into(); // Only rendered pages go into history + this is not the full name

@@ -6,6 +6,7 @@ use crate::{
     Action, Game, GameError, SimEnd, View,
     core::{GameContext, GameTags, PageId, PageStack, Response},
     utils::_dbg,
+    view::Object,
 };
 
 use super::Interactable;
@@ -63,7 +64,7 @@ impl<C: GameContext> Game<C> {
         ret
     }
 
-    fn interact_sim(&mut self, e: Interactable<'_>, _pageid: &PageId) -> Result<(), SimEnd> {
+    fn interact_sim(&mut self, e: Interactable<'_>) -> Result<(), SimEnd> {
         match e {
             Interactable::Choice(key, _, index) => {
                 self.handle_choice(*key, index);
@@ -119,6 +120,7 @@ impl<C: GameContext> Game<C> {
                 match r {
                     Response::View(view) => {
                         page.id = view.pageid.clone(); // id the page by the fully resolved name
+                        s.last_id = page.id.clone();
                         _dbg!(&page.id);
                         break s.pages.push(page).map(|_| view).map_err(|e| e.into()); // only rendered pages get added to history
                     }
@@ -147,27 +149,15 @@ impl<C: GameContext> Game<C> {
 
             match v_res {
                 Ok(mut v) => {
-                    let curr_id = v.pageid.clone();
-                    records.insert_view(&s, &mut v);
                     let mut to_queue = vec![];
 
-                    for e in v.interactables_sim() {
-                        _dbg!(&e.content());
-                        let mut next = s.next(curr_id.clone());
-                        match next.interact_sim(e, &curr_id) {
-                            Ok(()) => {
-                                to_queue.push(next);
-                                _dbg!(to_queue.len());
-                            }
-                            Err(e) => {
-                                if let SimEnd::Tunnel(fork_name) = &e {
-                                    _dbg!("tun");
-                                    tunnels_queue.push((fork_name.clone(), next.game));
-                                }
-                                records.push_sim_end(&curr_id, e.into());
-                            }
-                        }
-                    }
+                    Self::simulate_view(
+                        &mut v,
+                        &s,
+                        records,
+                        tunnels_queue,
+                        &mut to_queue,
+                    );
 
                     queue.extend(to_queue.into_iter().rev());
                 }
@@ -177,6 +167,49 @@ impl<C: GameContext> Game<C> {
                     }
                 }
             };
+        }
+    }
+
+    fn simulate_view(
+        v: &mut View,
+        s: &SimulationState<C>,
+        records: &mut PageRecords,
+        tunnels_queue: &mut Vec<(String, Self)>,
+        to_queue: &mut Vec<SimulationState<C>>,
+    ) {
+        let pageid = v.pageid.clone();
+        records.insert_view(s, &pageid, v);
+
+        for e in v.interactables_sim() {
+            _dbg!(&e.content());
+            let mut next = s.next(pageid.clone());
+            match next.interact_sim(e) {
+                Ok(()) => {
+                    to_queue.push(next);
+                    _dbg!(to_queue.len());
+                }
+                Err(e) => {
+                    if let SimEnd::Tunnel(fork_name) = &e {
+                        _dbg!("tun");
+                        tunnels_queue.push((fork_name.clone(), next.game));
+                    }
+                    records.push_sim_end(&pageid, e.into());
+                }
+            }
+        }
+
+        for stamped in &mut v.inner {
+            if let Object::Embed(sub_view, _) = &mut stamped.object {
+                let mut sub_s = s.clone();
+                sub_s.last = Some(pageid.clone());
+                Self::simulate_view(
+                    sub_view,
+                    &sub_s,
+                    records,
+                    tunnels_queue,
+                    to_queue,
+                );
+            }
         }
     }
 }
@@ -272,11 +305,10 @@ impl PageRecord {
 
 impl PageRecords {
     // Drains the seen tags into the record, and adds an incoming edge
-    pub fn insert_view<C>(&mut self, s: &SimulationState<C>, v: &mut View) {
-        let pageid = v.pageid.clone();
+    pub fn insert_view<C>(&mut self, s: &SimulationState<C>, pageid: &PageId, v: &mut View) {
         let prev = s.last.clone();
 
-        match self.entry(&pageid) {
+        match self.entry(pageid) {
             Entry::Occupied(mut occ) => {
                 let mut record = occ.get_mut();
 
@@ -288,7 +320,7 @@ impl PageRecords {
             }
 
             Entry::Vacant(vac) => {
-                let mut record = PageRecord::new(pageid);
+                let mut record = PageRecord::new(pageid.clone());
 
                 record.tags.extend(v.tags.drain(0..v.tags.len()));
                 if let Some(prev) = prev {

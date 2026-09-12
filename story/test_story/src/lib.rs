@@ -47,7 +47,8 @@ mod tests {
         let Object::Embed(sub_view, _) = &embedded_obj.unwrap().object else {
             unreachable!()
         };
-        assert_eq!(sub_view.pageid, view.pageid);
+        assert!(sub_view.pageid.0.ends_with("weather_station"));
+        assert_ne!(sub_view.pageid, view.pageid);
 
         // Verify choice and link inside embedded sub_view
         let has_choice = sub_view
@@ -100,8 +101,7 @@ mod tests {
         assert!(return_view.pageid.0.ends_with("rainy_day"));
 
         // Now test choice collapsing:
-        // Because embedded view.pageid is overwritten with the parent pageid,
-        // frontends can dispatch choices directly using the view's own pageid:
+        // Frontends can dispatch choices directly using choice_key:
         let Object::Embed(sub_view_after_back, _) = &return_view
             .inner
             .iter()

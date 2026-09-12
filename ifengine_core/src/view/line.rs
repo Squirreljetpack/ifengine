@@ -5,7 +5,7 @@ use std::ops::{Add, AddAssign};
 use crate::{
     core::{
         Action,
-        game_state::{InternalKey, PageKey},
+        game_state::PageKey,
     },
     utils::prose,
 };
@@ -241,7 +241,7 @@ impl Line {
     }
 
     pub fn from_interleaved_actions<const MASK: bool>(
-        key: InternalKey,
+        key: PageKey,
         parts: Vec<String>,
     ) -> Self {
         let mut spans = Vec::new();
@@ -252,8 +252,7 @@ impl Line {
                 if MASK {
                     spans.push(
                         Span::from(part)
-                            .as_link()
-                            .with_action(Action::SetBit(key.clone(), i as u8 / 2)),
+                            .with_action(Action::SetBit(key, i as u8 / 2)),
                     );
                 } else {
                     let h: u64;
@@ -269,8 +268,7 @@ impl Line {
 
                     spans.push(
                         Span::from(part)
-                            .as_link()
-                            .with_action(Action::Set(key.clone(), h)),
+                            .with_action(Action::Set(key, h)),
                     );
                 }
             } else if !part.is_empty() {
@@ -674,9 +672,11 @@ mod tests {
     #[test]
     fn test_from_interleaved_actions_skips_empty_spans() {
         let parts = vec!["".to_string(), "link".to_string(), "".to_string()];
-        let line = Line::from_interleaved_actions::<true>(("p".into(), 1), parts);
+        let line = Line::from_interleaved_actions::<true>(1, parts);
         assert_eq!(line.spans.len(), 1);
         assert_eq!(line.spans[0].content, "link");
+        assert_eq!(line.spans[0].variant, SpanVariant::None);
+        assert!(line.spans[0].action.is_some());
     }
 
     #[test]

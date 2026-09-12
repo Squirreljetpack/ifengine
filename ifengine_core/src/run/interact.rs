@@ -2,7 +2,7 @@ use std::borrow::Cow;
 
 use crate::{
     Action, Game, GameError, View,
-    core::{GameContext, PageId, game_state::PageKey},
+    core::{GameContext, game_state::PageKey},
     view::{Line, Object, Span},
 };
 
@@ -92,14 +92,11 @@ impl View {
                     }
                 }
 
-                Object::Embed(sub_view, _render_data) => {
-                    for nested_bucket in sub_view.interactables() {
-                        bucket.extend(nested_bucket);
-                    }
-                }
-
-                Object::Image(_) | Object::Break | Object::Empty(_) => {
-                    // no interactables
+                Object::Embed(..)
+                | Object::Image(_)
+                | Object::Break
+                | Object::Empty(_) => {
+                    // no interactables directly on this view
                 }
             }
 
@@ -130,8 +127,8 @@ impl View {
 }
 
 impl<C: GameContext> Game<C> {
-    /// Applies an interaction event on the game state for the given page ID.
-    pub fn interact(&mut self, e: Interactable<'_>, _pageid: &PageId) -> Result<(), GameError> {
+    /// Applies an interaction event on the game state.
+    pub fn interact(&mut self, e: Interactable<'_>) -> Result<(), GameError> {
         match e {
             Interactable::Choice(key, _, index) => {
                 self.handle_choice(*key, index);
@@ -150,7 +147,7 @@ impl<C: GameContext> Game<C> {
             .into_iter()
             .map(|e| {
                 let mut g = self.clone();
-                g.interact(e, &view.pageid).map(|_| g)
+                g.interact(e).map(|_| g)
             })
             .collect()
     }

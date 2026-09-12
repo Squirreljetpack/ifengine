@@ -268,7 +268,7 @@ pub fn alts(input: TokenStream) -> TokenStream {
 
                 let span = ifengine::view::Span::from(alts[__idx].clone()).with_id(__ifengine_key);
                 if alts.len() > 1 && __idx < alts.len() - 1 {
-                    span.with_action(ifengine::Action::Inc((__ifengine_page_state.id(), __ifengine_key)))
+                    span.with_action(ifengine::Action::Inc(__ifengine_key))
                 } else {
                     span
                 }
@@ -301,7 +301,7 @@ pub fn alts(input: TokenStream) -> TokenStream {
                 let span = ifengine::view::Span::from(alts[__idx].clone()).with_id(__ifengine_key);
                 if alts.len() > 1 {
                     span.with_action(ifengine::Action::Set(
-                        (__ifengine_page_state.id(), __ifengine_key),
+                        __ifengine_key,
                         ((__idx as u64) << 1) + 1
                     ))
                     .no_sim()
@@ -326,7 +326,7 @@ pub fn alts(input: TokenStream) -> TokenStream {
 
                 let span = ifengine::view::Span::from(alts[__idx].clone()).with_id(__ifengine_key);
                 if alts.len() > 1 {
-                    span.with_action(ifengine::Action::Inc((__ifengine_page_state.id(), __ifengine_key)))
+                    span.with_action(ifengine::Action::Inc(__ifengine_key))
                         .no_sim()
                 } else {
                     span
@@ -362,7 +362,7 @@ pub fn count(input: TokenStream) -> TokenStream {
             (#closure)(__ifengine_page_state.get(__ifengine_key).unwrap_or_default())
         )
         .with_id(__ifengine_key)
-        .with_action(ifengine::Action::Inc((__ifengine_page_state.id(), __ifengine_key)))
+        .with_action(ifengine::Action::Inc(__ifengine_key))
         .no_sim()
     }};
 
@@ -441,7 +441,7 @@ pub fn click(input: TokenStream) -> TokenStream {
             #expr_tokens
         )
         .with_id(__ifengine_key)
-        .with_action(ifengine::Action::SetBit((__ifengine_page_state.id(), __ifengine_key), 63));
+        .with_action(ifengine::Action::SetBit(__ifengine_key, 63));
 
         // sim the handler
         if __ifengine_page_state.get(__ifengine_key).is_some_and(|v| {

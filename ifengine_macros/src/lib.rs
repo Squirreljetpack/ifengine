@@ -503,8 +503,6 @@ pub fn dchoice(input: TokenStream) -> TokenStream {
 
 /// Interactive paragraph with clickable links delimited by `[[target]]`.
 ///
-/// Bracketed targets are formatted as clickable links via [`.as_link()`](ifengine::view::Span::as_link).
-///
 /// Returns `Some(target)` containing the text of whichever link was clicked (once per click),
 /// or `None` if no link has been clicked yet.
 ///
@@ -531,7 +529,6 @@ pub fn dparagraph(input: TokenStream) -> TokenStream {
 /// Create an interactive paragraph parsing wiki-style links with multi-selection tracking.
 ///
 /// Interactive text sections are automatically added from text delimited by `[[target]]` (Also see: [`dparagraph!`]).
-/// Bracketed targets are formatted as clickable links via [`.as_link()`](ifengine::view::Span::as_link).
 /// Multiple links can be clicked across interactions; their clicked states are tracked concurrently via a bitmask in page state.
 ///
 /// On render, this macro returns a `Vec<bool>` where each boolean reflects whether the corresponding
@@ -556,7 +553,7 @@ pub fn mparagraph(input: TokenStream) -> TokenStream {
 
 /// Interactive paragraph that disappears or is replaced with new content when clicked.
 ///
-/// Words enclosed in `[[brackets]]` become clickable links via [`.as_link()`](ifengine::view::Span::as_link). If no brackets are present,
+/// Words enclosed in `[[brackets]]` become clickable targets. If no brackets are present,
 /// the entire paragraph is clickable.
 ///
 /// Clicking a link displays the replacement text or expression in place of the original paragraph.

@@ -59,7 +59,7 @@ sequenceDiagram
     participant PageState as PageState
 
     Player->>Frontend: Click interactive Span or Choice
-    Frontend->>Game: game.interact(Interactable, page_id)
+    Frontend->>Game: game.interact(Interactable)
     Game->>Game: Apply Action / Set state in GameState
     Frontend->>Game: game.view()
     loop Resolve until Response::View
@@ -135,10 +135,10 @@ classDiagram
     class Action {
         <<enumeration>>
         None
-        SetBit(InternalKey, u8)
-        Set(InternalKey, u64)
-        Inc(InternalKey)
-        Reset(InternalKey)
+        SetBit(PageKey, u8)
+        Set(PageKey, u64)
+        Inc(PageKey)
+        Reset(PageKey)
         Next(PageHandle)
         Back(usize)
         Tunnel(PageHandle)
@@ -273,5 +273,5 @@ The engine is completely decoupled from any specific windowing or UI system. A f
 1. Initialize `Game<C>` with the entry page (`Game!(story::start_page)`).
 2. Call `game.view()` to receive a `View`.
 3. Render `Object` variants (displaying text, formatting choices, applying styles).
-4. On user click, dispatch the corresponding `Interactable` via `game.interact(interactable, &view.pageid)`.
+4. On user click, dispatch the corresponding `Interactable` via `game.interact(interactable)`.
 5. Repeat from step 2.

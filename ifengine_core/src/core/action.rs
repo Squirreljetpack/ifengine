@@ -1,4 +1,4 @@
-use crate::core::{PageHandle, game_state::InternalKey};
+use crate::core::{PageHandle, game_state::PageKey};
 
 /// Adds an effect to a [`Span`](crate::view::Span)
 /// Spans with an action occlude their containing object (i.e. [`Choice`](crate::view::Object::Choice))
@@ -6,10 +6,10 @@ use crate::core::{PageHandle, game_state::InternalKey};
 pub enum Action {
     #[default]
     None,
-    SetBit(InternalKey, u8),
-    Set(InternalKey, u64),
-    Inc(InternalKey),
-    Reset(InternalKey),
+    SetBit(PageKey, u8),
+    Set(PageKey, u64),
+    Inc(PageKey),
+    Reset(PageKey),
     /// The name of the handle here is just for debug, and NOT guaranteed to be the actual id of the page, see [`PageState`](crate::core::PageState)
     Next(PageHandle), // Arc for easy cloning
     Back(usize),
