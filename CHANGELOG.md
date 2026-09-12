@@ -1,3 +1,20 @@
+## [0.1.2] - 2026-09-12
+
+### 🚀 Features
+
+- Extend!
+- Trigger both action and choice when choice contains actions. Resolve mchoice RHS to lines.
+- Remove InternalKey
+- Support reentrant tunnels during simulation + other fixes
+
+### 🐛 Bug Fixes
+
+- Misc transitions
+
+### 📚 Documentation
+
+- Update
+
 ## [0.1.1] - 2026-09-09
 
 ### 🚀 Features
