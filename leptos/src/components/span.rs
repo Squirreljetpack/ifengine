@@ -72,10 +72,15 @@ pub fn SpanView(
     };
 
     if let Some(action) = span.action {
+        let base_class = if matches!(span.variant, SpanVariant::Link) {
+            "passage-link"
+        } else {
+            "passage-action"
+        };
         view! {
             <a
                 href="javascript:void(0)"
-                class=move || format!("passage-link {}", class_str())
+                class=move || format!("{base_class} {}", class_str())
                 style=span_style
                 on:click=move |e: leptos::ev::MouseEvent| {
                     e.prevent_default();

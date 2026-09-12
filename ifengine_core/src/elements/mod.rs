@@ -75,7 +75,7 @@ pub enum ChoiceVariant {
     /// Hide after being clicked
     Once(Line),
     /// Not shown
-    Hidden,
+    Hidden(Line),
     /// Always shown
     Always(Line),
 }
@@ -93,7 +93,7 @@ impl<T: Into<Line>> From<Option<T>> for ChoiceVariant {
         if let Some(value) = value {
             ChoiceVariant::Always(value.into())
         } else {
-            ChoiceVariant::Hidden
+            ChoiceVariant::Hidden(Line::default())
         }
     }
 }
@@ -101,7 +101,7 @@ impl<T: Into<Line>> From<Option<T>> for ChoiceVariant {
 impl ChoiceVariant {
     pub fn as_line(self, seen: bool) -> Option<Line> {
         match self {
-            ChoiceVariant::Hidden => None,
+            ChoiceVariant::Hidden(_) => None,
             ChoiceVariant::Once(l) => {
                 if seen {
                     None

@@ -188,7 +188,8 @@ h6.passage-heading { font-size: 0.95rem; text-transform: uppercase; color: var(-
    Links & Interactivity
    -------------------------------------------------------------------------- */
 
-.passage-link {
+.passage-link,
+.passage-action {
     color: var(--color-link);
     text-decoration: underline;
     text-underline-offset: 3px;
@@ -202,12 +203,15 @@ h6.passage-heading { font-size: 0.95rem; text-transform: uppercase; color: var(-
 }
 
 .passage-link:hover,
-.passage-link:focus {
+.passage-link:focus,
+.passage-action:hover,
+.passage-action:focus {
     color: var(--color-link-hover);
     text-decoration-color: var(--color-link-hover);
 }
 
-.passage-link:active {
+.passage-link:active,
+.passage-action:active {
     color: var(--color-link-active);
 }
 

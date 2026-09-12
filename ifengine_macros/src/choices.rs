@@ -363,7 +363,7 @@ pub fn dparagraph(input: TokenStream) -> TokenStream {
 
         #(
             let mut __ifengine_tmp_strings =
-            ifengine::utils::split_braced(&ifengine::utils::trim_lines(&#expr_tokens));
+            ifengine::utils::split_braced(&#expr_tokens);
 
             if let Some(__ifengine_tmp_val) = __ifengine_page_state
             .remove(__ifengine_key)
@@ -401,7 +401,7 @@ pub fn mparagraph(input: TokenStream) -> TokenStream {
     let expanded = quote! {{
         let __ifengine_key = #key;
         let strings =
-        ifengine::utils::split_braced(&ifengine::utils::trim_lines(&#expr_tokens));
+        ifengine::utils::split_braced(&#expr_tokens);
         let count = strings.len() / 2;
 
         __ifengine_page_state.push(
@@ -468,11 +468,11 @@ pub fn replace(input: TokenStream) -> TokenStream {
                     ) -> R {
                         f(l)
                     }
-                    let __parts = ifengine::utils::split_braced(&ifengine::utils::trim_lines(&#expr_tokens));
+                    let __parts = ifengine::utils::split_braced(&#expr_tokens);
                     let mut __spans = Vec::new();
                     for __p in __parts {
                         if !__p.is_empty() {
-                            __spans.push(ifengine::view::Span::from_lingual(__p));
+                            __spans.push(ifengine::view::Span::from(__p));
                         }
                     }
                     let __orig_line: ifengine::view::Line = ifengine::view::Line::from_spans(__spans).clean();
@@ -500,7 +500,7 @@ pub fn replace(input: TokenStream) -> TokenStream {
             true
         } else {
             let mut __ifengine_strings =
-                ifengine::utils::split_braced(&ifengine::utils::trim_lines(&#expr_tokens));
+                ifengine::utils::split_braced(&#expr_tokens);
             if __ifengine_strings.len() == 1 {
                 __ifengine_strings.insert(0, String::new());
             }

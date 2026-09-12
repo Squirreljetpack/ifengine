@@ -7,7 +7,7 @@ use crate::{
         Action,
         game_state::{InternalKey, PageKey},
     },
-    utils::linguate,
+    utils::prose,
 };
 
 /// Abstract span. Similar in principle to an HTML element/egui TextFormat.
@@ -29,7 +29,7 @@ pub struct Span {
 }
 
 /// Applies a style preset.
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub enum SpanVariant {
     #[default]
     None,
@@ -42,11 +42,15 @@ pub enum SpanVariant {
 }
 
 impl Span {
-    pub fn new(s: String) -> Self {
+    pub fn new(s: impl Into<String>) -> Self {
+        Self::from(s.into())
+    }
+
+    pub fn raw(s: impl Into<String>) -> Self {
         Self {
             id: None,
             action: None,
-            content: s,
+            content: s.into(),
             variant: SpanVariant::None,
             modifiers: Modifier::empty(),
             style: HashMap::new(),
@@ -87,15 +91,12 @@ impl Span {
         self
     }
 
-    pub fn from_lingual(v: impl Into<Self>) -> Self {
-        v.into().lingual()
-    }
-
     pub fn as_variant(mut self, variant: SpanVariant) -> Self {
         self.variant = variant;
         self
     }
 
+    /// Marks this span as a link ([`SpanVariant::Link`]), applying link styling and semantics.
     pub fn as_link(mut self) -> Self {
         self.variant = SpanVariant::Link;
         self
@@ -103,11 +104,6 @@ impl Span {
 
     pub fn with_action(mut self, action: impl Into<Action>) -> Self {
         self.action = Some(action.into());
-        self
-    }
-
-    pub fn lingual(mut self) -> Self {
-        self.content = linguate(&self.content);
         self
     }
 
@@ -139,8 +135,7 @@ impl Span {
 
     /// Computes a non-zero 64-bit hash of the span's text content.
     ///
-    /// Always returns a non-zero value (substituting `1` if the hash collides with `0`)
-    /// to distinguish actual content from sentinel zero values (such as choices).
+    /// Always returns a non-zero value.
     pub fn content_hash(&self) -> u64 {
         use std::hash::{DefaultHasher, Hash, Hasher};
         let mut hasher = DefaultHasher::new();
@@ -150,17 +145,11 @@ impl Span {
             h => h,
         }
     }
-
-    /// Computes a non-zero 64-bit hash of the span's text content.
-    pub fn hash(&self) -> u64 {
-        self.content_hash()
-    }
 }
 
 /// A collection of [`Span`]'s, rendered in a wrapped line, joined without spacing.
 #[derive(Debug, Clone, Default)]
 pub struct Line {
-    pub id: Option<PageKey>,
     pub spans: Vec<Span>,
     pub classes: Vec<String>,
 }
@@ -168,17 +157,13 @@ pub struct Line {
 impl Line {
     pub fn new() -> Self {
         Self {
-            id: None,
             spans: Vec::new(),
             classes: Vec::new(),
         }
     }
 
-    pub fn with_id(mut self, id: PageKey) -> Self {
-        if self.id.is_none() {
-            self.id = Some(id);
-        }
-        self
+    pub fn raw(s: impl Into<String>) -> Self {
+        Self::from_spans(vec![Span::raw(s)])
     }
 
     pub fn cls(mut self, class: impl Into<String>) -> Self {
@@ -212,15 +197,28 @@ impl Line {
         s
     }
 
-    /// Computes a non-zero 64-bit hash of the combined spans' text content.
+    /// Computes a non-zero 64-bit hash of the line's content.
     ///
-    /// Always returns a non-zero value (substituting `1` if the hash collides with `0`)
-    /// to distinguish actual content from sentinel zero values (such as choices).
+    /// For spans with an explicit [`id`](Span::id) (e.g. `count!`, `alts!`), only the span's ID
+    /// is hashed rather than its dynamic content. This allows child spans to manage their own
+    /// transitions independently without causing the enclosing line or paragraph to fade.
+    /// Spans without an ID have their text content hashed directly.
+    ///
+    /// Always returns a non-zero value.
     pub fn content_hash(&self) -> u64 {
         use std::hash::{DefaultHasher, Hash, Hasher};
         let mut hasher = DefaultHasher::new();
         for span in &self.spans {
-            span.content.hash(&mut hasher);
+            match span.id {
+                Some(id) => {
+                    true.hash(&mut hasher);
+                    id.hash(&mut hasher);
+                }
+                None => {
+                    false.hash(&mut hasher);
+                    span.content.hash(&mut hasher);
+                }
+            }
         }
         match hasher.finish() {
             0 => 1,
@@ -228,22 +226,8 @@ impl Line {
         }
     }
 
-    /// Computes a non-zero 64-bit hash of the line's text content.
-    pub fn hash(&self) -> u64 {
-        self.content_hash()
-    }
-
-    pub fn from_lingual(v: impl Into<Self>) -> Self {
-        let mut ret = v.into();
-        for s in ret.spans.iter_mut() {
-            s.content = linguate(&s.content)
-        }
-        ret
-    }
-
     pub fn from_iter<I: IntoIterator<Item = impl Into<Span>>>(iter: I) -> Self {
         Self {
-            id: None,
             spans: iter.into_iter().map(|x| x.into()).collect(),
             classes: Vec::new(),
         }
@@ -251,7 +235,6 @@ impl Line {
 
     pub fn from_spans(spans: Vec<Span>) -> Self {
         Self {
-            id: None,
             spans,
             classes: Vec::new(),
         }
@@ -268,7 +251,7 @@ impl Line {
             if i % 2 == 1 {
                 if MASK {
                     spans.push(
-                        Span::from_lingual(part)
+                        Span::from(part)
                             .as_link()
                             .with_action(Action::SetBit(key.clone(), i as u8 / 2)),
                     );
@@ -285,18 +268,17 @@ impl Line {
                     }
 
                     spans.push(
-                        Span::from_lingual(part)
+                        Span::from(part)
                             .as_link()
                             .with_action(Action::Set(key.clone(), h)),
                     );
                 }
             } else if !part.is_empty() {
-                spans.push(Span::from_lingual(part));
+                spans.push(Span::from(part));
             }
         }
 
         Line {
-            id: Some(key.1),
             spans,
             classes: Vec::new(),
         }
@@ -349,7 +331,7 @@ impl<'a> IntoIterator for &'a Line {
 
 impl<T: ToString> From<T> for Span {
     fn from(s: T) -> Self {
-        Self::new(s.to_string())
+        Self::raw(prose(&s.to_string()))
     }
 }
 
@@ -358,13 +340,10 @@ impl From<Line> for Span {
         if line.spans.len() == 1 {
             let mut span = line.spans.remove(0);
             span.classes.extend(line.classes);
-            if span.id.is_none() {
-                span.id = line.id;
-            }
             span
         } else {
             Span {
-                id: line.id,
+                id: None,
                 action: None,
                 content: line.content(),
                 variant: SpanVariant::None,
@@ -453,7 +432,7 @@ impl<const N: usize> From<[Span; N]> for Line {
 impl Add<&str> for Line {
     type Output = Self;
     fn add(mut self, rhs: &str) -> Self {
-        self.push(Span::from_lingual(rhs));
+        self.push(Span::from(rhs));
         self
     }
 }
@@ -461,7 +440,7 @@ impl Add<&str> for Line {
 impl Add<String> for Line {
     type Output = Self;
     fn add(mut self, rhs: String) -> Self {
-        self.push(Span::from_lingual(rhs));
+        self.push(Span::from(rhs));
         self
     }
 }
@@ -509,13 +488,13 @@ impl Add<&Line> for Line {
 
 impl AddAssign<&str> for Line {
     fn add_assign(&mut self, rhs: &str) {
-        self.push(Span::from_lingual(rhs));
+        self.push(Span::from(rhs));
     }
 }
 
 impl AddAssign<String> for Line {
     fn add_assign(&mut self, rhs: String) {
-        self.push(Span::from_lingual(rhs));
+        self.push(Span::from(rhs));
     }
 }
 
@@ -610,7 +589,7 @@ mod tests {
 
     #[test]
     fn test_span_builders() {
-        let span = Span::new("hello".into())
+        let span = Span::new("hello")
             .with_id(42)
             .cls("in-100")
             .classes(["out-200", "bold"])
@@ -630,24 +609,21 @@ mod tests {
     #[test]
     fn test_line_builders() {
         let line = Line::new()
-            .with_id(100)
             .cls("my-line")
             .classes(["line-fade"]);
 
-        assert_eq!(line.id, Some(100));
         assert_eq!(line.classes, vec!["my-line", "line-fade"]);
     }
 
     #[test]
     fn test_content_hash() {
-        let s1 = Span::new("hello".into());
-        let s2 = Span::new("hello".into());
-        let s3 = Span::new("world".into());
+        let s1 = Span::new("hello");
+        let s2 = Span::new("hello");
+        let s3 = Span::new("world");
 
         assert_ne!(s1.content_hash(), 0);
         assert_eq!(s1.content_hash(), s2.content_hash());
         assert_ne!(s1.content_hash(), s3.content_hash());
-        assert_eq!(s1.hash(), s1.content_hash());
 
         let l1 = Line::from_iter(["hello", " ", "world"]);
         let l2 = Line::from_iter(["hello", " ", "world"]);
@@ -656,7 +632,43 @@ mod tests {
         assert_ne!(l1.content_hash(), 0);
         assert_eq!(l1.content_hash(), l2.content_hash());
         assert_ne!(l1.content_hash(), l3.content_hash());
-        assert_eq!(l1.hash(), l1.content_hash());
+
+        // Keyed spans: content changes within a keyed span do NOT change Line::content_hash()
+        let mut l_keyed1 = Line::new();
+        l_keyed1.push(Span::new("prefix: "));
+        l_keyed1.push(Span::new("clicks: 0").with_id(42));
+
+        let mut l_keyed2 = Line::new();
+        l_keyed2.push(Span::new("prefix: "));
+        l_keyed2.push(Span::new("clicks: 1").with_id(42));
+
+        assert_eq!(
+            l_keyed1.content_hash(),
+            l_keyed2.content_hash(),
+            "changing dynamic content of a keyed span must not change line content hash"
+        );
+
+        // But changing the keyed span's ID DOES change Line::content_hash()
+        let mut l_keyed3 = Line::new();
+        l_keyed3.push(Span::new("prefix: "));
+        l_keyed3.push(Span::new("clicks: 0").with_id(99));
+
+        assert_ne!(
+            l_keyed1.content_hash(),
+            l_keyed3.content_hash(),
+            "changing span id must change line content hash"
+        );
+
+        // And changing the unkeyed span's content DOES change Line::content_hash()
+        let mut l_keyed4 = Line::new();
+        l_keyed4.push(Span::new("different prefix: "));
+        l_keyed4.push(Span::new("clicks: 0").with_id(42));
+
+        assert_ne!(
+            l_keyed1.content_hash(),
+            l_keyed4.content_hash(),
+            "changing unkeyed span content must change line content hash"
+        );
     }
 
     #[test]
@@ -677,7 +689,7 @@ mod tests {
         let mut l3 = Line::from("Base");
         l3 += " string";
         l3 += String::from(" with String");
-        l3 += Span::new(" and Span".into());
+        l3 += Span::new(" and Span");
         let l4 = Line::from(" and Line");
         l3 += l4;
         assert_eq!(l3.content(), "Base string with String and Span and Line");
@@ -688,12 +700,12 @@ mod tests {
 
     #[test]
     fn test_line_and_span_clean() {
-        let span = Span::new("Text".into()).cls("red").cls("bold");
+        let span = Span::new("Text").cls("red").cls("bold");
         assert_eq!(span.classes, vec!["red", "bold"]);
         let cleaned_span = span.clean();
         assert!(cleaned_span.classes.is_empty());
 
-        let line = Line::from(Span::new("Inner".into()).cls("italic")).cls("container");
+        let line = Line::from(Span::new("Inner").cls("italic")).cls("container");
         assert_eq!(line.classes, vec!["container"]);
         assert_eq!(line.spans[0].classes, vec!["italic"]);
 
@@ -702,4 +714,20 @@ mod tests {
         assert!(cleaned_line.spans[0].classes.is_empty());
         assert_eq!(cleaned_line.content(), "Inner");
     }
+
+    #[test]
+    fn test_span_and_line_prose_and_raw() {
+        let span_prose = Span::from("''Hello... world--test''");
+        assert_eq!(span_prose.content, "“Hello… world—test”");
+
+        let span_raw = Span::raw("''Hello... world--test''");
+        assert_eq!(span_raw.content, "''Hello... world--test''");
+
+        let line_prose = Line::from("''Hello... world--test''");
+        assert_eq!(line_prose.content(), "“Hello… world—test”");
+
+        let line_raw = Line::raw("''Hello... world--test''");
+        assert_eq!(line_raw.content(), "''Hello... world--test''");
+    }
 }
+

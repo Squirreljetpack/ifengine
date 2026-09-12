@@ -280,13 +280,27 @@ pub fn back(input: TokenStream) -> TokenStream {
 
 /// Cycle between multiple alternative spans on click.
 ///
+/// Supports three cycling behaviors (defaults to `Stop`):
+/// - `Stop`: Advances on click until reaching the last alternative, then stops advancing.
+/// - `Cycle`: Advances on click and wraps around to the beginning indefinitely.
+/// - `Shuffle`: Picks a random alternative on click (excluding the current one).
+///
+/// Takes an optional final closure `|idx| { ... }` that receives the current index
+/// into the alternatives list, allowing reactive game state updates on click or render.
+///
 /// # Examples
 /// ```ignore
-/// alts!([
-///     "Look around",
-///     "Open the door",
-///     "Wait",
-/// ])
+/// // Array literal:
+/// alts!(["Look around", "Open the door", "Wait"])
+///
+/// // Cycle variant with closure capturing current index:
+/// alts!(["Red", "Green", "Blue"], Cycle, |idx| {
+///     state.color_idx = idx;
+/// })
+///
+/// // Passing a variable or collection expression:
+/// let weathers = ["sunny", "cloudy", "rainy"];
+/// alts!(weathers, Shuffle, |idx| state.weather = weathers[idx].to_string())
 /// ```
 #[proc_macro]
 pub fn alts(input: TokenStream) -> TokenStream {
@@ -489,6 +503,8 @@ pub fn dchoice(input: TokenStream) -> TokenStream {
 
 /// Interactive paragraph with clickable links delimited by `[[target]]`.
 ///
+/// Bracketed targets are formatted as clickable links via [`.as_link()`](ifengine::view::Span::as_link).
+///
 /// Returns `Some(target)` containing the text of whichever link was clicked (once per click),
 /// or `None` if no link has been clicked yet.
 ///
@@ -515,6 +531,7 @@ pub fn dparagraph(input: TokenStream) -> TokenStream {
 /// Create an interactive paragraph parsing wiki-style links with multi-selection tracking.
 ///
 /// Interactive text sections are automatically added from text delimited by `[[target]]` (Also see: [`dparagraph!`]).
+/// Bracketed targets are formatted as clickable links via [`.as_link()`](ifengine::view::Span::as_link).
 /// Multiple links can be clicked across interactions; their clicked states are tracked concurrently via a bitmask in page state.
 ///
 /// On render, this macro returns a `Vec<bool>` where each boolean reflects whether the corresponding
@@ -539,7 +556,7 @@ pub fn mparagraph(input: TokenStream) -> TokenStream {
 
 /// Interactive paragraph that disappears or is replaced with new content when clicked.
 ///
-/// Words enclosed in `[[brackets]]` become clickable links. If no brackets are present,
+/// Words enclosed in `[[brackets]]` become clickable links via [`.as_link()`](ifengine::view::Span::as_link). If no brackets are present,
 /// the entire paragraph is clickable.
 ///
 /// Clicking a link displays the replacement text or expression in place of the original paragraph.

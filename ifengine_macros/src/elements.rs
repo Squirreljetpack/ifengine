@@ -41,7 +41,6 @@ pub fn l(input: TokenStream) -> TokenStream {
 
     let expanded = quote! {
         ifengine::view::Line::from_spans(vec![#(#spans),*])
-            .with_id(__ifengine_page_state.auto_key())
     };
 
     expanded.into()
@@ -177,98 +176,81 @@ impl Parse for AltVariant {
 
 pub struct AltsInput {
     pub maybe_key: MaybeKey,
-    pub list: Vec<Expr>,
+    pub expr: Expr,
     pub variant: Option<AltVariant>,
+    pub closure: Option<ExprClosure>,
 }
 
 impl Parse for AltsInput {
     fn parse(input: ParseStream<'_>) -> Result<Self> {
         let maybe_key = input.parse()?;
+        let expr: Expr = input.parse()?;
 
-        if input.peek(syn::token::Bracket) {
-            let content;
-            syn::bracketed!(content in input);
+        let mut variant = None;
+        let mut closure = None;
 
-            let mut list = Vec::new();
-            while !content.is_empty() {
-                list.push(content.parse()?);
-                if content.peek(Token![,]) {
-                    let _: Token![,] = content.parse()?;
-                }
-            }
-
-            let variant = if !input.is_empty() {
-                input.parse::<Token![,]>()?;
-                Some(input.parse()?)
-            } else {
-                None
-            };
-
-            Ok(Self {
-                maybe_key,
-                list,
-                variant,
-            })
-        } else {
-            let mut exprs: Vec<Expr> = Vec::new();
-            while !input.is_empty() {
-                exprs.push(input.parse()?);
-                if input.peek(Token![,]) {
-                    let _: Token![,] = input.parse()?;
+        if input.peek(Token![,]) {
+            input.parse::<Token![,]>()?;
+            if !input.is_empty() {
+                let is_variant = if input.peek(syn::Ident) {
+                    let fork = input.fork();
+                    if let Ok(ident) = fork.parse::<syn::Ident>() {
+                        matches!(ident.to_string().as_str(), "Stop" | "Shuffle" | "Cycle")
+                    } else {
+                        false
+                    }
                 } else {
-                    break;
-                }
-            }
+                    false
+                };
 
-            let mut variant = None;
-            if let Some(last_expr) = exprs.last() {
-                if let Expr::Path(syn::ExprPath {
-                    path, qself: None, ..
-                }) = last_expr
-                {
-                    if let Some(ident) = path.get_ident() {
-                        let ident_str = ident.to_string();
-                        if ident_str == "Stop" {
-                            variant = Some(AltVariant::Stop);
-                            exprs.pop();
-                        } else if ident_str == "Shuffle" {
-                            variant = Some(AltVariant::Shuffle);
-                            exprs.pop();
-                        } else if ident_str == "Cycle" {
-                            variant = Some(AltVariant::Cycle);
-                            exprs.pop();
+                if is_variant {
+                    variant = Some(input.parse::<AltVariant>()?);
+                    if input.peek(Token![,]) {
+                        input.parse::<Token![,]>()?;
+                        if !input.is_empty() {
+                            closure = Some(input.parse::<ExprClosure>()?);
                         }
                     }
+                } else {
+                    closure = Some(input.parse::<ExprClosure>()?);
                 }
             }
-
-            if exprs.is_empty() {
-                return Err(Error::new(
-                    input.span(),
-                    "alts! requires at least one alternative",
-                ));
-            }
-
-            Ok(Self {
-                maybe_key,
-                list: exprs,
-                variant,
-            })
         }
+
+        Ok(Self {
+            maybe_key,
+            expr,
+            variant,
+            closure,
+        })
     }
 }
 
 pub fn alts(input: TokenStream) -> TokenStream {
     let AltsInput {
         maybe_key,
-        list,
+        expr,
         variant,
+        closure,
     } = parse_macro_input!(input as AltsInput);
 
     let key = maybe_key.into_tokens();
 
     let variant = variant.unwrap_or_default();
-    let list_init = quote! { &[ #(#list),* ] };
+    let list_init = quote! { (#expr).as_ref() };
+
+    let closure_call = if let Some(c) = closure {
+        quote! {
+            {
+                fn __ifengine_alts_closure<R>(mut f: impl FnMut(usize) -> R, idx: usize) {
+                    let _ = f(idx);
+                }
+                __ifengine_alts_closure(#c, __idx as usize);
+            }
+        }
+    } else {
+        quote! {}
+    };
 
     let expanded = match variant {
         AltVariant::Stop => {
@@ -276,18 +258,19 @@ pub fn alts(input: TokenStream) -> TokenStream {
                 let __ifengine_key = #key;
                 let alts = #list_init;
 
-                if let Some(idx) = __ifengine_page_state.get(__ifengine_key) {
-                    ifengine::view::Span::from(
-                        alts[(idx as usize + 1).min(alts.len() - 1)]
-                    )
-                    .with_id(__ifengine_key)
-                    .with_action(ifengine::Action::Inc((__ifengine_page_state.id(), __ifengine_key)))
+                let __idx = if let Some(idx) = __ifengine_page_state.get(__ifengine_key) {
+                    (idx as usize).min(alts.len().saturating_sub(1))
                 } else {
-                    ifengine::view::Span::from(
-                        alts[0]
-                    )
-                    .with_id(__ifengine_key)
-                    .with_action(ifengine::Action::Inc((__ifengine_page_state.id(), __ifengine_key)))
+                    0
+                };
+
+                #closure_call
+
+                let span = ifengine::view::Span::from(alts[__idx].clone()).with_id(__ifengine_key);
+                if alts.len() > 1 && __idx < alts.len() - 1 {
+                    span.with_action(ifengine::Action::Inc((__ifengine_page_state.id(), __ifengine_key)))
+                } else {
+                    span
                 }
             }}
         }
@@ -298,7 +281,7 @@ pub fn alts(input: TokenStream) -> TokenStream {
                 let alts = #list_init;
 
                 // Determine tmp index
-                let idx = if let Some(prev) = __ifengine_page_state.get(__ifengine_key) {
+                let __idx = if let Some(prev) = __ifengine_page_state.get(__ifengine_key) {
                     if prev & 1 == 0 {
                         (prev as usize) >> 1
                     } else {
@@ -313,14 +296,18 @@ pub fn alts(input: TokenStream) -> TokenStream {
                     new_idx
                 };
 
-                // Use it and store back with last bit set
-                ifengine::view::Span::from(alts[idx])
-                .with_id(__ifengine_key)
-                .with_action(ifengine::Action::Set(
-                    (__ifengine_page_state.id(), __ifengine_key),
-                    ((idx as u64) << 1) + 1
-                ))
-                .no_sim()
+                #closure_call
+
+                let span = ifengine::view::Span::from(alts[__idx].clone()).with_id(__ifengine_key);
+                if alts.len() > 1 {
+                    span.with_action(ifengine::Action::Set(
+                        (__ifengine_page_state.id(), __ifengine_key),
+                        ((__idx as u64) << 1) + 1
+                    ))
+                    .no_sim()
+                } else {
+                    span
+                }
             }}
         }
 
@@ -329,20 +316,20 @@ pub fn alts(input: TokenStream) -> TokenStream {
                 let __ifengine_key = #key;
                 let alts = #list_init;
 
-                if let Some(idx) = __ifengine_page_state.get(__ifengine_key) {
-                    ifengine::view::Span::from(
-                        alts[(idx as usize) % alts.len()]
-                    )
-                    .with_id(__ifengine_key)
-                    .with_action(ifengine::Action::Inc((__ifengine_page_state.id(), __ifengine_key)))
-                    .no_sim()
+                let __idx = if let Some(idx) = __ifengine_page_state.get(__ifengine_key) {
+                    (idx as usize) % alts.len()
                 } else {
-                    ifengine::view::Span::from(
-                        alts[0]
-                    )
-                    .with_id(__ifengine_key)
-                    .with_action(ifengine::Action::Inc((__ifengine_page_state.id(), __ifengine_key)))
-                    .no_sim()
+                    0
+                };
+
+                #closure_call
+
+                let span = ifengine::view::Span::from(alts[__idx].clone()).with_id(__ifengine_key);
+                if alts.len() > 1 {
+                    span.with_action(ifengine::Action::Inc((__ifengine_page_state.id(), __ifengine_key)))
+                        .no_sim()
+                } else {
+                    span
                 }
             }}
         }
@@ -454,8 +441,7 @@ pub fn click(input: TokenStream) -> TokenStream {
             #expr_tokens
         )
         .with_id(__ifengine_key)
-        .with_action(ifengine::Action::SetBit((__ifengine_page_state.id(), __ifengine_key), 63))
-        .as_link();
+        .with_action(ifengine::Action::SetBit((__ifengine_page_state.id(), __ifengine_key), 63));
 
         // sim the handler
         if __ifengine_page_state.get(__ifengine_key).is_some_and(|v| {

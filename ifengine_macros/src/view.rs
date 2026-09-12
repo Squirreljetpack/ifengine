@@ -314,7 +314,7 @@ pub fn h(input: TokenStream) -> TokenStream {
             ifengine::view::StampedObject {
                 id: Some(__ifengine_page_state.auto_key()),
                 object: ifengine::view::Object::Heading(
-                    ifengine::view::Span::from_lingual(#text),
+                    ifengine::view::Span::from(#text),
                     #level
                 ),
             }

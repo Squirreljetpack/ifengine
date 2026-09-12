@@ -1,8 +1,8 @@
 use quote::quote;
 use syn::{Expr, ExprLit, Lit, LitStr};
 
-/// Expands string literals containing `{}` into multiple `Span::from_lingual(...)` tokens.
-/// Non-string-literal expressions are passed directly to `Span::from_lingual(#expr)`.
+/// Expands string literals containing `{}` into multiple `Span::from(...)` tokens.
+/// Non-string-literal expressions are passed directly to `Span::from(#expr)`.
 pub fn expand_spans(exprs: impl IntoIterator<Item = Expr>) -> Vec<proc_macro2::TokenStream> {
     let mut spans = Vec::new();
     for expr in exprs {
@@ -14,7 +14,7 @@ pub fn expand_spans(exprs: impl IntoIterator<Item = Expr>) -> Vec<proc_macro2::T
             expand_format_literal(lit_str, &mut spans);
         } else {
             spans.push(quote! {
-                ifengine::view::Span::from_lingual(#expr)
+                ifengine::view::Span::from(#expr)
             });
         }
     }
@@ -23,7 +23,7 @@ pub fn expand_spans(exprs: impl IntoIterator<Item = Expr>) -> Vec<proc_macro2::T
 
 /// Expands a single expression into a `Line` token stream. If it is a string literal,
 /// parses any `{}` interpolations into spans and calls `Line::from_spans(...)`.
-/// Otherwise, converts the expression via `Line::from_lingual(#expr)`.
+/// Otherwise, converts the expression via `Line::from(#expr)`.
 pub fn expand_line_expr(expr: &Expr) -> proc_macro2::TokenStream {
     if let Expr::Lit(ExprLit {
         lit: Lit::Str(lit_str),
@@ -37,7 +37,7 @@ pub fn expand_line_expr(expr: &Expr) -> proc_macro2::TokenStream {
         }
     } else {
         quote! {
-            ifengine::view::Line::from_lingual(#expr)
+            ifengine::view::Line::from(#expr)
         }
     }
 }
@@ -103,7 +103,7 @@ pub fn expand_format_literal(lit_str: &LitStr, spans: &mut Vec<proc_macro2::Toke
             if start_idx > 0 {
                 let leading_text = &rest[..start_idx];
                 spans.push(quote! {
-                    ifengine::view::Span::from_lingual(#leading_text)
+                    ifengine::view::Span::from(#leading_text)
                 });
             }
 
@@ -113,7 +113,7 @@ pub fn expand_format_literal(lit_str: &LitStr, spans: &mut Vec<proc_macro2::Toke
                 match syn::parse_str::<syn::Expr>(expr_str) {
                     Ok(expr) => {
                         spans.push(quote! {
-                            ifengine::view::Span::from_lingual(&(#expr))
+                            ifengine::view::Span::from(&(#expr))
                         });
                     }
                     Err(err) => {
@@ -132,14 +132,14 @@ pub fn expand_format_literal(lit_str: &LitStr, spans: &mut Vec<proc_macro2::Toke
             } else {
                 // Unterminated `{`, emit the remainder as literal text
                 spans.push(quote! {
-                    ifengine::view::Span::from_lingual(#rest)
+                    ifengine::view::Span::from(#rest)
                 });
                 break;
             }
         } else {
             // No more `{`, emit remaining text
             spans.push(quote! {
-                ifengine::view::Span::from_lingual(#rest)
+                ifengine::view::Span::from(#rest)
             });
             break;
         }

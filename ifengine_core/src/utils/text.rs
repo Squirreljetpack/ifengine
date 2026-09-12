@@ -1,17 +1,38 @@
-/// - (Does not) replace digits with words
+use std::sync::atomic::{AtomicPtr, Ordering};
+
+pub type ProseFn = fn(&str) -> String;
+
+static PROSE_FN: AtomicPtr<()> =
+    AtomicPtr::new(default_prose as fn(&str) -> String as *mut ());
+
+/// Sets the global prose transformation function pointer.
+///
+/// By default, this points to [`default_prose`].
+pub fn set_prose_fn(f: ProseFn) {
+    PROSE_FN.store(f as *mut (), Ordering::Relaxed);
+}
+
+/// Resets the global prose transformation function pointer to [`default_prose`].
+pub fn reset_prose_fn() {
+    set_prose_fn(default_prose);
+}
+
+/// Transforms input text using the active global prose function pointer.
+pub fn prose(text: &str) -> String {
+    let ptr = PROSE_FN.load(Ordering::Relaxed);
+    let f: ProseFn = unsafe { std::mem::transmute(ptr) };
+    f(text)
+}
+
+/// Default prose processor:
+/// - Replaces '' with "
 /// - Converts straight quotes to curly quotes
 /// - Converts -- to em-dash (—)
 /// - Converts ... to ellipsis (…)
-pub fn linguate(text: &str) -> String {
-    // let re_digits = regex::Regex::new(r"\{(\d+)\}").unwrap();
-    // let text = re_digits.replace_all(text, |caps: &regex::Captures<'_>| {
-    //     let n: u64 = caps[1].parse().unwrap();
-    //     num2words::Num2Words::new(n)
-    //         .to_words()
-    //         .unwrap_or(caps[1].to_string())
-    // });
-
+pub fn default_prose(text: &str) -> String {
     let mut result = text.to_string();
+
+    result = result.replace("''", "\"");
 
     result = result.replace("--", "—");
 
@@ -117,3 +138,46 @@ where
 {
     strings.into_iter().nth(target as usize)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_default_prose_typography() {
+        assert_eq!(default_prose("Hello... world--test"), "Hello… world—test");
+        assert_eq!(default_prose("\"Double quotes\""), "“Double quotes”");
+        assert_eq!(default_prose("It's fine"), "It’s fine");
+    }
+
+    #[test]
+    fn test_default_prose_double_single_quotes() {
+        assert_eq!(default_prose("She said, ''Hello!''"), "She said, “Hello!”");
+        assert_eq!(
+            default_prose("''Don't go,'' she warned."),
+            "“Don’t go,” she warned."
+        );
+    }
+
+    #[test]
+    fn test_set_and_reset_prose_fn() {
+        assert_eq!(prose("test--value"), "test—value");
+
+        fn custom_hook(text: &str) -> String {
+            if text == "__custom_hook_probe__" {
+                "custom_hook_result".to_string()
+            } else {
+                default_prose(text)
+            }
+        }
+
+        set_prose_fn(custom_hook);
+        assert_eq!(prose("__custom_hook_probe__"), "custom_hook_result");
+        assert_eq!(prose("test--value"), "test—value");
+
+        reset_prose_fn();
+        assert_eq!(prose("__custom_hook_probe__"), "__custom_hook_probe__");
+        assert_eq!(prose("test--value"), "test—value");
+    }
+}
+

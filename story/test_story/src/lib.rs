@@ -6,6 +6,7 @@ pub mod chap1;
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct State {
     pub job: Option<String>,
+    pub weather: String,
     pub miles: usize,
     pub days: usize,
     pub rations: usize,
@@ -207,11 +208,10 @@ mod tests {
             .expect("action should succeed");
         let view2 = game.view().expect("should render after clicking replace");
 
-        // Verify link was replaced with "Obviously you're not going to tell the truth..."
+        // Verify link was replaced with cover story paragraph
         let has_obviously = view2.inner.iter().any(|obj| {
             if let Object::Paragraph(line) = &obj.object {
-                line.content()
-                    .contains("Obviously you're not going to tell the truth")
+                line.content().contains("cover story")
             } else {
                 false
             }
@@ -461,6 +461,46 @@ mod tests {
             !has_popup_after_second,
             "popup should be gone after second dismissal"
         );
+    }
+
+    #[test]
+    fn test_alts_weather_sync_to_sunny_day() {
+        use ifengine::view::Object;
+
+        let mut game = new();
+        let view = game.view().expect("failed to render rainy_day");
+
+        // The closure on alts! ran on render and set game.context.weather
+        let weather = game.context.weather.clone();
+        assert!(
+            weather == "sunny" || weather == "cloudy" || weather == "rainy",
+            "weather should be one of the alternatives, got: {weather}"
+        );
+
+        // Find the "tomorrow" link to sunny_day
+        let mut tomorrow_action = None;
+        for obj in &view.inner {
+            if let Object::Text(line, _) = &obj.object {
+                for span in &line.spans {
+                    if span.content == "tomorrow" {
+                        tomorrow_action = span.action.clone();
+                    }
+                }
+            }
+        }
+        let tomorrow_action = tomorrow_action.expect("must find tomorrow link");
+        game.inner
+            .handle_action(tomorrow_action)
+            .expect("navigate to sunny_day");
+
+        let sunny_view = game.view().expect("failed to render sunny_day");
+        assert!(sunny_view.pageid.0.ends_with("sunny_day"));
+
+        // First paragraph of sunny_day must display the exact weather string from state
+        let Object::Paragraph(p) = &sunny_view.inner[0].object else {
+            panic!("first object in sunny_day must be Paragraph");
+        };
+        assert_eq!(p.content(), weather);
     }
 
     #[cfg(feature = "serde")]

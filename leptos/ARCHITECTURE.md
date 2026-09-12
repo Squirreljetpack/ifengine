@@ -81,8 +81,8 @@ CSS classes added through DSL builders (`.cls("...")`, `.classes([...])`) on [`L
 | Class Name | Target Element | Rendered Effect | Typical Story Usage |
 | :--- | :--- | :--- | :--- |
 | `.center` | `Line`, `Span`, `Heading` | `display: block; text-align: center;` | Title cards, chapter intros, dramatic utterances, centered symbols. |
-| `.text-center` | `Line`, `Span` | `display: block; text-align: center;` | Alternative centering class for layout blocks. |
-| `.passage-link` | `Span` (with action) | Native clickable anchor appearance with underline offset, hover/active states. | Created automatically by `link!`, `tun!`, `back!`, `click!`. |
+| `.passage-link` | `Span` (link variant + action) | Native clickable anchor appearance with underline offset, hover/active states. | Created automatically by `link!`, `tun!`, `back!`. |
+| `.passage-action` | `Span` (action without link variant) | Clickable anchor appearance with underline offset, hover/active states (same styling as `.passage-link`). | Attached to interactive action spans (e.g. `alts!`, `click!`, `count!`). |
 | `.passage-link-static` | `Span` (no action) | Underlined link appearance without click handlers. | Static link formatting (`SpanVariant::Link`). |
 | `.variant-muted` | `Span` | Muted color tone (`--color-text-muted`, ~65% opacity). | Meta text, side remarks, subdued thoughts. |
 | `.variant-secondary` | `Span` | Secondary text color (`--color-text-dim`, `#adb5bd`). | Descriptive annotations, inventory details. |

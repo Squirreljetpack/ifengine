@@ -35,7 +35,7 @@ impl GameState {
             .inner
             .entry(entry_key.clone())
             .and_modify(|v| *v += 1) // increment if already exists
-            .or_insert(0);
+            .or_insert(1);
     }
 
     /// Insert a specific value at the given key.

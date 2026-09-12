@@ -34,8 +34,3 @@ cfg_if::cfg_if! {
         }
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-}

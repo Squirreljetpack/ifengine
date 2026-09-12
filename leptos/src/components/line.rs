@@ -6,7 +6,7 @@ use crate::components::span::SpanView;
 use crate::context::StoryContext;
 use crate::transition::{
     TransitionPhase, compute_initial_phase, generate_active_transition_style,
-    generate_view_transition_style, parse_transition_classes, setup_transition_timers,
+    parse_transition_classes, setup_transition_timers,
 };
 
 /// Renders a [`Line`] consisting of multiple spans, with line-level animation and class support.
@@ -17,25 +17,17 @@ pub fn LineView(
 ) -> impl IntoView {
     let ctx = expect_context::<StoryContext>();
     let config = parse_transition_classes(&line.classes);
-    let is_changed = ctx
-        .transitions
-        .write_untracked()
-        .is_content_changed(line.id, line.content_hash());
-    let should_animate = config.has_transition() && is_changed;
+    let is_fresh = ctx.transitions.read_untracked().is_fresh;
+    let should_animate = config.has_transition() && !is_fresh;
 
     let (phase, set_phase) = signal(compute_initial_phase(&config, should_animate));
     if should_animate {
         setup_transition_timers(&config, set_phase);
     }
 
-    let vt_style = generate_view_transition_style(line.id, is_changed);
-
     let line_config = config.clone();
     let line_style = move || {
         let mut styles = Vec::new();
-        if !vt_style.is_empty() {
-            styles.push(vt_style.clone());
-        }
         match phase.get() {
             TransitionPhase::Pending | TransitionPhase::Removed => {}
             TransitionPhase::Active => {

@@ -16,7 +16,7 @@ enum DChoices {
 
 #[ifview]
 pub fn rainy_day(state: &mut State) {
-    p!("text1", "text2");
+    p!("word ", "1");
 
     replace!((77), "The ancient lock is [[sealed]].");
 
@@ -26,15 +26,15 @@ pub fn rainy_day(state: &mut State) {
     ) {
         choice! {
             s!("I'm a treasure hunter. I search the Galaxy for long-dead civilizations and the things they left behind.").cls("in-500") => |l| {
-                state.job = Some("treasure hunter".to_string());
+                state.job = Some("treasure hunter".into());
                 l
             },
             s!("I'm a traveling merchant. I visit new planets looking for wares to buy and sell. Would you like to buy a fine Darlinian leather jacket?").cls("in-1000") => |l| {
-                state.job = Some("merchant".to_string());
+                state.job = Some("merchant".into());
                 l
             },
             s!("Well, I'm not exactly a tourist, but I am a wanderer. I jump around from system to system looking for new sights and experiences. The stars in this sector of space are absolutely beautiful.").cls("in-1500") => |l| {
-                state.job = Some("wanderer".to_string());
+                state.job = Some("wanderer".into());
                 l
             },
         };
@@ -44,11 +44,16 @@ pub fn rainy_day(state: &mut State) {
         }
     }
 
+    let weathers = ["sunny", "cloudy", "rainy"];
     text!(
-        link!("next", sunny_day),
-        s!(" up is: "),
-        alts!(["alt1", "alt2", "alt3"], Shuffle)
+        link!("tomorrow", sunny_day),
+        s!(" will be: "),
+        alts!(weathers, Shuffle, |idx| {
+            state.weather = weathers[idx].to_string();
+        })
     );
+
+    text!(alts!(["Click once", "Done"], Stop));
 
     choice! {
         (64),
@@ -116,18 +121,17 @@ pub fn rainy_day(state: &mut State) {
             // eprintln!("2 clicked")
         },
     };
-
-    // .insert("hi".into(), "bye".into());
 }
 
 #[ifview]
-pub fn sunny_day(_: &mut State) {
-    p!("sunny");
+pub fn sunny_day(state: &mut State) {
+    p!(state.weather.clone());
 
     text!(
-        link!("next", rainy_day),
-        "test",
-        count!(|n: u64| n.to_string())
+        "go back to ",
+        link!("yesterday", rainy_day),
+        "... or ",
+        count!(|n: u64| s!("click me: {n}"))
     );
 }
 

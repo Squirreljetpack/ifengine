@@ -113,10 +113,11 @@ impl Span {
     // hover: bool
     // color: ThemeColor
     // handle underline manually due to egui exaggerating line height offset
-    // Link Variant gets a cursor change
+    // Link Variant or action-bearing span gets a cursor change
     pub fn add(&self, ui: &mut Ui, sense: bool) -> Response {
         let rich = self.as_rich_text().with_line_height(ui, 1.6);
 
+        let is_link = matches!(self.variant, SpanVariant::Link) || self.action.is_some() || sense;
         let needs_underline = self.modifiers.contains(Modifier::UNDERLINE);
 
         let mut lbl = egui::Label::new(rich);
@@ -157,7 +158,7 @@ impl Span {
                 );
 
                 // add interaction
-                if matches!(self.variant, SpanVariant::Link) {
+                if is_link {
                     let text_rect = egui::Rect::from_min_max(
                         egui::pos2(x_start, row_top),
                         egui::pos2(x_start + w, row_bottom),
@@ -176,7 +177,7 @@ impl Span {
         } else {
             let response = ui.add(lbl);
 
-            if matches!(self.variant, SpanVariant::Link) && response.hovered() {
+            if is_link && response.hovered() {
                 ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
             }
 

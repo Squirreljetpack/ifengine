@@ -106,11 +106,11 @@ Every element pushed to a `View` is wrapped in a **`StampedObject { id: Option<P
 - **Container-Level Transitions**: Frontends attach `view-transition-name: item-{id}` directly to the outer container element (`<p>`, `<div>`, `<section>`). This guarantees smooth geometric interpolation (reflow/sliding) across state changes for all content blocks on the page.
 - **Choice Morphing**: When a `choice!` is selected, its replacement paragraph inherits the choice's `PageKey`. The frontend pairs the old choice container snapshot with the new paragraph snapshot, morphing the choice block smoothly into text.
 
-### Inline Elements (`Span` & `Line`)
+### Inline Elements (`Span`)
 
-Within composite objects, individual inline spans and lines can carry their own item-level `PageKey`s:
+Within composite objects, individual inline spans carry their own item-level `PageKey`s:
 - **Interactive Spans**: `alts!`, `count!`, `click!`, `link!`, `tun!`, `back!`, and `s!` stamp returned spans with an ID, allowing in-place crossfade or cycle animations without reflowing the containing paragraph.
-- **Composite Lines**: `l!` creates a `Line` with an explicit key for line-level transitions.
+- **Lines (`Line`)**: Purely inline groupings of spans with styling classes; they do not carry keys and inherit their container context.
 
 ---
 
