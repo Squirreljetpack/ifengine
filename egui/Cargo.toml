@@ -13,8 +13,10 @@
 
 [dependencies]
     # ifengine
-    ifengine = { path = "../ifengine" }
-    story    = { path = "../story" }
+    ifengine   = { path = "../ifengine" }
+    forest     = { path = "../story/forest", optional = true }
+    saltwrack  = { path = "../story/saltwrack", optional = true }
+    test_story = { path = "../story/test_story", optional = true }
 
     # egui
     egui = { version = "0.36", features = [ "color-hex" ] }
@@ -42,6 +44,7 @@
     easy-ext = "1.0.2"
     rand     = "0.9.2"
     phf      = { version = "0.13.1", features = [ "macros" ] }
+    cfg-if   = "1.0"
 emath = "0.36"
 
 # native:
@@ -70,4 +73,16 @@ emath = "0.36"
     serde-hjson = "1.1.0"
 
 [features]
-    serde = [ "serde/derive", "egui-snarl/serde", "ifengine/serde", "story/serde", "eframe/persistence" ]
+    default   = [ "forest" ]
+    forest    = [ "dep:forest" ]
+    saltwrack = [ "dep:saltwrack" ]
+    test      = [ "dep:test_story" ]
+    serde     = [
+        "serde/derive",
+        "egui-snarl/serde",
+        "ifengine/serde",
+        "forest?/serde",
+        "saltwrack?/serde",
+        "test_story?/serde",
+        "eframe/persistence",
+    ]

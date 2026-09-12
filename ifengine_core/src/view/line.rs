@@ -274,7 +274,7 @@ impl Line {
                             .with_action(Action::Set(key.clone(), h)),
                     );
                 }
-            } else {
+            } else if !part.is_empty() {
                 spans.push(Span::from_lingual(part));
             }
         }
@@ -525,5 +525,13 @@ mod tests {
         assert_eq!(l1.content_hash(), l2.content_hash());
         assert_ne!(l1.content_hash(), l3.content_hash());
         assert_eq!(l1.hash(), l1.content_hash());
+    }
+
+    #[test]
+    fn test_from_interleaved_actions_skips_empty_spans() {
+        let parts = vec!["".to_string(), "link".to_string(), "".to_string()];
+        let line = Line::from_interleaved_actions::<true>(("p".into(), 1), parts);
+        assert_eq!(line.spans.len(), 1);
+        assert_eq!(line.spans[0].content, "link");
     }
 }

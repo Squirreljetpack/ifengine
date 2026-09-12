@@ -7,8 +7,11 @@ publish = false
 
 [dependencies]
 ifengine = { path = "../ifengine", features = ["serde"] }
-story = { path = "../story", default-features = false, features = ["serde"] }
+forest = { path = "../story/forest", optional = true, features = ["serde"] }
+saltwrack = { path = "../story/saltwrack", optional = true, features = ["serde"] }
+test_story = { path = "../story/test_story", optional = true, features = ["serde"] }
 leptos = { version = "0.8", features = ["csr"] }
+cfg-if = "1.0"
 console_error_panic_hook = "0.1.7"
 wasm-bindgen = "0.2"
 js-sys = "0.3"
@@ -31,8 +34,9 @@ getrandom = { version = "0.3", features = ["wasm_js"] }
 
 [features]
 default = ["saltwrack"]
-saltwrack = ["story/saltwrack"]
-test = ["story/test"]
+saltwrack = ["dep:saltwrack"]
+forest = ["dep:forest"]
+test = ["dep:test_story"]
 
 [lints]
 workspace = true

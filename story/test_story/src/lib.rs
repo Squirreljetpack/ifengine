@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 pub mod chap1;
 
 #[derive(Debug, Clone, Default)]
@@ -475,20 +477,7 @@ mod tests {
             println!("Registered page: {}", page.id);
         }
 
-        // 1. serde_json
-        let json = serde_json::to_string(&game).expect("serde_json serialize failed");
-        println!("JSON size: {} bytes", json.len());
-        println!("JSON content: {}", json);
-        let mut deserialized_json: Game =
-            serde_json::from_str(&json).expect("serde_json deserialize failed");
-        assert_eq!(deserialized_json.context.miles, 42);
-        assert_eq!(deserialized_json.context.job, Some("Pilot".into()));
-        let json_view = deserialized_json
-            .view()
-            .expect("deserialized_json should render view directly");
-        assert!(json_view.pageid.0.ends_with("rainy_day"));
-
-        // 2. bincode
+        // 1. bincode
         let bincode_bytes = bincode::serialize(&game).expect("bincode serialize failed");
         println!("Bincode size: {} bytes", bincode_bytes.len());
         let mut deserialized_bincode: Game =

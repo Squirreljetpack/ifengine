@@ -56,7 +56,7 @@ pub mod elements {
     //! | [`choice!`](choice) | `choice!(("Open door", p_door), ("Turn back", p_back))` | Displays a static list of clickable choices for page navigation or actions. |
     //! | [`dchoice!`](dchoice) | `dchoice!(items.into_iter().map(...))` | Displays a dynamic choice list generated at runtime from an iterator/collection. |
     //! | [`mchoice!`](mchoice) | `mchoice!((key), ...)` | Choice menu with an explicit state key override. |
-    //! | [`dparagraph!`](dparagraph) | `dparagraph!("Go to [[forest]] or [[inn\|cozy inn]]")` | Interactive paragraph with wiki-style links; returns `Some(target)` on selection (`None` initially). |
+    //! | [`dparagraph!`](dparagraph) | `dparagraph!("Go to [[forest]] or [[inn]]")` | Interactive paragraph with clickable links; returns `Some(target)` on selection (`None` initially). |
     //! | [`mparagraph!`](mparagraph) | `mparagraph!("Take [[torch]] and [[sword]]")` | Interactive paragraph with wiki-style links; tracks multiple clicked tokens and returns `Vec<bool>`. |
     //! | [`replace!`](replace) | `replace!("Chest is [[locked]].", "Unlocked!")` | Clickable paragraph that transitions into a replacement line or collapses to 0 height. |
     //! | [`NEXT!`](NEXT) | `NEXT!(next_page)` | Flow control: transition to the specified page function. |
@@ -78,7 +78,7 @@ pub mod elements {
 
     #[cfg(feature = "macros")]
     pub use ifengine_macros::{
-        dparagraph as dp, extend as x, mchoice as choices, mparagraph as mp, paragraph as p,
-        paragraphs as ps, text, texts as ts,
+        EMBED as emb, dparagraph as dp, extend as x, mchoice as choices, mparagraph as mp,
+        paragraph as p, paragraphs as ps, text, texts as ts,
     };
 }

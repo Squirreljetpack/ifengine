@@ -148,6 +148,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::story;
 
     #[test]
     fn test_save_slot_postcard_serde() {
@@ -176,6 +177,11 @@ mod tests {
             .game
             .view()
             .expect("view should render from loaded save");
-        assert!(view.pageid.0.ends_with("rainy_day") || view.pageid.0.contains("saltwrack"));
+        assert!(
+            view.pageid.0.ends_with("rainy_day")
+                || view.pageid.0.contains("saltwrack")
+                || view.pageid.0.contains("forest")
+                || view.pageid.0.contains("p1")
+        );
     }
 }

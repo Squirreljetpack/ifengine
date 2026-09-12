@@ -1,4 +1,4 @@
-use crate::saltwrack::{Oracle, State, Walker};
+use crate::{Oracle, State, Walker};
 use ifengine::elements::*;
 use ifengine::ifview;
 
@@ -110,17 +110,14 @@ pub fn throw_out_rations(s: &mut State) {
         "This cannot be safe to consume. And now you have your doubts about the safety of the remaining supplies. You explain what you saw to the walker, hoping for approval, and you are vindicated."
     );
 
-    match s.walker {
-        Walker::A => {
-            p!(
-                "He looks dolefully down at the opened jar, and nods. “Where one is afflicted, others will surely be. Let's look through the rest of the rations, hm?”"
-            );
-        }
-        _ => {
-            p!(
-                "“Seen this stuff before,” she says. “Good thing you brought this to me. We'll check if anything else is infected.”"
-            );
-        }
+    if matches!(s.walker, Walker::A) {
+        p!(
+            "He looks dolefully down at the opened jar, and nods. “Where one is afflicted, others will surely be. Let's look through the rest of the rations, hm?”"
+        );
+    } else {
+        p!(
+            "“Seen this stuff before,” she says. “Good thing you brought this to me. We'll check if anything else is infected.”"
+        );
     }
 
     p!(
@@ -673,5 +670,5 @@ pub fn milestone_act1_end(s: &mut State) {
     );
 
     *s = Default::default();
-    choice!(link!("Restart from Hearth", crate::saltwrack::chap1::p1));
+    choice!(link!("Restart from Hearth", crate::chap1::p1));
 }

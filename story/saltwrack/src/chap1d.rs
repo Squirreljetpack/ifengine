@@ -3,7 +3,7 @@ use ifengine::{
     ifview,
 };
 
-use crate::saltwrack::State;
+use crate::State;
 
 #[ifview]
 pub fn _about(_s: &mut State) {

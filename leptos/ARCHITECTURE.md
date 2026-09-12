@@ -31,7 +31,7 @@ This document provides a comprehensive specification of [`ifengine_leptos`](file
                └─────────────────────────┘     │  • Choice Container     │
                                                │  • Heading (h1-h6)      │
                                                │  • Break / Empty / Note │
-                                               │  • Quote / Custom/Embed │
+                                               │  • Quote / Embed        │
                                                └────────────┬────────────┘
                                                             │
                                              renders Lines  ▼

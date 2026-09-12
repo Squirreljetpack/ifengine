@@ -303,6 +303,7 @@ pub fn dparagraph(input: TokenStream) -> TokenStream {
     let KeyExprs { maybe_key, exprs } = syn::parse_macro_input!(input as KeyExprs);
 
     let key = maybe_key.into_tokens();
+    let expr_tokens: Vec<_> = exprs.iter().map(expand_string_expr).collect();
 
     let expanded = quote! {{
         let __ifengine_key = #key;
@@ -310,7 +311,7 @@ pub fn dparagraph(input: TokenStream) -> TokenStream {
 
         #(
             let mut __ifengine_tmp_strings =
-            ifengine::utils::split_braced(&ifengine::utils::trim_lines(&#exprs));
+            ifengine::utils::split_braced(&ifengine::utils::trim_lines(&#expr_tokens));
 
             if let Some(__ifengine_tmp_val) = __ifengine_page_state
             .remove(__ifengine_key)
@@ -343,11 +344,12 @@ pub fn mparagraph(input: TokenStream) -> TokenStream {
     let KeyExpr { maybe_key, expr } = syn::parse_macro_input!(input as KeyExpr);
 
     let key = maybe_key.into_tokens();
+    let expr_tokens = expand_string_expr(&expr);
 
     let expanded = quote! {{
         let __ifengine_key = #key;
         let strings =
-        ifengine::utils::split_braced(&ifengine::utils::trim_lines(&#expr));
+        ifengine::utils::split_braced(&ifengine::utils::trim_lines(&#expr_tokens));
         let count = strings.len() / 2;
 
         __ifengine_page_state.push(
@@ -371,11 +373,11 @@ pub fn mparagraph(input: TokenStream) -> TokenStream {
 pub struct ReplaceInput {
     pub maybe_key: MaybeKey,
     pub expr: Expr,
-    pub block: Option<Expr>,
+    pub replacement: Option<Expr>,
 }
 
-impl Parse for ReplaceInput {
-    fn parse(input: ParseStream) -> Result<Self> {
+impl syn::parse::Parse for ReplaceInput {
+    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
         let maybe_key = input.parse()?;
         let expr: Expr = input.parse()?;
         let block = if input.parse::<Token![=>]>().is_ok() {
@@ -388,7 +390,7 @@ impl Parse for ReplaceInput {
         Ok(ReplaceInput {
             maybe_key,
             expr,
-            block,
+            replacement: block,
         })
     }
 }
@@ -397,7 +399,7 @@ pub fn replace(input: TokenStream) -> TokenStream {
     let ReplaceInput {
         maybe_key,
         expr,
-        block,
+        replacement: block,
     } = syn::parse_macro_input!(input as ReplaceInput);
 
     let key = maybe_key.into_tokens();
@@ -411,7 +413,7 @@ pub fn replace(input: TokenStream) -> TokenStream {
     let expanded = quote! {{
         let __ifengine_key = #key;
 
-        if __ifengine_page_state.get(__ifengine_key).is_some() {
+        if __ifengine_page_state.get(__ifengine_key).unwrap_or(0) != 0 {
             let __ifengine_replacement: ifengine::view::Line = ifengine::view::Line::from(#block_token);
             if !__ifengine_replacement.spans.is_empty() {
                 __ifengine_page_state.push(
@@ -423,41 +425,21 @@ pub fn replace(input: TokenStream) -> TokenStream {
             }
             true
         } else {
-            let __ifengine_raw_str = #expr_tokens;
-            let __ifengine_trimmed = ifengine::utils::trim_lines(&__ifengine_raw_str);
-            let mut __ifengine_spans = Vec::new();
-
-            if let Some((__before, __inside, __after)) = ifengine::utils::split_first_braced(&__ifengine_trimmed) {
-                if !__before.is_empty() {
-                    __ifengine_spans.push(ifengine::view::Span::from_lingual(__before));
-                }
-                __ifengine_spans.push(
-                    ifengine::view::Span::from_lingual(__inside)
-                        .as_link()
-                        .with_action(ifengine::Action::Set(
-                            (__ifengine_page_state.id(), __ifengine_key),
-                            1
-                        ))
-                );
-                if !__after.is_empty() {
-                    __ifengine_spans.push(ifengine::view::Span::from_lingual(__after));
-                }
-            } else {
-                __ifengine_spans.push(
-                    ifengine::view::Span::from_lingual(&__ifengine_trimmed)
-                        .as_link()
-                        .with_action(ifengine::Action::Set(
-                            (__ifengine_page_state.id(), __ifengine_key),
-                            1
-                        ))
-                );
+            let mut __ifengine_strings =
+                ifengine::utils::split_braced(&ifengine::utils::trim_lines(&#expr_tokens));
+            if __ifengine_strings.len() == 1 {
+                __ifengine_strings.insert(0, String::new());
             }
 
-            let __ifengine_line = ifengine::view::Line::from_spans(__ifengine_spans);
             __ifengine_page_state.push(
                 ifengine::view::StampedObject {
                     id: Some(__ifengine_key),
-                    object: ifengine::view::Object::Paragraph(__ifengine_line),
+                    object: ifengine::view::Object::Paragraph(
+                        ifengine::view::Line::from_interleaved_actions::<true>(
+                            (__ifengine_page_state.id(), __ifengine_key),
+                            __ifengine_strings,
+                        )
+                    ),
                 }
             );
             false

@@ -5,6 +5,9 @@ members = [
     "egui",
     "ifengine_macros",
     "leptos",
+    "story/forest",
+    "story/saltwrack",
+    "story/test_story",
 ]
 resolver = "3"
 

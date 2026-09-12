@@ -1,6 +1,6 @@
 use crate::{
     chap1d::*,
-    saltwrack::{Oracle, State, Walker},
+    Oracle, State, Walker,
 };
 use ifengine::elements::*;
 use ifengine::{ifview, utils::MaskExt};
@@ -775,7 +775,7 @@ pub fn camp_sickwater(s: &mut State) {
     }
     p!(link!(
         "You head out into the brightness of day.",
-        crate::saltwrack::chap2::day_four
+        crate::chap2::day_four
     ));
 }
 
@@ -795,6 +795,6 @@ pub fn camp_travel_night(s: &mut State) {
     );
     p!(link!(
         "You head out into the brightness of day.",
-        crate::saltwrack::chap2::day_four
+        crate::chap2::day_four
     ));
 }

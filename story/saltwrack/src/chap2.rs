@@ -1,4 +1,4 @@
-use crate::saltwrack::{Oracle, State, Walker, chap1d::*};
+use crate::{Oracle, State, Walker, chap1d::*};
 use ifengine::elements::*;
 use ifengine::ifview;
 
@@ -766,7 +766,7 @@ pub fn journal_navigation(s: &mut State) {
     );
     p!(
         "With the journal, and the saltwalker's guidance, you prepare to ",
-        link!("head out once more.", crate::saltwrack::chap3::day_eight)
+        link!("head out once more.", crate::chap3::day_eight)
     );
 }
 
@@ -819,7 +819,7 @@ pub fn you_spirelung(s: &mut State) {
         .style("color", "#c33"));
 
     *s = Default::default();
-    choice!(link!("Restart Expedition", crate::saltwrack::chap1::p1));
+    choice!(link!("Restart Expedition", crate::chap1::p1));
 }
 
 // ---------------- DAY 7 (COLD SNAP) ----------------
@@ -894,7 +894,7 @@ pub fn align_north(s: &mut State) {
     );
     p!(
         "But the cold snap abates ",
-        link!("the next morning.", crate::saltwrack::chap3::day_eight)
+        link!("the next morning.", crate::chap3::day_eight)
     );
 }
 
@@ -910,7 +910,7 @@ pub fn align_east(s: &mut State) {
     );
     p!(
         "But the cold snap abates ",
-        link!("the next morning.", crate::saltwrack::chap3::day_eight)
+        link!("the next morning.", crate::chap3::day_eight)
     );
 }
 
@@ -988,7 +988,7 @@ pub fn vi_firmament_sorry(_s: &mut State) {
     );
     p!(
         "The cold snap abates the next ",
-        link!("morning.", crate::saltwrack::chap3::day_eight)
+        link!("morning.", crate::chap3::day_eight)
     );
 }
 
@@ -1005,7 +1005,7 @@ pub fn vi_firmament_other(_s: &mut State) {
     );
     p!(
         "The cold snap abates the next ",
-        link!("morning.", crate::saltwrack::chap3::day_eight)
+        link!("morning.", crate::chap3::day_eight)
     );
 }
 
@@ -1035,7 +1035,7 @@ pub fn s_art_details(s: &mut State) {
     );
     p!(
         "The cold snap abates the next ",
-        link!("morning.", crate::saltwrack::chap3::day_eight)
+        link!("morning.", crate::chap3::day_eight)
     );
 }
 
@@ -1046,7 +1046,7 @@ pub fn s_art_leave(_s: &mut State) {
     );
     p!(
         "The cold snap abates the next ",
-        link!("morning.", crate::saltwrack::chap3::day_eight)
+        link!("morning.", crate::chap3::day_eight)
     );
 }
 
@@ -1096,7 +1096,7 @@ pub fn s_exile_strange(_s: &mut State) {
     );
     p!(
         "The cold snap abates the next ",
-        link!("morning.", crate::saltwrack::chap3::day_eight)
+        link!("morning.", crate::chap3::day_eight)
     );
 }
 
@@ -1114,7 +1114,7 @@ pub fn s_exile_skeptical(s: &mut State) {
     );
     p!(
         "The cold snap abates the next ",
-        link!("morning.", crate::saltwrack::chap3::day_eight)
+        link!("morning.", crate::chap3::day_eight)
     );
 }
 
@@ -1168,7 +1168,7 @@ pub fn walker_a_miss(s: &mut State) {
     );
     p!(
         "The cold snap abates the next ",
-        link!("morning.", crate::saltwrack::chap3::day_eight)
+        link!("morning.", crate::chap3::day_eight)
     );
 }
 
@@ -1183,7 +1183,7 @@ pub fn walker_a_loyal(s: &mut State) {
     );
     p!(
         "The cold snap abates the next ",
-        link!("morning.", crate::saltwrack::chap3::day_eight)
+        link!("morning.", crate::chap3::day_eight)
     );
 }
 
@@ -1198,7 +1198,7 @@ pub fn walker_a_quiet(s: &mut State) {
     );
     p!(
         "The cold snap abates the next ",
-        link!("morning.", crate::saltwrack::chap3::day_eight)
+        link!("morning.", crate::chap3::day_eight)
     );
 }
 
@@ -1209,7 +1209,7 @@ pub fn walker_t_past(_s: &mut State) {
     );
     p!(
         "The cold snap abates the next ",
-        link!("morning.", crate::saltwrack::chap3::day_eight)
+        link!("morning.", crate::chap3::day_eight)
     );
 }
 
@@ -1229,7 +1229,7 @@ pub fn walker_t_future(s: &mut State) {
     }
     p!(
         "The cold snap abates the next ",
-        link!("morning.", crate::saltwrack::chap3::day_eight)
+        link!("morning.", crate::chap3::day_eight)
     );
 }
 
@@ -1240,7 +1240,7 @@ pub fn walker_t_obsessed(_s: &mut State) {
     );
     p!(
         "The cold snap abates the next ",
-        link!("morning.", crate::saltwrack::chap3::day_eight)
+        link!("morning.", crate::chap3::day_eight)
     );
 }
 
@@ -1254,7 +1254,7 @@ pub fn relax_on_your_own(s: &mut State) {
     );
     p!(
         "The cold snap abates the next ",
-        link!("morning.", crate::saltwrack::chap3::day_eight)
+        link!("morning.", crate::chap3::day_eight)
     );
 }
 
@@ -1292,6 +1292,6 @@ pub fn particulate_matter_1(_s: &mut State) {
     );
     p!(
         "The cold snap abates the next ",
-        link!("morning.", crate::saltwrack::chap3::day_eight)
+        link!("morning.", crate::chap3::day_eight)
     );
 }

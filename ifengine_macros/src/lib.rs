@@ -43,6 +43,285 @@ pub fn ifview(attr: TokenStream, item: TokenStream) -> TokenStream {
 }
 
 // =========================================================================
+// View
+// =========================================================================
+
+/// Push an [`Object`](ifengine::view::Object) to the current [`View`](ifengine::View).
+#[proc_macro]
+pub fn push(input: TokenStream) -> TokenStream {
+    view::push(input)
+}
+
+/// Clear all elements from the current [`View`](ifengine::View).
+#[proc_macro]
+pub fn clear(input: TokenStream) -> TokenStream {
+    view::clear(input)
+}
+
+/// Append additional content to the last object in the current [`View`](ifengine::View).
+///
+/// Supports explicit category prefixes (`"choice":`, `"object":`, `"span":` or their unquoted equivalents)
+/// to target different view object variants. If no prefix is supplied, it defaults to pushing spans.
+///
+/// # Prefixes & Targets
+/// - **`"span":` (or omitted default)**: Appends one or more spans to a preceding [`Object::Paragraph`](ifengine::view::Object::Paragraph)
+///   or [`Object::Text`](ifengine::view::Object::Text).
+/// - **`"choice":`**: Appends choices to a preceding [`Object::Choice`](ifengine::view::Object::Choice).
+///   Accepts any type implementing [`IntoNumberedLine`](ifengine::view::IntoNumberedLine), such as `(u8, Into<Line>)`
+///   or directly `Into<Line>` (`&str`, `String`, `Line`, etc.). If the index is omitted (`None`), it automatically
+///   assigns `previous index + 1` (or `0` if the choice list is empty).
+/// - **`"object":`**: Appends objects (or [`StampedObject`](ifengine::view::StampedObject)s) to a preceding
+///   embedded subpage view ([`Object::Embed`](ifengine::view::Object::Embed)).
+///
+/// If the target object variant does not match the specified category, or if the view is empty, `extend!` safely does nothing.
+///
+/// # Examples
+/// ```rust,ignore
+/// // Extend a paragraph with text and spans
+/// p!("Hello,");
+/// extend!(" {player.name}!");
+/// extend!("span": s!(" Welcome!").as_link());
+///
+/// // Extend a choice menu with auto-incrementing or explicit indices
+/// choice! {
+///     "Take the left path" => left_room,
+///     "Take the right path" => right_room,
+/// };
+/// extend!("choice": "Inspect the door", (5, "Return to camp"));
+///
+/// // Extend an embedded view with additional objects
+/// EMBED!(subpage);
+/// extend!("object": Object::Break);
+/// ```
+#[proc_macro]
+pub fn extend(input: TokenStream) -> TokenStream {
+    view::extend(input)
+}
+
+/// Push a single unspaced plain text line ([`Object::Text`](ifengine::view::Object::Text)) to the view without paragraph margins.
+///
+/// Constructed from one or more spans, or string literals.
+///
+/// # Custom Styling Metadata
+/// A trailing [`RenderData`](ifengine::view::RenderData) can be specified following `::`.
+///
+/// # Example
+/// ```rust,ignore
+/// text!("Hello, world!");
+/// text!("HP: {hp}/{max_hp}" :: "stat-line");
+/// ```
+#[proc_macro]
+pub fn text(input: TokenStream) -> TokenStream {
+    view::text(input)
+}
+
+/// Push multiple unspaced plain text lines ([`Object::Text`](ifengine::view::Object::Text)) in sequence to the view.
+///
+/// Each argument is a separate line without paragraph margins. See [`text!`].
+///
+/// # Example
+/// ```rust,ignore
+/// texts!("Line 1", "Line 2");
+/// ```
+#[proc_macro]
+pub fn texts(input: TokenStream) -> TokenStream {
+    view::texts(input)
+}
+
+/// Push a single paragraph block ([`Object::Paragraph`](ifengine::view::Object::Paragraph)) to the view with standard vertical margins.
+///
+/// Constructed from one or more spans, or string literals.
+///
+/// # Example
+/// ```rust,ignore
+/// paragraph!("A dark hallway stretches before you.");
+/// ```
+#[proc_macro]
+pub fn paragraph(input: TokenStream) -> TokenStream {
+    view::paragraph(input)
+}
+
+/// Push multiple separate paragraph blocks ([`Object::Paragraph`](ifengine::view::Object::Paragraph)) to the view.
+///
+/// Each argument is its own block with standard vertical spacing.
+///
+/// # Example
+/// ```rust,ignore
+/// paragraphs!(
+///     "First paragraph.",
+///     "Second paragraph.",
+/// );
+/// ```
+#[proc_macro]
+pub fn paragraphs(input: TokenStream) -> TokenStream {
+    view::paragraphs(input)
+}
+
+/// Markdown heading.
+///
+/// # Example
+/// ```rust,ignore
+/// h!("Chapter {chap}: The Journey Begins", 1);
+/// ```
+#[proc_macro]
+pub fn h(input: TokenStream) -> TokenStream {
+    view::h(input)
+}
+
+/// Horizontal rule (`<hr/>`).
+#[proc_macro]
+pub fn hr(input: TokenStream) -> TokenStream {
+    view::hr(input)
+}
+
+/// Push an image from a string literal.
+///
+/// # Example
+/// ```rust,ignore
+/// img!("assets/logo.png");
+/// img!("https://example.com/logo.png", (100, 50));
+/// ```
+#[proc_macro]
+pub fn img(input: TokenStream) -> TokenStream {
+    view::img(input)
+}
+
+/// Immediately yield a [`Response::View`](ifengine::core::Response::View) with the current [`View`](ifengine::View).
+///
+/// This returns `!`, exiting the current function.
+#[proc_macro]
+#[allow(non_snake_case)]
+pub fn r#YIELD(input: TokenStream) -> TokenStream {
+    view::r#YIELD(input)
+}
+
+/// Embed a sub-page view into the current page.
+///
+/// Calls the target page with a transient Game.
+/// If the target page returns `Response::View`, the view is embedded as an `Object::Embed`
+/// into the current page and returned as the expression value.
+/// If the target page returns any other `Response` variant (`Switch`, `Back`, `Tunnel`, `Exit`, `End`),
+/// it is returned immediately from the enclosing page function.
+#[proc_macro]
+#[allow(non_snake_case)]
+pub fn EMBED(input: TokenStream) -> TokenStream {
+    view::embed(input)
+}
+
+// =========================================================================
+// Elements
+// =========================================================================
+
+/// Create a [`Span`](ifengine::view::Span).
+///
+/// # Example
+/// ```rust,ignore
+/// s!("Gold: {player.gold}")
+/// ```
+#[proc_macro]
+pub fn s(input: TokenStream) -> TokenStream {
+    elements::s(input)
+}
+
+/// Create a [`Line`](ifengine::view::Line) from one or more [`Span`](ifengine::view::Span)s.
+///
+/// # Example
+/// ```rust,ignore
+/// l!("Player {name} (Level {level})")
+/// ```
+#[proc_macro]
+pub fn l(input: TokenStream) -> TokenStream {
+    elements::l(input)
+}
+
+/// Create a clickable link [`Span`](ifengine::view::Span) navigating to a destination page.
+///
+/// # Example
+/// ```rust,ignore
+/// link!("Visit {vendor}'s shop", shop_page)
+/// link!("text", target_page)
+///
+/// // link style without target
+/// link!("text")
+/// ```
+#[proc_macro]
+pub fn link(input: TokenStream) -> TokenStream {
+    elements::link(input)
+}
+
+/// Create a tunnel or exit link [`Span`](ifengine::view::Span).
+///
+/// # Example
+/// ```rust,ignore
+/// tun!("Consult with {mentor}", mentor_tunnel)
+/// // push a new stack frame
+/// tun!("text", target_page)
+/// // exit the current tunnel (pop the stack)
+/// tun!("text")
+/// ```
+#[proc_macro]
+pub fn tun(input: TokenStream) -> TokenStream {
+    elements::tun(input)
+}
+
+/// Create a link [`Span`](ifengine::view::Span) that navigates backward.
+///
+/// - `$e`: Display text.
+/// - `$n`: Optional number of steps to go back (defaults to 1).
+///
+/// # Example
+/// ```rust,ignore
+/// back!("Return to {previous_room}")
+/// ```
+#[proc_macro]
+pub fn back(input: TokenStream) -> TokenStream {
+    elements::back(input)
+}
+
+/// Cycle between multiple alternative spans on click.
+///
+/// # Examples
+/// ```ignore
+/// alts!([
+///     "Look around",
+///     "Open the door",
+///     "Wait",
+/// ])
+/// ```
+#[proc_macro]
+pub fn alts(input: TokenStream) -> TokenStream {
+    elements::alts(input)
+}
+
+/// Use a closure to compute a span based on how many times the span has been clicked.
+///
+/// # Syntax
+/// ```rust,ignore
+/// let span_count = read_key!(6);
+/// let span = count!((6), |n| format!("Clicked {n} times"));
+/// ```
+#[proc_macro]
+pub fn count(input: TokenStream) -> TokenStream {
+    elements::count(input)
+}
+
+/// Run code on click.
+///
+/// If a key is not specified, it will be automatically generated.
+/// An optional `max_clicks` parameter can be provided in final position.
+///
+/// # Syntax
+/// ```rust,ignore
+/// p!(click!(span, block))
+/// p!(click!(span, block, max_clicks))
+/// p!(click!((maybe_key), span, block, max_clicks))
+/// ```
+#[proc_macro]
+pub fn click(input: TokenStream) -> TokenStream {
+    elements::click(input)
+}
+
+// =========================================================================
 // Choices
 // =========================================================================
 
@@ -107,34 +386,51 @@ pub fn mchoice(input: TokenStream) -> TokenStream {
     choices::mchoice(input)
 }
 
-/// Executes code for a set of selectable choices. Prefer to use [`dchoice!`] for brevity.
+/// Display a dynamic list of choices and return the selected choice's identifier.
 ///
 /// # Overview
-/// This macro displays a list of choices, and registers a corresponding handler
-/// for each selection. The handler is specified as a `match` expression, where
-/// each arm corresponds to a choice and contains the code to execute when
-/// that choice is selected. Unlike the other choice elements ([`choice!`], [`mchoice!`]),
-/// the conditional expression is evaluated only the first time its choice is selected.
-/// The intent is that the arms are used to set values for the user's custom [`GameContext`](ifengine::core::GameContext).
+/// Pushes a choice object constructed from an iterable collection of `(Id, Line)` pairs
+/// to the current view.
+///
+/// Prefer [`dchoice!`] as the more concise constructor of this pattern.
+///
+/// # Return Value
+/// Returns `Option<T>`:
+/// - `Some(id)`: The identifier of the selected choice (transmuted from `u8`).
+/// - `None`: No choice was selected on this turn (or it was already consumed).
+///
+/// # Syntax
+/// ```text
+/// dynamic_choice!((maybe_key), expr)
+/// ```
 ///
 /// # Arguments
-/// - Optional key (surrounded in parentheses)
-/// - **Choices list**: A `Vec<(Id, Line)>` representing the selectable options. The Id can either be a `#[repr(u8)]` Unit Enum or a pure `u8`.
-/// - **Handler**: A `match` statement handling each choice.
+/// - **MaybeKey**: `(key)` surrounded in parentheses as the first argument. By default, a deterministic key is automatically assigned.
+/// - **Choices expression**: Any expression implementing `IntoIterator<Item = (T, L)>`, where:
+///   - `T`: The identifier type, which can be cast `as u8` and transmuted from `u8` (e.g., `u8` or a `#[repr(u8)]` unit enum).
+///   - `L`: The display label implementing `Into<`[`Line`](ifengine::view::Line)`>`.
 ///
 /// # Example
 /// ```rust,ignore
+/// #[derive(Clone, Copy, Debug, PartialEq)]
+/// #[repr(u8)]
+/// enum MenuChoice {
+///     Attack,
+///     Defend,
+///     Flee,
+/// }
+///
 /// let choices = vec![
-///     (0, l!("A")),
-///     (1, l!("B")),
-///     (2, l!("C")),
+///     (MenuChoice::Attack, "Attack"),
+///     (MenuChoice::Defend, "Defend"),
+///     (MenuChoice::Flee, "Flee"),
 /// ];
 ///
-/// if let Some(x) = dynamic_choice!(choices) {
-///     match x {
-///         0 => "A clicked",
-///         1 => "B clicked",
-///         2 => "C clicked",
+/// if let Some(choice) = dynamic_choice!(choices) {
+///     match choice {
+///         MenuChoice::Attack => { /* handle attack */ }
+///         MenuChoice::Defend => { /* handle defend */ }
+///         MenuChoice::Flee => { /* handle flee */ }
 ///     }
 /// }
 /// ```
@@ -143,7 +439,8 @@ pub fn dynamic_choice(input: TokenStream) -> TokenStream {
     choices::dynamic_choice(input)
 }
 
-/// A version of [`dynamic_choice!`] with slightly abbreviated syntax.
+/// A version of [`dynamic_choice!`] with abbreviated syntax.
+/// Any match arm for a choice which does not need handling (i.e. one containing a link) can be omitted.
 ///
 /// # Example
 /// ```rust,ignore
@@ -163,12 +460,9 @@ pub fn dchoice(input: TokenStream) -> TokenStream {
     choices::dchoice(input)
 }
 
-/// Create an interactive paragraph parsing wiki-style links with single-selection tracking.
+/// Interactive paragraph with clickable links delimited by `[[target]]`.
 ///
-/// Interactive text sections are automatically added from text delimited by `[[target]]` or `[[target|label]]` (Also see: [`mparagraph!`]).
-/// Clicking any link records the selection under the macro's internal key and re-renders the page.
-///
-/// On render, this macro returns `Option<String>`: `Some(target)` with the clicked link's token value,
+/// Returns `Some(target)` containing the text of whichever link was clicked (once per click),
 /// or `None` if no link has been clicked yet.
 ///
 /// # Syntax
@@ -178,7 +472,7 @@ pub fn dchoice(input: TokenStream) -> TokenStream {
 ///
 /// # Example
 /// ```rust,ignore
-/// if let Some(target) = dparagraph!("Go to [[forest]] or [[inn|the cozy inn]].") {
+/// if let Some(target) = dparagraph!("Go to the [[forest]] or the [[inn]].") {
 ///     match target.as_str() {
 ///         "forest" => NEXT!(p_forest),
 ///         "inn" => NEXT!(p_inn),
@@ -207,7 +501,7 @@ pub fn dparagraph(input: TokenStream) -> TokenStream {
 /// # Example
 /// ```rust,ignore
 /// let clicked = mparagraph!("You see a [[lantern]], a [[rope]], and a [[dagger]].");
-/// if clicked.get(0) == Some(&true) {
+/// if clicked[0] {
 ///     // lantern was clicked
 /// }
 /// ```
@@ -216,284 +510,19 @@ pub fn mparagraph(input: TokenStream) -> TokenStream {
     choices::mparagraph(input)
 }
 
-// =========================================================================
-// Elements
-// =========================================================================
-
-/// Push an [`Object`](ifengine::view::Object) to the current [`View`](ifengine::View).
-#[proc_macro]
-pub fn push(input: TokenStream) -> TokenStream {
-    elements::push(input)
-}
-
-/// Append additional content to the last object in the current [`View`](ifengine::View).
+/// Interactive paragraph that disappears or is replaced with new content when clicked.
 ///
-/// Supports explicit category prefixes (`"choice":`, `"object":`, `"span":` or their unquoted equivalents)
-/// to target different view object variants. If no prefix is supplied, it defaults to pushing spans.
+/// Words enclosed in `[[brackets]]` become clickable links. If no brackets are present,
+/// the entire paragraph is clickable.
 ///
-/// # Prefixes & Targets
-/// - **`"span":` (or omitted default)**: Appends one or more spans to a preceding [`Object::Paragraph`](ifengine::view::Object::Paragraph)
-///   or [`Object::Text`](ifengine::view::Object::Text).
-/// - **`"choice":`**: Appends choices to a preceding [`Object::Choice`](ifengine::view::Object::Choice).
-///   Accepts any type implementing [`IntoNumberedLine`](ifengine::view::IntoNumberedLine), such as `(u8, Into<Line>)`
-///   or directly `Into<Line>` (`&str`, `String`, `Line`, etc.). If the index is omitted (`None`), it automatically
-///   assigns `previous index + 1` (or `0` if the choice list is empty).
-/// - **`"object":`**: Appends objects (or [`StampedObject`](ifengine::view::StampedObject)s) to a preceding
-///   embedded subpage view ([`Object::Embed`](ifengine::view::Object::Embed)).
+/// Clicking a link displays the replacement text or expression in place of the original paragraph.
+/// If no replacement is provided, the paragraph disappears.
 ///
-/// If the target object variant does not match the specified category, or if the view is empty, `extend!` safely does nothing.
-///
-/// # Examples
-/// ```rust,ignore
-/// // Extend a paragraph with text and spans
-/// p!("Hello,");
-/// extend!(" {player.name}!");
-/// extend!("span": s!(" Welcome!").as_link());
-///
-/// // Extend a choice menu with auto-incrementing or explicit indices
-/// choice! {
-///     "Take the left path" => left_room,
-///     "Take the right path" => right_room,
-/// };
-/// extend!("choice": "Inspect the door", (5, "Return to camp"));
-///
-/// // Extend an embedded view with additional objects
-/// EMBED!(subpage);
-/// extend!("object": Object::Break);
-/// ```
-#[proc_macro]
-pub fn extend(input: TokenStream) -> TokenStream {
-    elements::extend(input)
-}
-
-/// Push a single unspaced plain text line ([`Object::Text`](ifengine::view::Object::Text)) to the view without paragraph margins.
-///
-/// Constructed from one or more spans, or string literals.
-///
-/// # Custom Styling Metadata
-/// A trailing [`RenderData`](ifengine::view::RenderData) can be specified following `::`.
-///
-/// # Example
-/// ```rust,ignore
-/// text!("Hello, world!");
-/// text!("HP: {hp}/{max_hp}" :: "stat-line");
-/// ```
-#[proc_macro]
-pub fn text(input: TokenStream) -> TokenStream {
-    elements::text(input)
-}
-
-/// Push multiple unspaced plain text lines ([`Object::Text`](ifengine::view::Object::Text)) in sequence to the view.
-///
-/// Each argument is a separate line without paragraph margins. See [`text!`].
-///
-/// # Example
-/// ```rust,ignore
-/// texts!("Line 1", "Line 2");
-/// ```
-#[proc_macro]
-pub fn texts(input: TokenStream) -> TokenStream {
-    elements::texts(input)
-}
-
-/// Push a single paragraph block ([`Object::Paragraph`](ifengine::view::Object::Paragraph)) to the view with standard vertical margins.
-///
-/// Constructed from one or more spans, or string literals.
-///
-/// # Example
-/// ```rust,ignore
-/// paragraph!("A dark hallway stretches before you.");
-/// ```
-#[proc_macro]
-pub fn paragraph(input: TokenStream) -> TokenStream {
-    elements::paragraph(input)
-}
-
-/// Push multiple separate paragraph blocks ([`Object::Paragraph`](ifengine::view::Object::Paragraph)) to the view.
-///
-/// Each argument is its own block with standard vertical spacing.
-///
-/// # Example
-/// ```rust,ignore
-/// paragraphs!(
-///     "First paragraph.",
-///     "Second paragraph.",
-/// );
-/// ```
-#[proc_macro]
-pub fn paragraphs(input: TokenStream) -> TokenStream {
-    elements::paragraphs(input)
-}
-
-/// Create a [`Span`](ifengine::view::Span).
-///
-/// # Example
-/// ```rust,ignore
-/// s!("Gold: {player.gold}")
-/// ```
-#[proc_macro]
-pub fn s(input: TokenStream) -> TokenStream {
-    elements::s(input)
-}
-
-/// Create a [`Line`](ifengine::view::Line) from one or more [`Span`](ifengine::view::Span)s.
-///
-/// # Example
-/// ```rust,ignore
-/// l!("Player {name} (Level {level})")
-/// ```
-#[proc_macro]
-pub fn l(input: TokenStream) -> TokenStream {
-    elements::l(input)
-}
-
-/// Create a clickable link [`Span`](ifengine::view::Span) navigating to a destination page.
-///
-/// # Example
-/// ```rust,ignore
-/// link!("Visit {vendor}'s shop", shop_page)
-/// link!("text", target_page)
-/// link!("text")
-/// ```
-#[proc_macro]
-pub fn link(input: TokenStream) -> TokenStream {
-    elements::link(input)
-}
-
-/// Create a tunnel or exit link [`Span`](ifengine::view::Span).
-///
-/// # Example
-/// ```rust,ignore
-/// tun!("Consult with {mentor}", mentor_tunnel)
-/// // push a new stack frame
-/// tun!("text", target_page)
-/// // exit the current tunnel (pop the stack)
-/// tun!("text")
-/// ```
-#[proc_macro]
-pub fn tun(input: TokenStream) -> TokenStream {
-    elements::tun(input)
-}
-
-// =========================================================================
-// View Elements
-// =========================================================================
-
-/// Push an image from a string literal.
-///
-/// # Example
-/// ```rust,ignore
-/// img!("assets/logo.png");
-/// img!("https://example.com/logo.png", (100, 50));
-/// ```
-#[proc_macro]
-pub fn img(input: TokenStream) -> TokenStream {
-    elements::img(input)
-}
-
-/// Markdown heading.
-///
-/// # Example
-/// ```rust,ignore
-/// h!("Chapter {chap}: The Journey Begins", 1);
-/// ```
-#[proc_macro]
-pub fn h(input: TokenStream) -> TokenStream {
-    elements::h(input)
-}
-
-/// Horizontal rule (`<hr/>`).
-#[proc_macro]
-pub fn hr(input: TokenStream) -> TokenStream {
-    elements::hr(input)
-}
-
-// =========================================================================
-// Responses
-// =========================================================================
-
-/// Immediately yield a [`Response::View`](ifengine::core::Response::View) with the current [`View`](ifengine::View).
-///
-/// This returns `!`, exiting the current function.
-#[proc_macro]
-#[allow(non_snake_case)]
-pub fn r#YIELD(input: TokenStream) -> TokenStream {
-    state::r#YIELD(input)
-}
-
-/// Embed a sub-page view into the current page.
-///
-/// Calls the target page with a transient Game.
-/// If the target page returns `Response::View`, the view is embedded as an `Object::Embed`
-/// into the current page and returned as the expression value.
-/// If the target page returns any other `Response` variant (`Switch`, `Back`, `Tunnel`, `Exit`, `End`),
-/// it is returned immediately from the enclosing page function.
-#[proc_macro]
-#[allow(non_snake_case)]
-pub fn EMBED(input: TokenStream) -> TokenStream {
-    elements::embed(input)
-}
-
-// =========================================================================
-// State & Navigation
-// =========================================================================
-
-/// Cycle between multiple alternative spans on click.
-///
-/// # Examples
-/// ```ignore
-/// alts!([
-///     "Look around",
-///     "Open the door",
-///     "Wait",
-/// ])
-/// ```
-#[proc_macro]
-pub fn alts(input: TokenStream) -> TokenStream {
-    state::alts(input)
-}
-
-/// Use a closure to compute a span based on how many times the span has been clicked.
-///
-/// # Syntax
-/// ```rust,ignore
-/// let span_count = read_key!(6);
-/// let span = count!((6), |n| format!("Clicked {n} times"));
-/// ```
-#[proc_macro]
-pub fn count(input: TokenStream) -> TokenStream {
-    state::count(input)
-}
-
-/// Run code on click.
-///
-/// If a key is not specified, it will be automatically generated.
-/// An optional `max_clicks` parameter can be provided in final position.
-///
-/// # Syntax
-/// ```rust,ignore
-/// p!(click!(span, block))
-/// p!(click!(span, block, max_clicks))
-/// p!(click!((maybe_key), span, block, max_clicks))
-/// ```
-#[proc_macro]
-pub fn click(input: TokenStream) -> TokenStream {
-    state::click(input)
-}
-
-/// Disappearing or replaceable paragraph with inline link trigger and View Transition support.
-///
-/// If the string contains `[[target]]`, the first bracketed section
-/// is used as the clickable link; otherwise, the entire string becomes the clickable link.
-///
-/// When clicked, if a replacement block/expression is present, it is evaluated and rendered in place of the line.
-/// The replacement shares the same element id as the original paragraph, enabling smooth transitions on supported frontends.
-///
-/// Returns `true` if the line has been clicked and replaced, or `false` if it is still unclicked.
+/// Returns `true` once clicked and replaced, or `false` beforehand.
 ///
 /// # Syntax
 /// ```text
-/// replace!((maybe_key), string_expr [, block])
+/// replace!((maybe_key), string_expr [, replacement])
 /// ```
 ///
 /// # Examples
@@ -504,7 +533,7 @@ pub fn click(input: TokenStream) -> TokenStream {
 /// // Replaces paragraph on click
 /// replace!("The gate is [[closed]].", "The gate swings open.");
 ///
-/// // Chaining timed choices after replace
+/// // Conditionally show following content after replacement
 /// if replace!("Click [[here]] to reveal options", "Options revealed:") {
 ///     choice! {
 ///         s!("Option A").cls("in-500") => "Chose A",
@@ -517,6 +546,10 @@ pub fn replace(input: TokenStream) -> TokenStream {
     choices::replace(input)
 }
 
+// =========================================================================
+// State
+// =========================================================================
+
 /// Run a function only once when the page is first loaded.
 ///
 /// # Syntax
@@ -526,20 +559,6 @@ pub fn replace(input: TokenStream) -> TokenStream {
 #[proc_macro]
 pub fn fresh(input: TokenStream) -> TokenStream {
     state::fresh(input)
-}
-
-/// Create a link [`Span`](ifengine::view::Span) that navigates backward.
-///
-/// - `$e`: Display text.
-/// - `$n`: Optional number of steps to go back (defaults to 1).
-///
-/// # Example
-/// ```rust,ignore
-/// back!("Return to {previous_room}")
-/// ```
-#[proc_macro]
-pub fn back(input: TokenStream) -> TokenStream {
-    state::back(input)
 }
 
 /// Read the value of a key in the internal [`PageState`](ifengine::core::PageState).

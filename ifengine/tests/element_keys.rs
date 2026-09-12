@@ -190,6 +190,8 @@ fn test_replace_page(_: &mut ()) {
         let x = 2 + 2;
         format!("Magic number is {x}")
     });
+    // Replaces when any link bit is clicked
+    replace!((400), "Choose [[left]] or [[right]].", "You moved forward.");
 }
 
 #[test]
@@ -197,7 +199,7 @@ fn test_replace_macro() {
     let mut game = ifengine::Game::new_with_page("test_replace_page", test_replace_page);
     let view = game.view().expect("view should succeed");
 
-    assert_eq!(view.inner.len(), 3);
+    assert_eq!(view.inner.len(), 4);
 
     // Initial render for chest (key 100)
     assert_eq!(view.inner[0].id, Some(100));
@@ -238,13 +240,28 @@ fn test_replace_macro() {
         panic!("expected Object::Paragraph for magic");
     };
 
+    // Initial render for multi-link (key 400)
+    assert_eq!(view.inner[3].id, Some(400));
+    let action_400_right = if let Object::Paragraph(line) = &view.inner[3].object {
+        assert_eq!(line.spans.len(), 5);
+        assert_eq!(line.spans[0].content, "Choose ");
+        assert_eq!(line.spans[1].content, "left");
+        assert_eq!(line.spans[2].content, " or ");
+        assert_eq!(line.spans[3].content, "right");
+        assert!(line.spans[3].action.is_some());
+        assert_eq!(line.spans[4].content, ".");
+        line.spans[3].action.clone().unwrap()
+    } else {
+        panic!("expected Object::Paragraph for multi-link");
+    };
+
     // Click chest link (key 100)
     game.handle_action(action_100)
         .expect("action should succeed");
     let view2 = game.view().expect("view should succeed");
 
-    // Chest is now completely disappeared from the view (length reduced from 3 to 2)
-    assert_eq!(view2.inner.len(), 2);
+    // Chest is now completely disappeared from the view (length reduced from 4 to 3)
+    assert_eq!(view2.inner.len(), 3);
     assert_eq!(view2.inner[0].id, Some(200));
     assert!(matches!(&view2.inner[0].object, Object::Paragraph(_)));
 
@@ -254,7 +271,7 @@ fn test_replace_macro() {
     let view3 = game.view().expect("view should succeed");
 
     // Door is now replaced with "The door is open." with the exact same key 200
-    assert_eq!(view3.inner.len(), 2);
+    assert_eq!(view3.inner.len(), 3);
     assert_eq!(view3.inner[0].id, Some(200));
     if let Object::Paragraph(line) = &view3.inner[0].object {
         assert_eq!(line.content(), "The door is open.");
@@ -274,11 +291,23 @@ fn test_replace_macro() {
     } else {
         panic!("expected Object::Paragraph for magic");
     }
+
+    // Click the second link in multi-link (bit 1 of key 400)
+    game.handle_action(action_400_right)
+        .expect("action should succeed");
+    let view5 = game.view().expect("view should succeed");
+
+    assert_eq!(view5.inner[2].id, Some(400));
+    if let Object::Paragraph(line) = &view5.inner[2].object {
+        assert_eq!(line.content(), "You moved forward.");
+    } else {
+        panic!("expected Object::Paragraph for key 400");
+    }
 }
 
 #[ifengine::ifview]
 fn test_interpolation_page(_: &mut ()) {
-    use ifengine::elements::{h, l, link, p, ps, s, text, texts};
+    use ifengine::elements::{dparagraph, h, l, link, mparagraph, p, ps, s, text, texts};
 
     let name = "Sen";
     let score = 42;
@@ -300,6 +329,9 @@ fn test_interpolation_page(_: &mut ()) {
     let uncopied = String::from("Unmoved");
     p!("First: {uncopied}");
     p!("Second: {uncopied}");
+
+    mparagraph!((500), "Take the [[{name}'s blade]].");
+    dparagraph!((600), "Travel to [[{name}'s camp]].");
 }
 
 #[test]
@@ -383,6 +415,20 @@ fn test_variable_interpolation_macros() {
         assert_eq!(line.content(), "Second: Unmoved");
     } else {
         panic!("expected Paragraph for index 10");
+    }
+
+    // 11: mparagraph! with interpolation
+    if let Object::Paragraph(line) = &view.inner[11].object {
+        assert_eq!(line.content(), "Take the Sen’s blade.");
+    } else {
+        panic!("expected Paragraph for index 11");
+    }
+
+    // 12: dparagraph! with interpolation
+    if let Object::Paragraph(line) = &view.inner[12].object {
+        assert_eq!(line.content(), "Travel to Sen’s camp.");
+    } else {
+        panic!("expected Paragraph for index 12");
     }
 }
 
