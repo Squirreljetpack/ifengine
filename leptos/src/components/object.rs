@@ -5,7 +5,7 @@ use crate::components::choice::ChoiceView;
 use crate::components::line::LineView;
 use crate::components::span::SpanView;
 use crate::context::StoryContext;
-use crate::transition::generate_view_transition_style;
+use crate::transition::{generate_view_transition_style, is_line_delayed, line_in_delay};
 
 /// Renders a [`StampedObject`] from the resolved page [`View`](ifengine::View).
 #[component]
@@ -20,6 +20,20 @@ pub fn ObjectView(stamped: StampedObject) -> impl IntoView {
 
     match stamped.object {
         Object::Paragraph(line, render_data) => {
+            let is_delayed = is_line_delayed(&line);
+            let is_fresh = ctx.transitions.read_untracked().is_fresh;
+            let should_delay = is_delayed && !is_fresh && is_changed;
+            let (is_pending, set_pending) = signal(should_delay);
+            if should_delay {
+                let delay = line_in_delay(&line);
+                leptos::prelude::set_timeout(
+                    move || {
+                        set_pending.set(false);
+                    },
+                    std::time::Duration::from_millis(delay),
+                );
+            }
+
             if render_data == "popup" || render_data == "modal" {
                 view! {
                     <div class="passage-popup-backdrop passage-popup" data-render=render_data>
@@ -33,17 +47,24 @@ pub fn ObjectView(stamped: StampedObject) -> impl IntoView {
                 .into_any()
             } else if let Some(speaker) = render_data.strip_prefix(':') {
                 let speaker = speaker.trim().to_string();
+                let vt_clone = vt_style.clone();
+                let dialogue_style = move || {
+                    if !is_pending.get() && !vt_clone.is_empty() {
+                        vt_clone.clone()
+                    } else {
+                        String::new()
+                    }
+                };
                 view! {
-                    <p class="passage-paragraph passage-dialogue" data-render=render_data style=vt_style>
+                    <p class="passage-paragraph passage-dialogue" data-render=render_data style=dialogue_style>
                         <span class="dialogue-speaker">{speaker}</span>
                         <LineView line=line />
                     </p>
                 }
                 .into_any()
             } else {
-                let mut style = vt_style.clone();
-                if let Some(m_str) = render_data.strip_prefix("m-") {
-                    let margin_style = if let Ok(val) = m_str.parse::<f32>() {
+                let margin_style = if let Some(m_str) = render_data.strip_prefix("m-") {
+                    if let Ok(val) = m_str.parse::<f32>() {
                         if val == 0.0 {
                             "margin: 0;".to_string()
                         } else {
@@ -51,24 +72,33 @@ pub fn ObjectView(stamped: StampedObject) -> impl IntoView {
                         }
                     } else {
                         format!("margin: {m_str};")
-                    };
-                    if style.is_empty() {
-                        style = margin_style;
-                    } else {
-                        style = format!("{margin_style} {style}");
                     }
-                }
+                } else {
+                    String::new()
+                };
+
+                let vt_clone = vt_style.clone();
+                let p_style = move || {
+                    let mut parts = Vec::new();
+                    if !margin_style.is_empty() {
+                        parts.push(margin_style.clone());
+                    }
+                    if !is_pending.get() && !vt_clone.is_empty() {
+                        parts.push(vt_clone.clone());
+                    }
+                    parts.join(" ")
+                };
 
                 if !render_data.is_empty() {
                     view! {
-                        <p class="passage-paragraph" data-render=render_data style=style>
+                        <p class="passage-paragraph" data-render=render_data style=p_style>
                             <LineView line=line />
                         </p>
                     }
                     .into_any()
                 } else {
                     view! {
-                        <p class="passage-paragraph" style=style>
+                        <p class="passage-paragraph" style=p_style>
                             <LineView line=line />
                         </p>
                     }

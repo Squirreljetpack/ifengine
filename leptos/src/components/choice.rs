@@ -4,7 +4,7 @@ use leptos::prelude::*;
 
 use crate::components::line::LineView;
 use crate::context::StoryContext;
-use crate::transition::generate_view_transition_style;
+use crate::transition::{generate_view_transition_style, is_line_delayed, line_in_delay};
 
 /// Context provided to descendants within a choice item.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -71,8 +71,35 @@ pub fn ChoiceView(key: PageKey, choices: Vec<(u8, Line)>) -> impl IntoView {
         .is_content_changed(Some(key), 0);
     let vt_style = generate_view_transition_style(Some(key), is_changed);
 
+    let is_fresh = ctx.transitions.read_untracked().is_fresh;
+    let all_delayed = !choices.is_empty() && choices.iter().all(|(_, l)| is_line_delayed(l));
+    let should_delay = all_delayed && !is_fresh && is_changed;
+    let (is_pending, set_pending) = signal(should_delay);
+    if should_delay {
+        let min_delay = choices
+            .iter()
+            .map(|(_, l)| line_in_delay(l))
+            .min()
+            .unwrap_or(0);
+        leptos::prelude::set_timeout(
+            move || {
+                set_pending.set(false);
+            },
+            std::time::Duration::from_millis(min_delay),
+        );
+    }
+
+    let vt_clone = vt_style.clone();
+    let choice_style = move || {
+        if !is_pending.get() && !vt_clone.is_empty() {
+            vt_clone.clone()
+        } else {
+            String::new()
+        }
+    };
+
     view! {
-        <div class="passage-choices choice-container" style=vt_style>
+        <div class="passage-choices choice-container" style=choice_style>
             {choices.into_iter().map(|(idx, line)| {
                 let has_internal_actions = line.spans.iter().any(|s| s.action.is_some());
                 view! {

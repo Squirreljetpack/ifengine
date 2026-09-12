@@ -100,6 +100,46 @@ pub fn parse_transition_classes(classes: &[String]) -> TransitionConfig {
     config
 }
 
+/// Returns true if the line itself or all its non-whitespace spans have an entrance delay (`in_delay > 0`).
+pub fn is_line_delayed(line: &ifengine::view::Line) -> bool {
+    let config = parse_transition_classes(&line.classes);
+    if config.in_delay.unwrap_or(0) > 0 {
+        return true;
+    }
+    let non_empty_spans: Vec<&ifengine::view::Span> = line
+        .spans
+        .iter()
+        .filter(|s| !s.content.trim().is_empty())
+        .collect();
+    if !non_empty_spans.is_empty()
+        && non_empty_spans.iter().all(|s| {
+            let cfg = parse_transition_classes(&s.classes);
+            cfg.in_delay.unwrap_or(0) > 0
+        })
+    {
+        return true;
+    }
+    false
+}
+
+/// Computes the effective entrance delay in milliseconds for a line.
+pub fn line_in_delay(line: &ifengine::view::Line) -> u64 {
+    let config = parse_transition_classes(&line.classes);
+    if let Some(d) = config.in_delay {
+        if d > 0 {
+            return d;
+        }
+    }
+    line.spans
+        .iter()
+        .filter_map(|s| {
+            let cfg = parse_transition_classes(&s.classes);
+            cfg.in_delay
+        })
+        .max()
+        .unwrap_or(0)
+}
+
 /// Tracks previously rendered elements across page iterations to ensure
 /// that entrance animations never re-trigger on items that were already displayed,
 /// while re-triggering when content changes under the same ID (e.g. `alts!` clicked).

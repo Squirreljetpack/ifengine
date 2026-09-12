@@ -2,7 +2,7 @@ use super::State;
 use ifengine::{
     elements::{
         EMBED, alts, back, choice, click, count, dchoice, dynamic_choice, fresh, img, link,
-        mchoice, p, repl, replace, s,
+        mchoice, p, repl, replace, s, l
     },
     ifview,
 };
@@ -40,18 +40,18 @@ pub fn rainy_day(s: &mut State) {
 
     if replace!(
         "I'm a wanted criminal on the run from the law and I stumbled here after a failed jump to escape the Zubvian Planetary Police.",
-        "Obviously you're not going to tell the truth. Good thing you've got your cover story ready."
+        l!("Obviously you're not going to tell the truth. Good thing you've got your cover story ready.").cls("in-750")
     ) {
         choice! {
-            s!("I'm a treasure hunter. I search the Galaxy for long-dead civilizations and the things they left behind.").cls("in-500") => |l| {
+            s!("I'm a treasure hunter. I search the Galaxy for long-dead civilizations and the things they left behind.").cls("in-2000") => |l| {
                 s.job = Some("treasure hunter".into());
                 l
             },
-            s!("I'm a traveling merchant. I visit new planets looking for wares to buy and sell. Would you like to buy a fine Darlinian leather jacket?").cls("in-1000") => |l| {
+            s!("I'm a traveling merchant. I visit new planets looking for wares to buy and sell. Would you like to buy a fine Darlinian leather jacket?").cls("in-2500") => |l| {
                 s.job = Some("merchant".into());
                 l
             },
-            s!("Well, I'm not exactly a tourist, but I am a wanderer. I jump around from system to system looking for new sights and experiences. The stars in this sector of space are absolutely beautiful.").cls("in-1500") => |l| {
+            s!("Well, I'm not exactly a tourist, but I am a wanderer. I jump around from system to system looking for new sights and experiences. The stars in this sector of space are absolutely beautiful.").cls("in-3000") => |l| {
                 s.job = Some("wanderer".into());
                 l
             },

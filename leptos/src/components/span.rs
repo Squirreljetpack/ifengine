@@ -38,12 +38,12 @@ pub fn SpanView(
         if !base_style.is_empty() {
             styles.push(base_style.clone());
         }
-        if !vt_style.is_empty() {
-            styles.push(vt_style.clone());
-        }
         match phase.get() {
             TransitionPhase::Pending | TransitionPhase::Removed => {}
             TransitionPhase::Active => {
+                if !vt_style.is_empty() {
+                    styles.push(vt_style.clone());
+                }
                 let (trans_style, _) =
                     generate_active_transition_style(&span_config, should_animate);
                 if !trans_style.is_empty() {

@@ -726,8 +726,8 @@ html, :root {
     height: 100% !important;
 }
 
-/* Unchanged elements during same-page reflow: hide old snapshot and keep single new element with solid opacity */
-::view-transition-old(.reflow) {
+/* Unchanged elements during same-page reflow: hide old snapshot only when paired with a new element */
+::view-transition-old(.reflow):not(:only-child) {
     display: none !important;
     animation: none !important;
     opacity: 0 !important;
