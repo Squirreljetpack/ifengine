@@ -447,17 +447,11 @@ impl syn::parse::Parse for ReplaceInput {
     }
 }
 
-pub fn replace(input: TokenStream) -> TokenStream {
-    let ReplaceInput {
-        maybe_key,
-        expr,
-        replacement: block,
-    } = syn::parse_macro_input!(input as ReplaceInput);
-
-    let key = maybe_key.into_tokens();
-    let expr_tokens = expand_string_expr(&expr);
-
-    let replacement_block = match &block {
+fn expand_replacement_block(
+    expr_tokens: &proc_macro2::TokenStream,
+    block: &Option<Expr>,
+) -> proc_macro2::TokenStream {
+    match block {
         Some(b) if matches!(unwrap_paren_expr(b), Expr::Closure(_)) => {
             let closure = unwrap_paren_expr(b);
             quote! {
@@ -482,17 +476,33 @@ pub fn replace(input: TokenStream) -> TokenStream {
         }
         Some(b) => quote! { ifengine::view::Line::from({ #b }) },
         None => quote! { ifengine::view::Line::from(()) },
+    }
+}
+
+pub fn replace(input: TokenStream) -> TokenStream {
+    let ReplaceInput {
+        maybe_key,
+        expr,
+        replacement: block,
+    } = syn::parse_macro_input!(input as ReplaceInput);
+
+    let stamp_key = match maybe_key {
+        MaybeKey::Key(k) => quote!(((#k) as u64 & 0x0000_FFFF_FFFF_FFFF)),
+        MaybeKey::Auto => quote!(__ifengine_internal_key),
     };
+    let expr_tokens = expand_string_expr(&expr);
+    let replacement_block = expand_replacement_block(&expr_tokens, &block);
 
     let expanded = quote! {{
-        let __ifengine_key = #key;
+        let __ifengine_internal_key = __ifengine_page_state.auto_key();
+        let __ifengine_stamp_key = #stamp_key;
 
-        if __ifengine_page_state.get(__ifengine_key).unwrap_or(0) != 0 {
+        if __ifengine_page_state.get(__ifengine_internal_key).unwrap_or(0) != 0 {
             let __ifengine_replacement: ifengine::view::Line = #replacement_block;
             if !__ifengine_replacement.spans.is_empty() {
                 __ifengine_page_state.push(
                     ifengine::view::StampedObject {
-                        id: Some(__ifengine_key),
+                        id: Some(__ifengine_stamp_key),
                         object: ifengine::view::Object::Paragraph(__ifengine_replacement),
                     }
                 );
@@ -507,16 +517,49 @@ pub fn replace(input: TokenStream) -> TokenStream {
 
             __ifengine_page_state.push(
                 ifengine::view::StampedObject {
-                    id: Some(__ifengine_key),
+                    id: Some(__ifengine_stamp_key),
                     object: ifengine::view::Object::Paragraph(
                         ifengine::view::Line::from_interleaved_actions::<true>(
-                            __ifengine_key,
+                            __ifengine_internal_key,
                             __ifengine_strings,
                         )
                     ),
                 }
             );
             false
+        }
+    }};
+
+    expanded.into()
+}
+
+pub fn replacement(input: TokenStream) -> TokenStream {
+    let ReplaceInput {
+        maybe_key: _,
+        expr,
+        replacement: block,
+    } = syn::parse_macro_input!(input as ReplaceInput);
+
+    let expr_tokens = expand_string_expr(&expr);
+    let replacement_block = expand_replacement_block(&expr_tokens, &block);
+
+    let expanded = quote! {{
+        let __ifengine_internal_key = __ifengine_page_state.auto_key();
+
+        if __ifengine_page_state.get(__ifengine_internal_key).unwrap_or(0) != 0 {
+            let __ifengine_replacement: ifengine::view::Line = #replacement_block;
+            __ifengine_replacement
+        } else {
+            let mut __ifengine_strings =
+                ifengine::utils::split_braced(&#expr_tokens);
+            if __ifengine_strings.len() == 1 {
+                __ifengine_strings.insert(0, String::new());
+            }
+
+            ifengine::view::Line::from_interleaved_actions::<true>(
+                __ifengine_internal_key,
+                __ifengine_strings,
+            )
         }
     }};
 

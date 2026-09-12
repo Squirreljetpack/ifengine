@@ -152,7 +152,7 @@ html, body {
 }
 
 .passage-text {
-    margin-bottom: 1rem;
+    margin: 0;
 }
 
 .passage-embed {

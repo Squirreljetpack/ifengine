@@ -59,6 +59,8 @@ pub mod elements {
     //! | [`dparagraph!`](dparagraph) | `dparagraph!("Go to [[forest]] or [[inn]]")` | Interactive paragraph with clickable links; returns `Some(target)` on selection (`None` initially). |
     //! | [`mparagraph!`](mparagraph) | `mparagraph!("Take [[torch]] and [[sword]]")` | Interactive paragraph with wiki-style links; tracks multiple clicked tokens and returns `Vec<bool>`. |
     //! | [`replace!`](replace) | `replace!("Chest is [[locked]].", "Unlocked!")` | Clickable paragraph that transitions into a replacement line or collapses to 0 height. |
+    //! | [`replacement!`](replacement) | `replacement!("Chest is [[locked]].", "Unlocked!")` | Replacement line that does not push to view, returning content for nesting in `replace!`. |
+    //! | [`repl!`](repl) | `repl!("Chest is [[locked]].", "Unlocked!")` | Alias for [`replacement!`]. |
     //! | [`NEXT!`](NEXT) | `NEXT!(next_page)` | Flow control: transition to the specified page function. |
     //! | [`EMBED!`](EMBED) | `EMBED!(sub_page)` | Flow control: evaluate sub-page with transient Game and embed View; propagate transitions. |
     //! | [`BACK!`](BACK) | `BACK!()` or `BACK!(2)` | Flow control: navigate back 1 (or `n`) steps in history. |
@@ -79,6 +81,6 @@ pub mod elements {
     #[cfg(feature = "macros")]
     pub use ifengine_macros::{
         EMBED as emb, dparagraph as dp, extend as x, mchoice as choices, mparagraph as mp,
-        paragraph as p, paragraphs as ps, text, texts as ts,
+        paragraph as p, paragraphs as ps, replacement as repl, text, texts as ts,
     };
 }

@@ -10,8 +10,8 @@ pub struct State {
     pub miles: usize,
     pub days: usize,
     pub rations: usize,
-    pub show_modal: bool,
-    pub show_popup: bool,
+    pub popup: bool,
+    pub i: usize,
 }
 
 pub type Game = ifengine::Game<State>;
@@ -281,8 +281,8 @@ mod tests {
         let view = game.view().expect("failed to render rainy_day");
 
         // Initially show_modal is false and popup is not rendered
-        assert!(!game.context.show_modal);
-        assert!(!game.context.show_popup);
+        assert!(!game.context.popup);
+        assert!(!game.context.popup);
         let has_popup = view.inner.iter().any(|obj| match &obj.object {
             Object::Embed(_, rd) => *rd == "popup" || *rd == "modal",
             Object::Text(_, rd) => *rd == "popup" || *rd == "modal",
@@ -319,14 +319,8 @@ mod tests {
         let popup_view = game.view().expect("should render rainy_day with popup");
 
         // State is updated by choice C
-        assert!(
-            game.context.show_modal,
-            "choice C should set show_modal to true"
-        );
-        assert!(
-            game.context.show_popup,
-            "choice C should set show_popup to true"
-        );
+        assert!(game.context.popup, "choice C should set show_modal to true");
+        assert!(game.context.popup, "choice C should set show_popup to true");
 
         let popup_embed = popup_view.inner.iter().find(|obj| match &obj.object {
             Object::Embed(_, rd) => *rd == "popup" || *rd == "modal",
@@ -370,11 +364,11 @@ mod tests {
 
         // Now show_modal and show_popup are false
         assert!(
-            !game.context.show_modal,
+            !game.context.popup,
             "dismiss should set show_modal to false"
         );
         assert!(
-            !game.context.show_popup,
+            !game.context.popup,
             "dismiss should set show_popup to false"
         );
 
@@ -396,11 +390,11 @@ mod tests {
             .view()
             .expect("should render rainy_day with reopened popup");
         assert!(
-            game.context.show_modal,
+            game.context.popup,
             "second choice C should set show_modal to true"
         );
         assert!(
-            game.context.show_popup,
+            game.context.popup,
             "second choice C should set show_popup to true"
         );
 
@@ -441,11 +435,11 @@ mod tests {
             .view()
             .expect("should render rainy_day after second dismissal");
         assert!(
-            !game.context.show_modal,
+            !game.context.popup,
             "second dismiss should set show_modal to false"
         );
         assert!(
-            !game.context.show_popup,
+            !game.context.popup,
             "second dismiss should set show_popup to false"
         );
 

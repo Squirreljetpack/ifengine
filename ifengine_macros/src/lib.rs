@@ -98,7 +98,7 @@ pub fn extend(input: TokenStream) -> TokenStream {
     view::extend(input)
 }
 
-/// Push a single unspaced plain text line ([`Object::Text`](ifengine::view::Object::Text)) to the view without paragraph margins.
+/// Push a single plain text line ([`Object::Text`](ifengine::view::Object::Text)) to the view without paragraph (y) margins.
 ///
 /// Constructed from one or more spans, or string literals.
 ///
@@ -115,9 +115,9 @@ pub fn text(input: TokenStream) -> TokenStream {
     view::text(input)
 }
 
-/// Push multiple unspaced plain text lines ([`Object::Text`](ifengine::view::Object::Text)) in sequence to the view.
+/// Push multiple plain text lines ([`Object::Text`](ifengine::view::Object::Text)) in sequence to the view.
 ///
-/// Each argument is a separate line without paragraph margins. See [`text!`].
+/// Each argument is a separate line without paragraph (y) margins. See [`text!`].
 ///
 /// # Example
 /// ```rust,ignore
@@ -321,7 +321,6 @@ pub fn count(input: TokenStream) -> TokenStream {
 
 /// Run code on click.
 ///
-/// If a key is not specified, it will be automatically generated.
 /// An optional `max_clicks` parameter can be provided in final position.
 ///
 /// # Syntax
@@ -329,6 +328,25 @@ pub fn count(input: TokenStream) -> TokenStream {
 /// p!(click!(span, block))
 /// p!(click!(span, block, max_clicks))
 /// p!(click!((maybe_key), span, block, max_clicks))
+/// ```
+///
+/// # Note
+/// The block only runs on the render after a click, meaning
+/// that if the block is used to toggle the visibility of the click element,
+/// its definition must execute unconditionally
+/// (i.e. be lifted out from where it is pushed).
+/// Also see: [`replace!`].
+///
+/// ```rust,ignore
+/// let dismiss = click!("Dismiss", {
+///     state.popup = false;
+/// });
+///
+/// if state.popup {
+///     p!("--- Popup Notice ---");
+///     p!("Atmospheric disturbance detected in sector 7.");
+///     p!(dismiss);
+/// }
 /// ```
 #[proc_macro]
 pub fn click(input: TokenStream) -> TokenStream {
@@ -561,6 +579,8 @@ pub fn mparagraph(input: TokenStream) -> TokenStream {
 /// the cleaned original [`Line`](ifengine::view::Line).
 /// If no replacement is provided, the paragraph disappears.
 ///
+/// The MaybeKey will only override the [`Object`](ifengine::view::Object)'s Id, not the internal state key.
+///
 /// Returns `true` once clicked and replaced, or `false` beforehand.
 ///
 /// # Syntax
@@ -592,6 +612,25 @@ pub fn mparagraph(input: TokenStream) -> TokenStream {
 #[proc_macro]
 pub fn replace(input: TokenStream) -> TokenStream {
     choices::replace(input)
+}
+
+/// Interactive replacement line that does not push to the view, returning a [`Line`](ifengine::view::Line).
+///
+/// Intended for nesting inside [`replace!`] (or another `replacement!`), allowing chained
+/// multi-stage in-place replacements sharing the parent paragraph's transition identity.
+///
+/// # Syntax
+/// ```text
+/// replacement!(string_expr [=> replacement])
+/// ```
+///
+/// # Examples
+/// ```rust,ignore
+/// replace!("The lock is [[sealed]]." => repl!("The doorway is [[open]]." => "You step inside."));
+/// ```
+#[proc_macro]
+pub fn replacement(input: TokenStream) -> TokenStream {
+    choices::replacement(input)
 }
 
 // =========================================================================

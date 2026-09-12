@@ -16,7 +16,10 @@ fn test_element_macros_and_keys() {
     let view = game.view().expect("view should succeed");
 
     assert_eq!(view.inner.len(), 1);
-    assert!(view.inner[0].id.is_some(), "paragraph must have an object id");
+    assert!(
+        view.inner[0].id.is_some(),
+        "paragraph must have an object id"
+    );
     if let Object::Paragraph(line) = &view.inner[0].object {
         assert_eq!(line.classes, vec!["my-line"]);
 

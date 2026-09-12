@@ -2,7 +2,7 @@ use super::State;
 use ifengine::{
     elements::{
         EMBED, alts, back, choice, click, count, dchoice, dynamic_choice, fresh, img, link,
-        mchoice, p, replace, s, text,
+        mchoice, p, repl, replace, s, text,
     },
     ifview,
 };
@@ -15,10 +15,28 @@ enum DChoices {
 }
 
 #[ifview]
-pub fn rainy_day(state: &mut State) {
+pub fn rainy_day(s: &mut State) {
     p!("word ", "1");
 
-    replace!((77), "The ancient lock is [[sealed]].");
+    if replace!((1), "The ancient lock is [[sealed]].") {
+        if replace!((1), "The doorway lies [[open]].") {
+            replace!((1), "Stick your hand [[inside]].");
+        }
+    }
+
+    replace!(
+        "The ancient lock is [[sealed]].",
+        repl!(
+            "The doorway lies [[open]].",
+            repl!("Stick your hand [[inside]].", "AAAAH!")
+        )
+    );
+
+    text!(
+        "Well, never mind all that. What brings you out here in the middle of nowhere? We don't exactly get a lot of tourists around these parts."
+        ::
+        "them"
+    );
 
     if replace!(
         "I'm a wanted criminal on the run from the law and I stumbled here after a failed jump to escape the Zubvian Planetary Police.",
@@ -26,20 +44,20 @@ pub fn rainy_day(state: &mut State) {
     ) {
         choice! {
             s!("I'm a treasure hunter. I search the Galaxy for long-dead civilizations and the things they left behind.").cls("in-500") => |l| {
-                state.job = Some("treasure hunter".into());
+                s.job = Some("treasure hunter".into());
                 l
             },
             s!("I'm a traveling merchant. I visit new planets looking for wares to buy and sell. Would you like to buy a fine Darlinian leather jacket?").cls("in-1000") => |l| {
-                state.job = Some("merchant".into());
+                s.job = Some("merchant".into());
                 l
             },
             s!("Well, I'm not exactly a tourist, but I am a wanderer. I jump around from system to system looking for new sights and experiences. The stars in this sector of space are absolutely beautiful.").cls("in-1500") => |l| {
-                state.job = Some("wanderer".into());
+                s.job = Some("wanderer".into());
                 l
             },
         };
 
-        if let Some(job) = &state.job {
+        if let Some(job) = &s.job {
             p!("Job: {job}");
         }
     }
@@ -49,7 +67,7 @@ pub fn rainy_day(state: &mut State) {
         link!("tomorrow", sunny_day),
         s!(" will be: "),
         alts!(weathers, Shuffle, |idx| {
-            state.weather = weathers[idx].to_string();
+            s.weather = weathers[idx].to_string();
         })
     );
 
@@ -84,13 +102,12 @@ pub fn rainy_day(state: &mut State) {
                 dbg!("B handled");
             }
             DChoices::C => {
-                state.show_modal = true;
-                state.show_popup = true;
+                s.popup = true;
             }
         }
     };
 
-    if state.show_modal || state.show_popup {
+    if s.popup {
         EMBED!(rainy_popup :: "popup");
     }
 
@@ -155,11 +172,10 @@ pub fn sensor_logs(_: &mut State) {
 #[ifview]
 pub fn rainy_popup(state: &mut State) {
     let dismiss = click!("Dismiss", {
-        state.show_modal = false;
-        state.show_popup = false;
+        state.popup = false;
     });
 
-    if state.show_modal || state.show_popup {
+    if state.popup {
         p!("--- Popup Notice ---");
         p!("Atmospheric disturbance detected in sector 7.");
         p!(dismiss);
