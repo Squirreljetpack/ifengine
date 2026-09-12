@@ -4,9 +4,8 @@ use iddqd::{IdHashMap, id_hash_map::Entry};
 
 use crate::{
     Action, Game, GameError, SimEnd, View,
-    core::{GameContext, GameTags, PageId, PageStack, Response},
+    core::{GameContext, GameTags, PageId, Response},
     utils::_dbg,
-    view::Object,
 };
 
 use super::Interactable;
@@ -40,16 +39,8 @@ impl<C: GameContext> Game<C> {
     {
         let mut ret = Simulation::new();
 
-        // A tunnel categorized by the function which it enters into, which does not necessarily must respond with a view
-        let tun_id = self
-            .pages
-            .current()
-            .unwrap()
-            .id
-            .rsplit("::")
-            .next()
-            .unwrap()
-            .into(); // all tunnels with the same basename are grouped the same. This is because the pagehandles contained by tunnel cannot be guaranteed to have the same import style. Although this too, is still very error_prone (i.e. renames) as well as runs the risk of collisions.
+        let start_page = self.pages.current().unwrap();
+        let tun_id = start_page.canonical_id();
         let mut start = self.clone();
         start.simulating = true;
 
@@ -74,13 +65,14 @@ impl<C: GameContext> Game<C> {
                 let action = s.action.as_ref().unwrap();
                 match action {
                     Action::Tunnel(next) => {
-                        let fork_name = next.id.rsplit("::").next().unwrap().into();
+                        let tun_target = next.canonical_id();
 
                         let mut next = next.clone();
                         next.id.clear();
 
-                        self.pages = PageStack::new_with_page(next);
-                        return Err(SimEnd::Tunnel(fork_name));
+                        self.pages.adv_stack();
+                        let _ = self.pages.push(next);
+                        return Err(SimEnd::Tunnel(tun_target));
                     }
                     Action::Exit => Err(SimEnd::TunnelExit),
                     _ => self
@@ -95,7 +87,7 @@ impl<C: GameContext> Game<C> {
     fn simulate_impl<F>(
         queue: &mut Vec<SimulationState<C>>,
         records: &mut PageRecords,
-        tunnels_queue: &mut Vec<(String, Self)>,
+        tunnels_queue: &mut Vec<(PageId, Self)>,
         visitor: &mut F,
     ) where
         F: FnMut(&mut SimulationState<C>) -> bool,
@@ -120,7 +112,6 @@ impl<C: GameContext> Game<C> {
                 match r {
                     Response::View(view) => {
                         page.id = view.pageid.clone(); // id the page by the fully resolved name
-                        s.last_id = page.id.clone();
                         _dbg!(&page.id);
                         break s.pages.push(page).map(|_| view).map_err(|e| e.into()); // only rendered pages get added to history
                     }
@@ -132,12 +123,15 @@ impl<C: GameContext> Game<C> {
                         Err(e) => break Err(e.into()),
                     },
                     Response::Tunnel(mut next) => {
-                        let mut fork = s.game.clone();
-                        let fork_name = next.id.rsplit("::").next().unwrap().to_string(); // note: why compiler can't infer into_string() here
-                        next.id.clear();
-                        fork.pages = PageStack::new_with_page(next);
-                        tunnels_queue.push((fork_name.clone(), fork));
-                        break Err(SimEnd::Tunnel(fork_name));
+                        let tun_target = next.canonical_id();
+                        if records.record_outgoing_tunnel(s.pageid(), &tun_target) {
+                            let mut fork = s.game.clone();
+                            next.id.clear();
+                            fork.pages.adv_stack();
+                            let _ = fork.pages.push(next);
+                            tunnels_queue.push((tun_target.clone(), fork));
+                        }
+                        break Err(SimEnd::Tunnel(tun_target));
                     }
                     Response::Exit => {
                         // we cannot fully distinguish between tunnel_exit and game_end by this response variant
@@ -151,20 +145,12 @@ impl<C: GameContext> Game<C> {
                 Ok(mut v) => {
                     let mut to_queue = vec![];
 
-                    Self::simulate_view(
-                        &mut v,
-                        &s,
-                        records,
-                        tunnels_queue,
-                        &mut to_queue,
-                    );
+                    Self::simulate_view(&mut v, &mut s, records, tunnels_queue, &mut to_queue);
 
                     queue.extend(to_queue.into_iter().rev());
                 }
                 Err(e) => {
-                    if let Some(last) = s.last.as_ref() {
-                        records.push_sim_end(last, e)
-                    }
+                    records.push_sim_end(s.pageid(), e);
                 }
             };
         }
@@ -172,43 +158,32 @@ impl<C: GameContext> Game<C> {
 
     fn simulate_view(
         v: &mut View,
-        s: &SimulationState<C>,
+        s: &mut SimulationState<C>,
         records: &mut PageRecords,
-        tunnels_queue: &mut Vec<(String, Self)>,
+        tunnels_queue: &mut Vec<(PageId, Self)>,
         to_queue: &mut Vec<SimulationState<C>>,
     ) {
         let pageid = v.pageid.clone();
         records.insert_view(s, &pageid, v);
+        s.inner.last_id = pageid.clone();
 
         for e in v.interactables_sim() {
             _dbg!(&e.content());
-            let mut next = s.next(pageid.clone());
+            let mut next = s.next();
             match next.interact_sim(e) {
                 Ok(()) => {
                     to_queue.push(next);
                     _dbg!(to_queue.len());
                 }
                 Err(e) => {
-                    if let SimEnd::Tunnel(fork_name) = &e {
+                    if let SimEnd::Tunnel(tun_target) = &e {
                         _dbg!("tun");
-                        tunnels_queue.push((fork_name.clone(), next.game));
+                        if records.record_outgoing_tunnel(&pageid, tun_target) {
+                            tunnels_queue.push((tun_target.clone(), next.game));
+                        }
                     }
-                    records.push_sim_end(&pageid, e.into());
+                    records.push_sim_end(&pageid, e);
                 }
-            }
-        }
-
-        for stamped in &mut v.inner {
-            if let Object::Embed(sub_view, _) = &mut stamped.object {
-                let mut sub_s = s.clone();
-                sub_s.last = Some(pageid.clone());
-                Self::simulate_view(
-                    sub_view,
-                    &sub_s,
-                    records,
-                    tunnels_queue,
-                    to_queue,
-                );
             }
         }
     }
@@ -219,8 +194,8 @@ impl<C: GameContext> Game<C> {
 /// Output of a simulation pass across reachable story branches.
 #[derive(Debug, Clone)]
 pub struct Simulation {
-    /// History of runs, keyed by entry point name (the initial start or tunnel target basename).
-    pub runs: HashMap<String, PageRecords>,
+    /// History of runs, keyed by entry point page ID.
+    pub runs: HashMap<PageId, PageRecords>,
 }
 
 /// The active traversal state along an in-flight branch during simulation.
@@ -228,22 +203,16 @@ pub struct Simulation {
 pub struct SimulationState<C> {
     pub game: Game<C>,
     pub depth: usize,
-    pub last: Option<PageId>,
 }
 
 impl<C: Clone> SimulationState<C> {
     fn new(game: Game<C>) -> Self {
-        Self {
-            game,
-            depth: 0,
-            last: None,
-        }
+        Self { game, depth: 0 }
     }
 
-    fn next(&self, curr_id: PageId) -> Self {
+    fn next(&self) -> Self {
         let mut ret = self.clone();
         ret.depth += 1;
-        ret.last = Some(curr_id);
         ret
     }
 }
@@ -282,7 +251,7 @@ impl PageRecord {
     }
 
     pub fn is_empty(&self) -> bool {
-        self.ends.is_empty() && self.tags.is_empty()
+        self.ends.is_empty() && self.tags.is_empty() && self.outgoing_tunnels.is_empty()
     }
 
     pub fn compute_display_width(&self) -> usize {
@@ -299,6 +268,12 @@ impl PageRecord {
                 max = len;
             }
         }
+        for tun in &self.outgoing_tunnels {
+            let len = tun.len();
+            if len > max {
+                max = len;
+            }
+        }
         max
     }
 }
@@ -306,15 +281,13 @@ impl PageRecord {
 impl PageRecords {
     // Drains the seen tags into the record, and adds an incoming edge
     pub fn insert_view<C>(&mut self, s: &SimulationState<C>, pageid: &PageId, v: &mut View) {
-        let prev = s.last.clone();
-
         match self.entry(pageid) {
             Entry::Occupied(mut occ) => {
                 let mut record = occ.get_mut();
 
                 record.tags.extend(v.tags.drain(0..v.tags.len()));
-                if let Some(prev) = prev {
-                    record.incoming.insert(prev);
+                if s.depth > 0 {
+                    record.incoming.insert(s.game.inner.last_id.clone());
                 }
                 record.min_depth = record.min_depth.min(s.depth);
             }
@@ -323,8 +296,8 @@ impl PageRecords {
                 let mut record = PageRecord::new(pageid.clone());
 
                 record.tags.extend(v.tags.drain(0..v.tags.len()));
-                if let Some(prev) = prev {
-                    record.incoming.insert(prev);
+                if s.depth > 0 {
+                    record.incoming.insert(s.game.inner.last_id.clone());
                 }
                 record.min_depth = record.min_depth.min(s.depth);
 
@@ -336,6 +309,21 @@ impl PageRecords {
     pub fn push_sim_end(&mut self, pageid: &PageId, e: SimEnd) {
         if let Some(mut record) = self.0.get_mut(pageid) {
             record.ends.insert(e.into());
+        }
+    }
+
+    /// Records an outgoing tunnel transition from `from` to `target`.
+    /// Returns `true` if this is the first time entering `target` from `from`,
+    /// or `false` if the tunnel was already entered from `from`.
+    pub fn record_outgoing_tunnel(&mut self, from: &PageId, target: &PageId) -> bool {
+        match self.entry(from) {
+            Entry::Occupied(mut occ) => occ.get_mut().outgoing_tunnels.insert(target.clone()),
+            Entry::Vacant(vac) => {
+                let mut record = PageRecord::new(from.clone());
+                let is_new = record.outgoing_tunnels.insert(target.clone());
+                vac.insert(record);
+                is_new
+            }
         }
     }
 

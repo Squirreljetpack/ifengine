@@ -124,3 +124,51 @@ fn test_nested_embeds() {
 
     assert_eq!(game.context.counter, 100);
 }
+
+#[test]
+fn test_reverse_page_id_lookup() {
+    let canonical = ifengine::core::resolve_page_id(subpage_view);
+    assert_eq!(canonical, Some("embed::subpage_view"));
+}
+
+#[ifengine::ifview]
+fn embedded_interactable_child(s: &mut TestState) {
+    ifengine::elements::choice! {
+        "Child Option A" => {
+            s.counter += 50;
+            "Selected A"
+        },
+        "Child Option B" => {
+            s.counter += 100;
+            "Selected B"
+        },
+    };
+}
+
+#[ifengine::ifview]
+fn parent_with_embed_interactables(_s: &mut TestState) {
+    p!("Parent header");
+    EMBED!(embedded_interactable_child);
+    p!("Parent footer");
+}
+
+#[test]
+fn test_embed_expanded_in_interactables() {
+    let mut game = ifengine::Game::new_with_page(
+        "parent_with_embed_interactables",
+        parent_with_embed_interactables,
+    );
+    let view = game.view().expect("view should succeed");
+
+    // interactables() and interactables_sim() must directly surface the child's choices
+    let sim_interactables = view.interactables_sim();
+    assert_eq!(sim_interactables.len(), 2);
+    assert_eq!(sim_interactables[0].content(), "Child Option A");
+    assert_eq!(sim_interactables[1].content(), "Child Option B");
+
+    // Interact with the first choice from the parent view
+    game.interact(sim_interactables[0]).expect("interact succeeded");
+    let _next_view = game.view().expect("view after choice");
+    assert_eq!(game.context.counter, 50);
+}
+

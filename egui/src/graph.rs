@@ -6,13 +6,14 @@ use egui_snarl::{
     InPin, InPinId, NodeId, OutPin, OutPinId, Snarl,
     ui::{SnarlPin, SnarlViewer},
 };
+use ifengine::core::PageId;
 use ifengine::run::PageRecord;
 use rand::Rng;
 
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Node {
-    run: String,
+    run: PageId,
     record: PageRecord,
     output_count: usize,
     display_width: usize,
@@ -142,7 +143,9 @@ pub struct GraphViewer {
 #[allow(unused)]
 impl SnarlViewer<Node> for GraphViewer {
     fn title(&mut self, node: &Node) -> String {
-        let mut s = node.record.id[self.prefix_len..].to_string();
+        let raw = &node.record.id[self.prefix_len..];
+        let trimmed = raw.strip_prefix("::").unwrap_or(raw);
+        let mut s = trimmed.to_string();
         while s.len() < node.display_width {
             s.push(' ');
         }
@@ -201,6 +204,9 @@ impl SnarlViewer<Node> for GraphViewer {
             };
             if !record.ends.is_empty() {
                 ui.label(format_list("Ends: ", record.ends.iter()));
+            };
+            if !record.outgoing_tunnels.is_empty() {
+                ui.label(format_list("Tunnels: ", record.outgoing_tunnels.iter()));
             };
         });
     }

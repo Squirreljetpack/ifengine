@@ -270,7 +270,7 @@ impl GameInner {
     }
 
     /// The identifier of the active page.
-    pub fn last_page_id(&self) -> &PageId {
+    pub fn pageid(&self) -> &PageId {
         &self.last_id
     }
 }

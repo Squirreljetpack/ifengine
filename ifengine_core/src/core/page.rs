@@ -14,12 +14,25 @@ pub type Page<C> = fn(&mut Game<C>) -> Response;
 /// Capable of (eventually) producing a [`View`] when (repeatedly) called by [`Game::view`]
 pub trait PageErased: Send + Sync + 'static {
     fn call(&self, game: &mut dyn Any) -> Response;
+    fn as_any(&self) -> &dyn Any;
+    fn same_page(&self, other: &dyn PageErased) -> bool;
 }
 
 impl<C: GameContext> PageErased for Page<C> {
     fn call(&self, game: &mut dyn Any) -> Response {
         let game = game.downcast_mut::<Game<C>>().expect("Game type mismatch");
         self(game)
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn same_page(&self, other: &dyn PageErased) -> bool {
+        other
+            .as_any()
+            .downcast_ref::<Page<C>>()
+            .is_some_and(|f| std::ptr::fn_addr_eq(*f, *self))
     }
 }
 // todo: add struct that implements this, i.e. parsed from dsl
@@ -73,9 +86,27 @@ impl iddqd::IdHashItem for PageHandle {
 impl PageHandle {
     pub fn new<C: GameContext>(id: PageId, widget: Page<C>) -> Self {
         Self {
-            widget: Arc::new(widget), // no closure needed
+            widget: Arc::new(widget),
             id,
         }
+    }
+
+    pub fn is_page<C: GameContext>(&self, target: Page<C>) -> bool {
+        self.widget
+            .as_any()
+            .downcast_ref::<Page<C>>()
+            .is_some_and(|f| std::ptr::fn_addr_eq(*f, target))
+    }
+
+    /// Resolves the canonical registered [`PageId`] for this handle, falling back to `self.id`.
+    pub fn canonical_id(&self) -> PageId {
+        for page in inventory::iter::<RegisteredPage> {
+            let candidate = (page.factory)("".into());
+            if candidate.widget.same_page(&*self.widget) {
+                return page.id.into();
+            }
+        }
+        self.id.clone()
     }
 
     pub fn new_erased<T: PageErased>(id: PageId, widget: impl Into<T>) -> Self {
@@ -111,6 +142,17 @@ pub struct RegisteredPage {
 }
 
 inventory::collect!(RegisteredPage);
+
+/// Resolves a page function pointer against the global compile-time registry.
+pub fn resolve_page_id<C: GameContext>(target: Page<C>) -> Option<&'static str> {
+    for page in inventory::iter::<RegisteredPage> {
+        let candidate = (page.factory)("".into());
+        if candidate.is_page(target) {
+            return Some(page.id);
+        }
+    }
+    None
+}
 
 /// Resolves a page identifier against the global compile-time registry.
 pub fn resolve_page(id: &str) -> Option<PageHandle> {

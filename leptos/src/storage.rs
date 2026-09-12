@@ -49,7 +49,7 @@ where
         id: "autosave".to_string(),
         name: "Autosave".to_string(),
         date: current_timestamp(),
-        page_id: game.last_page_id().to_string(),
+        page_id: game.pageid().to_string(),
         game: game.clone(),
     };
     if let Ok(bytes) = postcard::to_allocvec(&slot) {
@@ -101,7 +101,7 @@ where
         id,
         name,
         date: current_timestamp(),
-        page_id: game.last_page_id().to_string(),
+        page_id: game.pageid().to_string(),
         game: game.clone(),
     };
     saves.push(slot.clone());
@@ -139,7 +139,7 @@ where
     let mut saves = load_saves::<C>();
     if let Some(slot) = saves.iter_mut().find(|s| s.id == id) {
         slot.date = current_timestamp();
-        slot.page_id = game.last_page_id().to_string();
+        slot.page_id = game.pageid().to_string();
         slot.game = game.clone();
         write_saves(&saves);
     }
@@ -159,7 +159,7 @@ mod tests {
             id: "save_1".into(),
             name: "My Save".into(),
             date: "2026-09-09".into(),
-            page_id: game.last_page_id().to_string(),
+            page_id: game.pageid().to_string(),
             game,
         };
 

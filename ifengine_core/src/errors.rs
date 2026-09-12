@@ -3,6 +3,8 @@ use thiserror::Error;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
+use crate::core::PageId;
+
 #[derive(Debug, Error, std::hash::Hash, PartialEq, Eq, Clone)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum GameError {
@@ -21,7 +23,7 @@ pub enum SimEnd {
     GameError(#[from] GameError),
 
     #[error("{0}")]
-    Tunnel(String),
+    Tunnel(PageId),
 
     #[error("⟨Exit⟩")]
     TunnelExit,
