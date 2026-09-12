@@ -6,6 +6,13 @@ use crate::components::line::LineView;
 use crate::context::StoryContext;
 use crate::transition::generate_view_transition_style;
 
+/// Context provided to descendants within a choice item.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ActiveChoiceContext {
+    pub key: PageKey,
+    pub index: u8,
+}
+
 /// Renders a single choice item (button or inline container).
 #[component]
 fn ChoiceItemView(
@@ -15,11 +22,23 @@ fn ChoiceItemView(
     has_internal_actions: bool,
 ) -> impl IntoView {
     let ctx = expect_context::<StoryContext>();
+    let choice_ctx = Some(ActiveChoiceContext {
+        key,
+        index: choice_idx,
+    });
 
     if has_internal_actions {
         view! {
-            <div class="choice-item choice-item-inline">
-                <LineView line=line />
+            <div
+                class="choice-item choice-item-inline"
+                role="button"
+                tabindex="0"
+                on:click=move |e: leptos::ev::MouseEvent| {
+                    e.prevent_default();
+                    ctx.dispatch_choice.run((key, choice_idx));
+                }
+            >
+                <LineView line=line choice=choice_ctx />
             </div>
         }
         .into_any()
@@ -33,7 +52,7 @@ fn ChoiceItemView(
                     ctx.dispatch_choice.run((key, choice_idx));
                 }
             >
-                <LineView line=line />
+                <LineView line=line choice=choice_ctx />
             </button>
         }
         .into_any()

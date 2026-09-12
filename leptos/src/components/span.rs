@@ -1,6 +1,7 @@
 use ifengine::view::{Span, SpanVariant};
 use leptos::prelude::*;
 
+use crate::components::choice::ActiveChoiceContext;
 use crate::context::StoryContext;
 use crate::render::{span_classes, span_to_css_style};
 use crate::transition::{
@@ -11,7 +12,10 @@ use crate::transition::{
 /// Renders a single [`Span`] element with styling, modifiers, transition animation,
 /// and interactive action handling.
 #[component]
-pub fn SpanView(span: Span) -> impl IntoView {
+pub fn SpanView(
+    span: Span,
+    #[prop(optional_no_strip)] choice: Option<ActiveChoiceContext>,
+) -> impl IntoView {
     let ctx = expect_context::<StoryContext>();
     let config = parse_transition_classes(&span.classes);
     let is_changed = ctx
@@ -75,7 +79,12 @@ pub fn SpanView(span: Span) -> impl IntoView {
                 style=span_style
                 on:click=move |e: leptos::ev::MouseEvent| {
                     e.prevent_default();
-                    ctx.dispatch_action.run(action.clone());
+                    e.stop_propagation();
+                    if let Some(c) = choice {
+                        ctx.dispatch_choice_action.run(((c.key, c.index), action.clone()));
+                    } else {
+                        ctx.dispatch_action.run(action.clone());
+                    }
                 }
             >
                 {span.content}

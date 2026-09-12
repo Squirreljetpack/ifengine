@@ -123,28 +123,40 @@ where
         }
     };
 
-    // --- Action Dispatcher ---
-    let game_for_action = Arc::clone(&game_lock);
-    let on_action = refresh_view.clone();
+    // --- Interaction Dispatcher (Choice and/or Action) ---
+    let game_for_interaction = Arc::clone(&game_lock);
+    let on_interaction = refresh_view.clone();
+    let dispatch_interaction = Callback::new(
+        move |(choice, action): (Option<(PageKey, u8)>, Option<Action>)| {
+            let mut game = game_for_interaction.write().unwrap();
+            if let Some((choice_key, index)) = choice {
+                game.handle_choice(choice_key, index);
+            }
+            if let Some(action) = action {
+                if let Err(err) = game.handle_action(action) {
+                    web_sys::console::error_1(
+                        &format!("[ifengine_leptos] Error executing action: {err:?}").into(),
+                    );
+                    return;
+                }
+            }
+            on_interaction(&mut game);
+        },
+    );
+
     let dispatch_action = Callback::new(move |action: Action| {
-        let mut game = game_for_action.write().unwrap();
-        if let Err(err) = game.handle_action(action) {
-            web_sys::console::error_1(
-                &format!("[ifengine_leptos] Error executing action: {err:?}").into(),
-            );
-            return;
-        }
-        on_action(&mut game);
+        dispatch_interaction.run((None, Some(action)));
     });
 
-    // --- Choice Dispatcher ---
-    let game_for_choice = Arc::clone(&game_lock);
-    let on_choice = refresh_view.clone();
     let dispatch_choice = Callback::new(move |(choice_key, index): (PageKey, u8)| {
-        let mut game = game_for_choice.write().unwrap();
-        game.handle_choice(choice_key, index);
-        on_choice(&mut game);
+        dispatch_interaction.run((Some((choice_key, index)), None));
     });
+
+    let dispatch_choice_action = Callback::new(
+        move |((choice_key, index), action): ((PageKey, u8), Action)| {
+            dispatch_interaction.run((Some((choice_key, index)), Some(action)));
+        },
+    );
 
     // --- Modal Controls & Game Reload Handlers ---
     let open_save_modal = Callback::new(move |_| {
@@ -173,6 +185,7 @@ where
     provide_context(StoryContext {
         dispatch_action,
         dispatch_choice,
+        dispatch_choice_action,
         transitions,
         open_save_modal,
         open_load_modal,

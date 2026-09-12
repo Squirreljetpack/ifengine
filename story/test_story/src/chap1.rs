@@ -25,17 +25,17 @@ pub fn rainy_day(state: &mut State) {
         "Obviously you're not going to tell the truth. Good thing you've got your cover story ready."
     ) {
         choice! {
-            s!("I'm a treasure hunter. I search the Galaxy for long-dead civilizations and the things they left behind.").cls("in-500") => {
+            s!("I'm a treasure hunter. I search the Galaxy for long-dead civilizations and the things they left behind.").cls("in-500") => |l| {
                 state.job = Some("treasure hunter".to_string());
-                "I'm a treasure hunter. I search the Galaxy for long-dead civilizations and the things they left behind."
+                l
             },
-            s!("I'm a traveling merchant. I visit new planets looking for wares to buy and sell. Would you like to buy a fine Darlinian leather jacket?").cls("in-1000") => {
+            s!("I'm a traveling merchant. I visit new planets looking for wares to buy and sell. Would you like to buy a fine Darlinian leather jacket?").cls("in-1000") => |l| {
                 state.job = Some("merchant".to_string());
-                "I'm a traveling merchant. I visit new planets looking for wares to buy and sell. Would you like to buy a fine Darlinian leather jacket?"
+                l
             },
-            s!("Well, I'm not exactly a tourist, but I am a wanderer. I jump around from system to system looking for new sights and experiences. The stars in this sector of space are absolutely beautiful.").cls("in-1500") => {
+            s!("Well, I'm not exactly a tourist, but I am a wanderer. I jump around from system to system looking for new sights and experiences. The stars in this sector of space are absolutely beautiful.").cls("in-1500") => |l| {
                 state.job = Some("wanderer".to_string());
-                "Well, I'm not exactly a tourist, but I am a wanderer. I jump around from system to system looking for new sights and experiences. The stars in this sector of space are absolutely beautiful."
+                l
             },
         };
 

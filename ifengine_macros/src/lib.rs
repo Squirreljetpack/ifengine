@@ -327,15 +327,19 @@ pub fn click(input: TokenStream) -> TokenStream {
 
 /// Conditionally display one of several choices based on user selection.
 ///
+/// Display a choice menu and morph into the selected choice's paragraph.
+///
 /// Returns `true` if it has resolved, otherwise `false`.
 ///
 /// # Description
 /// The [`choice`] macro takes a list of arms in the form `LHS => RHS`, where both
-/// sides implement `Into<`[`Line`](ifengine::view::Line)`>`. It works as follows:
+/// sides implement `Into<`[`Line`](ifengine::view::Line)`>`.
 ///
-/// - If no arm is selected, the LHS values are displayed as a list of lines.
-/// - Once a choice is selected, subsequent renders execute the corresponding RHS expression and
-///   display its result.
+/// It works as follows:
+/// - If no arm is selected, the LHS values are displayed as a list of clickable choices.
+/// - Once a choice is selected, subsequent renders execute the corresponding RHS expression (or closure) and
+///   display its result as a [`Paragraph`](ifengine::view::Object::Paragraph).
+/// - If `=> RHS` is omitted for an arm, selecting that choice keeps the cleaned LHS line as the paragraph.
 ///
 /// # Optional Key Override
 /// An optional key (surrounded in parentheses) can be specified as the first argument.
@@ -343,13 +347,28 @@ pub fn click(input: TokenStream) -> TokenStream {
 /// By default, a deterministic key is automatically assigned.
 /// Multiple LHS values can be specified for the same RHS using `|`.
 ///
-/// # Example
+/// # Examples
 /// ```rust,ignore
 /// choice! {
-///     "1" => "Chose 1",
-///     "2" | "3" => {
-///         "Chose 2 or 3"
+///     // 1. Static choice without side effects
+///     "Take the left path",
+///
+///     // 2. Closure keeping choice with state side effects:
+///     "Search the desk" => |l| {
+///         state.found_key = true;
+///         l
 ///     },
+///
+///     // 3. Extending choice line with '+':
+///     "Open the chest" => |l| {
+///         l + " — inside you find a gleaming silver dagger."
+///     },
+///
+///     // 4. Multiple LHS values with a closure:
+///     "North" | "South" => |l| l + " path taken.",
+///
+///     // 5. Standard replacement:
+///     "Flee" => "You ran away cowardly.",
 /// };
 /// ```
 #[proc_macro]
@@ -360,8 +379,9 @@ pub fn choice(input: TokenStream) -> TokenStream {
 /// Execute a set of conditional expressions based on user-selected choices.
 ///
 /// Each arm has the form `Choice => Expr`. If a choice was selected, its
-/// corresponding expression (the RHS) is executed (executions occur in order), regardless of whether
-/// the choice's key (the LHS) is currently visible.
+/// corresponding expression (the RHS) is executed (in arm order) and evaluated to a [`Line`](ifengine::view::Line).
+/// If the evaluated line is non-empty, it is pushed to the page as a paragraph. Any remaining
+/// visible choices are pushed last at the bottom.
 ///
 /// Each LHS key is a [`ChoiceVariant`](ifengine::elements::ChoiceVariant), dictating its visibility.
 /// Any type that implements `Into<`[`Line`](ifengine::view::Line)`>` will coerce to `Choice::Once`.
@@ -371,6 +391,13 @@ pub fn choice(input: TokenStream) -> TokenStream {
 ///
 /// # Example
 /// ```rust,ignore
+/// // Match arms evaluating to paragraphs, with remaining options shown last:
+/// mchoice! {
+///     "Ask about the map" => "He shows you the weathered parchment.",
+///     "Ask about the dungeon" => "He warns you of the shadows lurking below.",
+/// }
+///
+/// // Dynamic visibility with completion check:
 /// if mchoice! {
 ///    s.c1.name.is_empty().then_some(link!("member_1_choice_1", _oracle_1)),
 ///    s.c1.name.is_empty().then_some(link!("member_1_choice_2", _oracle_2)),
@@ -516,28 +543,35 @@ pub fn mparagraph(input: TokenStream) -> TokenStream {
 /// the entire paragraph is clickable.
 ///
 /// Clicking a link displays the replacement text or expression in place of the original paragraph.
+/// The replacement can be a string, a [`Line`](ifengine::view::Line), or a closure `|l| ...` that receives
+/// the cleaned original [`Line`](ifengine::view::Line).
 /// If no replacement is provided, the paragraph disappears.
 ///
 /// Returns `true` once clicked and replaced, or `false` beforehand.
 ///
 /// # Syntax
 /// ```text
-/// replace!((maybe_key), string_expr [, replacement])
+/// replace!((maybe_key), string_expr [=> replacement])
 /// ```
 ///
 /// # Examples
 /// ```rust,ignore
-/// // Disappears on click
+/// // Disappears on click (no replacement)
 /// replace!("The old chest is [[locked]].");
 ///
 /// // Replaces paragraph on click
-/// replace!("The gate is [[closed]].", "The gate swings open.");
+/// replace!("The gate is [[closed]]." => "The gate swings open.");
+///
+/// // Extends original text on click using a closure:
+/// replace!("The chest is [[shut tight]]." => |l| {
+///     l + " You forced it open with a crowbar!"
+/// });
 ///
 /// // Conditionally show following content after replacement
-/// if replace!("Click [[here]] to reveal options", "Options revealed:") {
+/// if replace!("Click [[here]] to reveal options" => "Options revealed:") {
 ///     choice! {
-///         s!("Option A").cls("in-500") => "Chose A",
-///         s!("Option B").cls("in-1000") => "Chose B",
+///         "Option A",
+///         "Option B",
 ///     };
 /// }
 /// ```

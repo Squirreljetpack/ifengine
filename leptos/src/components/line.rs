@@ -1,6 +1,7 @@
 use ifengine::view::Line;
 use leptos::prelude::*;
 
+use crate::components::choice::ActiveChoiceContext;
 use crate::components::span::SpanView;
 use crate::context::StoryContext;
 use crate::transition::{
@@ -10,7 +11,10 @@ use crate::transition::{
 
 /// Renders a [`Line`] consisting of multiple spans, with line-level animation and class support.
 #[component]
-pub fn LineView(line: Line) -> impl IntoView {
+pub fn LineView(
+    line: Line,
+    #[prop(optional_no_strip)] choice: Option<ActiveChoiceContext>,
+) -> impl IntoView {
     let ctx = expect_context::<StoryContext>();
     let config = parse_transition_classes(&line.classes);
     let is_changed = ctx
@@ -69,7 +73,7 @@ pub fn LineView(line: Line) -> impl IntoView {
         <span class=class_str style=line_style>
             {spans.into_iter().map(|span| {
                 view! {
-                    <SpanView span=span />
+                    <SpanView span=span choice=choice />
                 }
             }).collect::<Vec<_>>()}
         </span>

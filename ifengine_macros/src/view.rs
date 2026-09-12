@@ -5,7 +5,6 @@ use syn::visit_mut::VisitMut;
 use syn::{Error, Expr, ItemFn, Lit, LitStr, Token, parse_macro_input};
 
 use crate::helpers::{expand_line_expr, expand_spans, expand_string_expr};
-use crate::nodes::MaybeKey;
 
 pub fn ifview(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let mut input = parse_macro_input!(item as ItemFn);

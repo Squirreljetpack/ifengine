@@ -1,5 +1,6 @@
 use bitflags::bitflags;
 use std::collections::HashMap;
+use std::ops::{Add, AddAssign};
 
 use crate::{
     core::{
@@ -130,6 +131,12 @@ impl Span {
         self
     }
 
+    /// Strips all classes from the span.
+    pub fn clean(mut self) -> Self {
+        self.classes.clear();
+        self
+    }
+
     /// Computes a non-zero 64-bit hash of the span's text content.
     ///
     /// Always returns a non-zero value (substituting `1` if the hash collides with `0`)
@@ -181,6 +188,15 @@ impl Line {
 
     pub fn classes(mut self, classes: impl IntoIterator<Item = impl Into<String>>) -> Self {
         self.classes.extend(classes.into_iter().map(Into::into));
+        self
+    }
+
+    /// Strips all classes from the line and all its inner spans.
+    pub fn clean(mut self) -> Self {
+        self.classes.clear();
+        for span in &mut self.spans {
+            span.classes.clear();
+        }
         self
     }
 
@@ -434,6 +450,122 @@ impl<const N: usize> From<[Span; N]> for Line {
     }
 }
 
+impl Add<&str> for Line {
+    type Output = Self;
+    fn add(mut self, rhs: &str) -> Self {
+        self.push(Span::from_lingual(rhs));
+        self
+    }
+}
+
+impl Add<String> for Line {
+    type Output = Self;
+    fn add(mut self, rhs: String) -> Self {
+        self.push(Span::from_lingual(rhs));
+        self
+    }
+}
+
+impl Add<&String> for Line {
+    type Output = Self;
+    fn add(self, rhs: &String) -> Self {
+        self + rhs.as_str()
+    }
+}
+
+impl Add<Span> for Line {
+    type Output = Self;
+    fn add(mut self, rhs: Span) -> Self {
+        self.push(rhs);
+        self
+    }
+}
+
+impl Add<&Span> for Line {
+    type Output = Self;
+    fn add(mut self, rhs: &Span) -> Self {
+        self.push(rhs.clone());
+        self
+    }
+}
+
+impl Add<Line> for Line {
+    type Output = Self;
+    fn add(mut self, mut rhs: Line) -> Self {
+        self.spans.append(&mut rhs.spans);
+        self.classes.append(&mut rhs.classes);
+        self
+    }
+}
+
+impl Add<&Line> for Line {
+    type Output = Self;
+    fn add(mut self, rhs: &Line) -> Self {
+        self.spans.extend(rhs.spans.iter().cloned());
+        self.classes.extend(rhs.classes.iter().cloned());
+        self
+    }
+}
+
+impl AddAssign<&str> for Line {
+    fn add_assign(&mut self, rhs: &str) {
+        self.push(Span::from_lingual(rhs));
+    }
+}
+
+impl AddAssign<String> for Line {
+    fn add_assign(&mut self, rhs: String) {
+        self.push(Span::from_lingual(rhs));
+    }
+}
+
+impl AddAssign<&String> for Line {
+    fn add_assign(&mut self, rhs: &String) {
+        *self += rhs.as_str();
+    }
+}
+
+impl AddAssign<Span> for Line {
+    fn add_assign(&mut self, rhs: Span) {
+        self.push(rhs);
+    }
+}
+
+impl AddAssign<&Span> for Line {
+    fn add_assign(&mut self, rhs: &Span) {
+        self.push(rhs.clone());
+    }
+}
+
+impl AddAssign<Line> for Line {
+    fn add_assign(&mut self, mut rhs: Line) {
+        self.spans.append(&mut rhs.spans);
+        self.classes.append(&mut rhs.classes);
+    }
+}
+
+impl AddAssign<&Line> for Line {
+    fn add_assign(&mut self, rhs: &Line) {
+        self.spans.extend(rhs.spans.iter().cloned());
+        self.classes.extend(rhs.classes.iter().cloned());
+    }
+}
+
+impl Extend<Span> for Line {
+    fn extend<T: IntoIterator<Item = Span>>(&mut self, iter: T) {
+        self.spans.extend(iter);
+    }
+}
+
+impl Extend<Line> for Line {
+    fn extend<T: IntoIterator<Item = Line>>(&mut self, iter: T) {
+        for mut line in iter {
+            self.spans.append(&mut line.spans);
+            self.classes.append(&mut line.classes);
+        }
+    }
+}
+
 // this is too broad
 // impl<U, S: Into<Span>> From<U> for Line
 // where
@@ -533,5 +665,41 @@ mod tests {
         let line = Line::from_interleaved_actions::<true>(("p".into(), 1), parts);
         assert_eq!(line.spans.len(), 1);
         assert_eq!(line.spans[0].content, "link");
+    }
+
+    #[test]
+    fn test_line_add_and_add_assign() {
+        let l1 = Line::from("Hello");
+        let l2 = l1 + ", " + "world!";
+        assert_eq!(l2.content(), "Hello, world!");
+        assert_eq!(l2.spans.len(), 3);
+
+        let mut l3 = Line::from("Base");
+        l3 += " string";
+        l3 += String::from(" with String");
+        l3 += Span::new(" and Span".into());
+        let l4 = Line::from(" and Line");
+        l3 += l4;
+        assert_eq!(l3.content(), "Base string with String and Span and Line");
+
+        let l5 = Line::from("Part 1") + Line::from(" Part 2");
+        assert_eq!(l5.content(), "Part 1 Part 2");
+    }
+
+    #[test]
+    fn test_line_and_span_clean() {
+        let span = Span::new("Text".into()).cls("red").cls("bold");
+        assert_eq!(span.classes, vec!["red", "bold"]);
+        let cleaned_span = span.clean();
+        assert!(cleaned_span.classes.is_empty());
+
+        let line = Line::from(Span::new("Inner".into()).cls("italic")).cls("container");
+        assert_eq!(line.classes, vec!["container"]);
+        assert_eq!(line.spans[0].classes, vec!["italic"]);
+
+        let cleaned_line = line.clean();
+        assert!(cleaned_line.classes.is_empty());
+        assert!(cleaned_line.spans[0].classes.is_empty());
+        assert_eq!(cleaned_line.content(), "Inner");
     }
 }

@@ -30,17 +30,35 @@ pub struct ChoiceInput {
     pub arms: Vec<LineArm>,
 }
 
+fn flatten_bitor_exprs(expr: Expr, out: &mut Vec<Expr>) {
+    if let Expr::Binary(syn::ExprBinary {
+        left,
+        op: syn::BinOp::BitOr(_),
+        right,
+        ..
+    }) = expr
+    {
+        flatten_bitor_exprs(*left, out);
+        flatten_bitor_exprs(*right, out);
+    } else {
+        out.push(expr);
+    }
+}
+
 impl Parse for ChoiceInput {
     fn parse(input: ParseStream) -> Result<Self> {
         let maybe_key = input.parse()?;
 
         let mut arms = Vec::new();
         while !input.is_empty() {
-            let mut lhs_exprs = vec![input.parse::<Expr>()?];
+            let mut lhs_exprs = Vec::new();
+            let first_expr = input.parse::<Expr>()?;
+            flatten_bitor_exprs(first_expr, &mut lhs_exprs);
 
             while input.peek(Token![|]) {
                 let _ = input.parse::<Token![|]>()?;
-                lhs_exprs.push(input.parse()?);
+                let next_expr = input.parse::<Expr>()?;
+                flatten_bitor_exprs(next_expr, &mut lhs_exprs);
             }
 
             let block = if input.parse::<Token![=>]>().is_ok() {
@@ -63,6 +81,14 @@ impl Parse for ChoiceInput {
     }
 }
 
+fn unwrap_paren_expr(expr: &Expr) -> &Expr {
+    match expr {
+        Expr::Paren(p) => unwrap_paren_expr(&p.expr),
+        Expr::Group(g) => unwrap_paren_expr(&g.expr),
+        other => other,
+    }
+}
+
 pub fn choice(input: TokenStream) -> TokenStream {
     let ChoiceInput { maybe_key, arms } = syn::parse_macro_input!(input as ChoiceInput);
 
@@ -78,8 +104,23 @@ pub fn choice(input: TokenStream) -> TokenStream {
         lines.push(quote! { (#i, #line_tokens) });
 
         let block_tokens = match block {
+            Some(b) if matches!(unwrap_paren_expr(b), Expr::Closure(_)) => {
+                let closure = unwrap_paren_expr(b);
+                quote! {
+                    {
+                        fn __ifengine_call_closure<R>(
+                            f: impl FnOnce(ifengine::view::Line) -> R,
+                            l: ifengine::view::Line,
+                        ) -> R {
+                            f(l)
+                        }
+                        let __ifengine_line: ifengine::view::Line = #line_tokens.clean();
+                        ifengine::view::Line::from(__ifengine_call_closure(#closure, __ifengine_line))
+                    }
+                }
+            }
             Some(b) => quote! { ifengine::view::Line::from({ #b }) },
-            None => quote! { unreachable!() },
+            None => quote! { #line_tokens.clean() },
         };
 
         index_arms.push(quote! {
@@ -151,13 +192,24 @@ pub fn mchoice(input: TokenStream) -> TokenStream {
             };
 
             let block_tokens = match block {
-                Some(b) => quote! { #b },
-                None => quote! {},
+                Some(b) => quote! { ifengine::view::Line::from({ #b }) },
+                None => quote! { ifengine::view::Line::default() },
             };
 
             quote! {
                 if (__ifengine_tmp_mask & (1u64 << #i)) != 0 {
-                    #block_tokens
+                    #[allow(unreachable_code)]
+                    {
+                        let __arm_line: ifengine::view::Line = #block_tokens;
+                        if !__arm_line.spans.is_empty() {
+                            __ifengine_page_state.push(
+                                ifengine::view::StampedObject {
+                                    id: None,
+                                    object: ifengine::view::Object::Paragraph(__arm_line),
+                                }
+                            );
+                        }
+                    }
                 }
                 if let Some(l) = #variant_tokens
                 .as_line((__ifengine_tmp_mask & (1u64 << #i)) != 0)
@@ -405,16 +457,38 @@ pub fn replace(input: TokenStream) -> TokenStream {
     let key = maybe_key.into_tokens();
     let expr_tokens = expand_string_expr(&expr);
 
-    let block_token = match block {
-        Some(b) => quote! { #b },
-        None => quote! { () },
+    let replacement_block = match &block {
+        Some(b) if matches!(unwrap_paren_expr(b), Expr::Closure(_)) => {
+            let closure = unwrap_paren_expr(b);
+            quote! {
+                {
+                    fn __ifengine_call_closure<R>(
+                        f: impl FnOnce(ifengine::view::Line) -> R,
+                        l: ifengine::view::Line,
+                    ) -> R {
+                        f(l)
+                    }
+                    let __parts = ifengine::utils::split_braced(&ifengine::utils::trim_lines(&#expr_tokens));
+                    let mut __spans = Vec::new();
+                    for __p in __parts {
+                        if !__p.is_empty() {
+                            __spans.push(ifengine::view::Span::from_lingual(__p));
+                        }
+                    }
+                    let __orig_line: ifengine::view::Line = ifengine::view::Line::from_spans(__spans).clean();
+                    ifengine::view::Line::from(__ifengine_call_closure(#closure, __orig_line))
+                }
+            }
+        }
+        Some(b) => quote! { ifengine::view::Line::from({ #b }) },
+        None => quote! { ifengine::view::Line::from(()) },
     };
 
     let expanded = quote! {{
         let __ifengine_key = #key;
 
         if __ifengine_page_state.get(__ifengine_key).unwrap_or(0) != 0 {
-            let __ifengine_replacement: ifengine::view::Line = ifengine::view::Line::from(#block_token);
+            let __ifengine_replacement: ifengine::view::Line = #replacement_block;
             if !__ifengine_replacement.spans.is_empty() {
                 __ifengine_page_state.push(
                     ifengine::view::StampedObject {

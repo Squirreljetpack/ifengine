@@ -13,6 +13,8 @@ pub struct StoryContext {
     pub dispatch_action: Callback<Action>,
     /// Dispatches bitmask choice selections.
     pub dispatch_choice: Callback<(PageKey, u8)>,
+    /// Dispatches a choice selection and action atomically.
+    pub dispatch_choice_action: Callback<((PageKey, u8), Action)>,
     /// Reactive transition manager tracking animated items across iterations.
     pub transitions: RwSignal<TransitionManager>,
     /// Opens the Save Game modal.
