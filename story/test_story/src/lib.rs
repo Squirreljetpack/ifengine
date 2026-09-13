@@ -241,7 +241,7 @@ mod tests {
         let (choice_key, choice_lines) = cover_choice;
         assert_eq!(choice_lines.len(), 3);
 
-        let expected_classes = ["in-500", "in-1000", "in-1500"];
+        let expected_classes = ["in-2000", "in-2500", "in-3000"];
         for (i, (_, line)) in choice_lines.iter().enumerate() {
             let cls = expected_classes[i];
             let has_cls = line.classes.iter().any(|c| c == cls)

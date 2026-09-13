@@ -1,7 +1,4 @@
-use crate::{
-    chap1d::*,
-    Oracle, State, Walker,
-};
+use crate::{Oracle, State, Walker, chap1d::*};
 use ifengine::elements::*;
 use ifengine::{ifview, utils::MaskExt};
 
@@ -23,7 +20,7 @@ pub fn p2(_s: &mut State) {
         // .style("margin-top", "clamp(6rem, 15vh, 16rem)"),
         3
     );
-    choice!(tun!("ABOUT", _about), link!("BEGIN", p3));
+    mchoice!(tun!("ABOUT", _about), link!("BEGIN", p3));
 }
 
 #[ifview]

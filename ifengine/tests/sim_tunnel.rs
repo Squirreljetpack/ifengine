@@ -37,6 +37,7 @@ fn test_tunnel_deduplication_from_same_page() {
     let source_record = start_run.get(&source_id).expect("source record exists");
     assert_eq!(source_record.outgoing_tunnels.len(), 1);
     assert!(source_record.outgoing_tunnels.contains(&dest_id));
+    assert!(source_record.ends.is_empty(), "ends and tunnels must be disjoint");
 
     // The destination run should only have 1 page record (visited once, not duplicated)
     assert_eq!(dest_run.len(), 1);

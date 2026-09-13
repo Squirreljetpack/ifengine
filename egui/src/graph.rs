@@ -218,13 +218,12 @@ impl SnarlViewer<Node> for GraphViewer {
     fn current_transform(
         &mut self,
         to_global: &mut egui::emath::TSTransform,
-        snarl: &mut Snarl<Node>,
+        _snarl: &mut Snarl<Node>,
     ) {
-        let transform = self.init_transform.get_or_insert(*to_global);
-        *to_global = egui::emath::TSTransform {
-            scaling: 1.0 / SCALING,
-            translation: transform.translation,
-        };
+        if self.init_transform.is_none() {
+            to_global.scaling = 1.0 / SCALING;
+            self.init_transform = Some(*to_global);
+        }
     }
 }
 

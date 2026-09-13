@@ -132,11 +132,18 @@ html, body {
     display: flow-root;
     margin-top: auto;
     margin-bottom: auto;
+    white-space: pre-wrap;
 }
 
 .passage-paragraph {
     margin: var(--passage-gap) 0;
     word-break: break-word;
+    white-space: pre-wrap;
+}
+
+.passage-paragraph[data-render="choice"] {
+    margin: 0.6rem 0;
+    line-height: 1.6;
 }
 
 .passage-paragraph:has(> .passage-line:empty),
@@ -152,6 +159,7 @@ html, body {
 
 .passage-text {
     margin: 0;
+    white-space: pre-wrap;
 }
 
 .passage-embed {
@@ -161,6 +169,7 @@ html, body {
 
 .passage-line {
     display: inline;
+    white-space: pre-wrap;
 }
 
 /* --------------------------------------------------------------------------
@@ -174,6 +183,7 @@ html, body {
     letter-spacing: 0.04em;
     margin-top: 1.8rem;
     margin-bottom: 0.8rem;
+    white-space: pre-wrap;
 }
 
 .passage-heading + .passage-paragraph,
@@ -262,6 +272,7 @@ h6.passage-heading { font-size: 0.95rem; text-transform: uppercase; color: var(-
     line-height: 1.6;
     background: transparent;
     border: none;
+    white-space: pre-wrap;
 }
 
 .choice-item:has(.delayed-hidden),
@@ -282,6 +293,7 @@ h6.passage-heading { font-size: 0.95rem; text-transform: uppercase; color: var(-
     text-decoration: underline;
     text-underline-offset: 3px;
     transition: color 0.15s ease;
+    white-space: pre-wrap;
 }
 
 .choice-button:hover,
@@ -370,6 +382,7 @@ h6.passage-heading { font-size: 0.95rem; text-transform: uppercase; color: var(-
     border-radius: 4px;
     font-size: 0.95rem;
     color: var(--color-text-dim);
+    white-space: pre-wrap;
 }
 
 /* --------------------------------------------------------------------------

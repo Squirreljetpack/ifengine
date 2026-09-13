@@ -29,6 +29,7 @@ This document details the vertical rhythm, spacing, and margin rules used across
   - `":speaker"`: Styled as dialogue in Leptos (`.passage-dialogue`), showing a speaker marker label (`.dialogue-speaker`) on the left instead of a box.
   - `"m-{val}"` (e.g. `"m-0"`, `"m-0.0"`, `"m-1.5"`): Overrides the default margin. `0` or `0.0` sets `margin: 0;`, non-zero numeric sets `margin: {val}rem;`, and unit strings (e.g. `m-10px`) set `margin: 10px;`.
   - `"popup"` or `"modal"`: Renders in a fixed modal backdrop overlay (`.passage-popup-backdrop` and `.passage-popup-dialog`).
+  - `"choice"`: Displays with the same vertical spacing (margin `0.6rem 0`, line-height `1.6`) as choice items via `[data-render="choice"]`, allowing consecutive choice paragraphs to display with identical tight y-spacing as if they were choices in a choice container.
 * **Leptos**:
   - Class: `.passage-paragraph` (plus `.passage-dialogue` if `render_data` starts with `':'`)
   - CSS: Default `margin: 1.35rem 0; word-break: break-word;` (collapses with adjacent elements; overridden by `m-{}` or custom classes).

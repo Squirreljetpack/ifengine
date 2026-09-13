@@ -10,12 +10,17 @@ use ifengine::{
 #[ext(ElementExt)]
 impl Span {
     pub fn as_rich_text(&self) -> RichText {
+        let is_link = matches!(self.variant, SpanVariant::Link) || self.action.is_some();
+        self.as_rich_text_with_link(is_link)
+    }
+
+    pub fn as_rich_text_with_link(&self, is_link: bool) -> RichText {
         let mut txt = RichText::new(&self.content);
         let m = self.modifiers;
 
         // ---- font variants (True Italic/Bold) ----
         let has_bold = m.contains(Modifier::BOLD);
-        let has_italic = m.contains(Modifier::ITALIC);
+        let has_italic = m.contains(Modifier::ITALIC) || is_link;
         let mut variant_applied = false;
 
         if has_bold || has_italic {
@@ -45,7 +50,7 @@ impl Span {
         if has_bold && !variant_applied {
             txt = txt.strong();
         }
-        if m.contains(Modifier::DIM) {
+        if m.contains(Modifier::DIM) || matches!(self.variant, SpanVariant::Muted) {
             txt = txt.weak();
         }
         if has_italic && !variant_applied {
@@ -68,6 +73,13 @@ impl Span {
         }
         if m.contains(Modifier::REVERSED) {
             unimplemented!()
+        }
+
+        // ---- variants ----
+        if matches!(self.variant, SpanVariant::Secondary) {
+            if let Some(col) = global_theme().get_color("secondary") {
+                txt = txt.color(col);
+            }
         }
 
         // ---- style map ------
@@ -115,9 +127,8 @@ impl Span {
     // handle underline manually due to egui exaggerating line height offset
     // Link Variant or action-bearing span gets a cursor change
     pub fn add(&self, ui: &mut Ui, sense: bool) -> Response {
-        let rich = self.as_rich_text().with_line_height(ui, 1.6);
-
         let is_link = matches!(self.variant, SpanVariant::Link) || self.action.is_some() || sense;
+        let rich = self.as_rich_text_with_link(is_link).with_line_height(ui, 1.6);
         let needs_underline = self.modifiers.contains(Modifier::UNDERLINE);
 
         let mut lbl = egui::Label::new(rich);

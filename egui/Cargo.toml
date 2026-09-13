@@ -73,7 +73,7 @@ emath = "0.36"
     serde-hjson = "1.1.0"
 
 [features]
-    default   = [ "forest" ]
+    default   = [ "saltwrack" ]
     forest    = [ "dep:forest" ]
     saltwrack = [ "dep:saltwrack" ]
     test      = [ "dep:test_story" ]

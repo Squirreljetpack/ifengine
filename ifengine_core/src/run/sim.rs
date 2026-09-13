@@ -307,8 +307,11 @@ impl PageRecords {
     }
 
     pub fn push_sim_end(&mut self, pageid: &PageId, e: SimEnd) {
+        if matches!(e, SimEnd::Tunnel(_)) {
+            return;
+        }
         if let Some(mut record) = self.0.get_mut(pageid) {
-            record.ends.insert(e.into());
+            record.ends.insert(e);
         }
     }
 

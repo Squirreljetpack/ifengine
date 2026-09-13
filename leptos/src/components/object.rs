@@ -36,7 +36,7 @@ pub fn ObjectView(stamped: StampedObject) -> impl IntoView {
 
             if render_data == "popup" || render_data == "modal" {
                 view! {
-                    <div class="passage-popup-backdrop passage-popup" data-render=render_data>
+                    <div class="passage-popup-backdrop" data-render=render_data>
                         <div class="passage-popup-dialog">
                             <div class="passage-text" data-render=render_data>
                                 <LineView line=line />
@@ -214,7 +214,7 @@ pub fn ObjectView(stamped: StampedObject) -> impl IntoView {
                 .into_any()
             } else if render_data == "popup" || render_data == "modal" {
                 view! {
-                    <div class="passage-popup-backdrop passage-popup" data-render=render_data>
+                    <div class="passage-popup-backdrop" data-render=render_data>
                         <div class="passage-popup-dialog">
                             <div class="passage-embed" data-page=pid_str>
                                 {embedded_view.inner.into_iter().map(move |stamped| {
