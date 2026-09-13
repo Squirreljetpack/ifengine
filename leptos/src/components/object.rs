@@ -63,15 +63,18 @@ pub fn ObjectView(stamped: StampedObject) -> impl IntoView {
                 }
                 .into_any()
             } else {
-                let margin_style = if let Some(m_str) = render_data.strip_prefix("m-") {
+                let margin_style = if let Some(m_str) = render_data
+                    .strip_prefix("m-")
+                    .or_else(|| render_data.strip_prefix("mt-"))
+                {
                     if let Ok(val) = m_str.parse::<f32>() {
                         if val == 0.0 {
-                            "margin: 0;".to_string()
+                            "margin-top: 0;".to_string()
                         } else {
-                            format!("margin: {val}rem;")
+                            format!("margin-top: {val}rem;")
                         }
                     } else {
-                        format!("margin: {m_str};")
+                        format!("margin-top: {m_str};")
                     }
                 } else {
                     String::new()

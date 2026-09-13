@@ -25,7 +25,7 @@ pub mod elements {
     //! ## Note: `{var}` Interpolation
     //!
     //! String literal arguments in element macros support inline variable interpolation.
-    //! Write `{expr}` inside any &'static str to expand it:
+    //! Write `{expr}` inside any str literal to expand it:
     //!
     //! ```rust,ignore
     //! p!("Welcome, {player.name}! You have {gold} gold.");
@@ -57,15 +57,13 @@ pub mod elements {
     //! | [`dparagraph!`](dparagraph) | `dparagraph!("Go to [[forest]] or [[inn]]")` | Interactive paragraph with clickable links; returns `Some(target)` on selection (`None` initially). |
     //! | [`mparagraph!`](mparagraph) | `mparagraph!("Take [[torch]] and [[sword]]")` | Interactive paragraph with wiki-style links; tracks multiple clicked tokens and returns `Vec<bool>`. |
     //! | [`replace!`](replace) | `replace!("Chest is [[locked]].", "Unlocked!")` | Clickable paragraph that transitions into a replacement line or collapses to 0 height. |
-    //! | [`replacement!`](replacement) | `replacement!("Chest is [[locked]].", "Unlocked!")` | Replacement line that does not push to view, returning content for nesting in `replace!`. |
-    //! | [`repl!`](repl) | `repl!("Chest is [[locked]].", "Unlocked!")` | Alias for [`replacement!`]. |
+    //! | [`repl!`](replacement) | `replacement!("Chest is [[locked]].", "Unlocked!")` | Replacement line that does not push to view, returning content for nesting in `replace!`. |
     //! | [`NEXT!`](NEXT) | `NEXT!(next_page)` | Flow control: transition to the specified page function. |
     //! | [`EMBED!`](EMBED) | `EMBED!(sub_page)` | Flow control: evaluate sub-page with transient Game and embed View; propagate transitions. |
     //! | [`BACK!`](BACK) | `BACK!()` or `BACK!(2)` | Flow control: navigate back 1 (or `n`) steps in history. |
     //! | [`TUN!`](TUN) | `TUN!(tunnel_page)` | Flow control: enter a tunnel subroutine page. |
     //! | [`END!`](END) | `END!()` | Flow control: terminate story execution. |
-    //! | [`extend!`](extend) | `extend!("more text")` or `extend!("choice": "new choice")` | Extends the previous object in the view (Paragraph, Choice, Embed). |
-    //! | [`x!`](x) | `x!("more text")` or `x!("choice": "new choice")` | Alias for [`extend!`]. |
+    //! | [`x!`](extend) | `extend!("more text")` or `extend!("choice": "new choice")` | Extends the previous object in the view (Paragraph, Choice, Embed). |
     //! | [`read_key!`](read_key) | `read_key!(KEY_ID)` | Reads the stored `u64` state value for a key. |
     //! | [`set_key!`](set_key) | `set_key!(KEY_ID, val)` | Stores or updates the `u64` state value for a key. |
     //! | [`read_key_mask!`](read_key_mask) | `read_key_mask!(KEY_ID)` | Unpacks a `u64` state value into a boolean bitmask array. |

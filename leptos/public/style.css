@@ -70,7 +70,7 @@ html, body {
     max-width: var(--page-width);
     min-height: 100vh;
     min-height: 100dvh;
-    padding: 2rem 2rem 1rem;
+    padding: 1.25rem 2rem 1rem;
     row-gap: 1.5rem;
     position: relative;
     box-sizing: border-box;
@@ -85,7 +85,7 @@ html, body {
     justify-content: space-between;
     align-items: center;
     font-family: var(--font-sans);
-    font-size: 0.85rem;
+    font-size: 0.75rem;
     letter-spacing: 0.06em;
     text-transform: uppercase;
     color: var(--color-text-muted);
@@ -136,13 +136,13 @@ html, body {
 }
 
 .passage-paragraph {
-    margin: var(--passage-gap) 0;
+    margin-top: var(--passage-gap);
     word-break: break-word;
     white-space: pre-wrap;
 }
 
 .passage-paragraph[data-render="choice"] {
-    margin: 0.6rem 0;
+    margin-top: 0.6rem;
     line-height: 1.6;
 }
 
@@ -181,22 +181,25 @@ html, body {
     font-weight: 600;
     line-height: 1.3;
     letter-spacing: 0.04em;
-    margin-top: 1.8rem;
+    margin-top: 1.6rem;
     margin-bottom: 0.8rem;
     white-space: pre-wrap;
 }
 
 .passage-heading + .passage-paragraph,
-.passage-heading + .passage-heading {
-    margin-top: 0.6rem;
+.passage-heading + .passage-heading,
+.passage-heading + .choice-container,
+.passage-heading + .passage-image-wrapper,
+.passage-heading + .passage-note {
+    margin-top: 0;
 }
 
-h1.passage-heading { font-size: 2.1rem; }
-h2.passage-heading { font-size: 1.7rem; }
-h3.passage-heading { font-size: 1.4rem; letter-spacing: 0.08em; text-transform: uppercase; }
-h4.passage-heading { font-size: 1.2rem; }
-h5.passage-heading { font-size: 1.05rem; }
-h6.passage-heading { font-size: 0.95rem; text-transform: uppercase; color: var(--color-text-dim); }
+h1.passage-heading { font-size: 2.1rem; margin-top: 2.2rem; margin-bottom: 1.4rem; }
+h2.passage-heading { font-size: 1.7rem; margin-top: 1.9rem; margin-bottom: 1.1rem; }
+h3.passage-heading { font-size: 1.4rem; letter-spacing: 0.08em; text-transform: uppercase; margin-top: 1.6rem; margin-bottom: 0.9rem; }
+h4.passage-heading { font-size: 1.2rem; margin-top: 1.4rem; margin-bottom: 0.7rem; }
+h5.passage-heading { font-size: 1.05rem; margin-top: 1.2rem; margin-bottom: 0.5rem; }
+h6.passage-heading { font-size: 0.95rem; text-transform: uppercase; color: var(--color-text-dim); margin-top: 1.1rem; margin-bottom: 0.4rem; }
 
 /* --------------------------------------------------------------------------
    Links & Interactivity
@@ -261,7 +264,7 @@ h6.passage-heading { font-size: 0.95rem; text-transform: uppercase; color: var(-
     display: flex;
     flex-direction: column;
     gap: 0.6rem;
-    margin: var(--passage-gap) 0;
+    margin-top: var(--passage-gap);
 }
 
 .choice-item {
@@ -317,7 +320,7 @@ h6.passage-heading { font-size: 0.95rem; text-transform: uppercase; color: var(-
    -------------------------------------------------------------------------- */
 
 .passage-image-wrapper {
-    margin: var(--passage-gap) 0;
+    margin-top: var(--passage-gap);
     text-align: center;
 }
 
@@ -375,7 +378,7 @@ h6.passage-heading { font-size: 0.95rem; text-transform: uppercase; color: var(-
 }
 
 .passage-note {
-    margin: 1rem 0;
+    margin-top: 1rem;
     padding: 0.75rem 1.25rem;
     background: rgba(255, 255, 255, 0.03);
     border: 1px dashed var(--color-border);
@@ -769,7 +772,7 @@ html, :root {
 
 @media screen and (max-width: 768px) {
     #page {
-        padding: 1.5rem 1.25rem 0.75rem;
+        padding: 1rem 1.25rem 0.75rem;
     }
 
     html, body {

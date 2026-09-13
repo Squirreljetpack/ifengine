@@ -10,7 +10,7 @@ pub enum Action {
     Set(PageKey, u64),
     Inc(PageKey),
     Reset(PageKey),
-    /// The name of the handle here is just for debug, and NOT guaranteed to be the actual id of the page, see [`PageState`](crate::core::PageState)
+    /// The name of the handle here is purely descriptive, and NOT guaranteed to be the actual id of the page, see [`PageState`](crate::core::PageState)
     Next(PageHandle), // Arc for easy cloning
     Back(usize),
     Tunnel(PageHandle),

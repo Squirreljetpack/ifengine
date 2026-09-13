@@ -12,5 +12,5 @@ pub use {
     core::Action,
     core::Game,
     errors::*,
-    view::{IntoNumberedLine, View},
+    view::View,
 };
