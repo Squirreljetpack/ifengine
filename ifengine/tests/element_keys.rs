@@ -511,3 +511,49 @@ fn test_click_macro_repeatable_and_max_clicks() {
         "bounded click should not execute beyond max_clicks"
     );
 }
+
+#[derive(Debug, Default, Clone)]
+struct DparagraphState {
+    last_target: String,
+}
+
+#[ifengine::ifview]
+fn test_dparagraph_page(state: &mut DparagraphState) {
+    use ifengine::elements::dparagraph;
+
+    match dparagraph!("Go to the [[forest]] or [[]]the [[inn]].") {
+        "forest" => state.last_target = "forest".to_string(),
+        "inn" => state.last_target = "inn".to_string(),
+        "" => {}
+        _ => state.last_target = "unknown".to_string(),
+    }
+}
+
+#[test]
+fn test_dparagraph_interaction() {
+    let mut game =
+        ifengine::Game::new_with_page("test_dparagraph_page", test_dparagraph_page);
+    let view = game.view().expect("view should succeed");
+
+    assert_eq!(game.context.last_target, "");
+
+    let Object::Paragraph(line, _) = &view.inner[0].object else {
+        panic!("expected Paragraph");
+    };
+
+    let forest_span = line.spans.iter().find(|s| s.content.trim() == "forest").unwrap();
+    let inn_span = line.spans.iter().find(|s| s.content.trim() == "inn").unwrap();
+
+    let forest_action = forest_span.action.as_ref().unwrap().clone();
+    let inn_action = inn_span.action.as_ref().unwrap().clone();
+
+    // Click forest
+    game.handle_action(forest_action).unwrap();
+    let _ = game.view().unwrap();
+    assert_eq!(game.context.last_target, "forest");
+
+    // Click inn
+    game.handle_action(inn_action).unwrap();
+    let _ = game.view().unwrap();
+    assert_eq!(game.context.last_target, "inn");
+}

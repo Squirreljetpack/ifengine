@@ -105,8 +105,12 @@ pub fn split_braced(s: &str) -> Vec<String> {
             inside = true;
         } else if inside && c == ']' && chars.peek() == Some(&']') {
             chars.next();
-            result.push(buf.clone());
-            buf.clear();
+            if buf.is_empty() {
+                buf = result.pop().unwrap_or_default();
+            } else {
+                result.push(buf.clone());
+                buf.clear();
+            }
             inside = false;
         } else {
             buf.push(c);
@@ -120,21 +124,46 @@ pub fn split_braced(s: &str) -> Vec<String> {
     result
 }
 
+pub fn extract_braced_targets(s: &str) -> Vec<&str> {
+    let mut result = Vec::new();
+    let mut chars = s.char_indices().peekable();
+    let mut inside_start = None;
+
+    while let Some((idx, c)) = chars.next() {
+        if inside_start.is_none() && c == '[' && chars.peek().map(|(_, ch)| *ch) == Some('[') {
+            chars.next();
+            inside_start = Some(idx + 2);
+        } else if let Some(start) = inside_start {
+            if c == ']' && chars.peek().map(|(_, ch)| *ch) == Some(']') {
+                let end = idx;
+                chars.next();
+                if start < end {
+                    result.push(&s[start..end]);
+                }
+                inside_start = None;
+            }
+        }
+    }
+
+    result
+}
 
 #[cfg(feature = "rand")]
-pub fn find_hash_match<'a, I>(strings: I, target: u64) -> Option<&'a String>
+pub fn find_hash_match<I, S>(strings: I, target: u64) -> Option<S>
 where
-    I: IntoIterator<Item = &'a String>,
+    I: IntoIterator<Item = S>,
+    S: AsRef<str>,
 {
     strings
         .into_iter()
-        .find(|s| const_fnv1a_hash::fnv1a_hash_str_64(s) == target)
+        .find(|s| const_fnv1a_hash::fnv1a_hash_str_64(s.as_ref()) == target)
 }
 
 #[cfg(not(feature = "rand"))]
-pub fn find_hash_match<'a, I>(strings: I, target: u64) -> Option<&'a String>
+pub fn find_hash_match<I, S>(strings: I, target: u64) -> Option<S>
 where
-    I: IntoIterator<Item = &'a String>,
+    I: IntoIterator<Item = S>,
+    S: AsRef<str>,
 {
     strings.into_iter().nth(target as usize)
 }
@@ -178,6 +207,54 @@ mod tests {
         reset_prose_fn();
         assert_eq!(prose("__custom_hook_probe__"), "__custom_hook_probe__");
         assert_eq!(prose("test--value"), "test—value");
+    }
+
+    #[test]
+    fn test_split_braced_and_skip_empty() {
+        assert_eq!(
+            split_braced("Go to [[forest]] or [[inn]]"),
+            vec!["Go to ", "forest", " or ", "inn"]
+        );
+        assert_eq!(
+            split_braced("Go to [[forest]] or [[]]the [[inn]]"),
+            vec!["Go to ", "forest", " or the ", "inn"]
+        );
+        assert_eq!(
+            split_braced("[[]]hello [[world]]"),
+            vec!["hello ", "world"]
+        );
+        assert_eq!(
+            split_braced("hello[[]][[]]world"),
+            vec!["helloworld"]
+        );
+        assert_eq!(
+            split_braced("[[]]"),
+            Vec::<String>::new()
+        );
+        assert_eq!(
+            split_braced("hello [[]]"),
+            vec!["hello "]
+        );
+    }
+
+    #[test]
+    fn test_extract_braced_targets() {
+        assert_eq!(
+            extract_braced_targets("Go to [[forest]] or [[inn]]"),
+            vec!["forest", "inn"]
+        );
+        assert_eq!(
+            extract_braced_targets("Go to [[forest]] or [[]]the [[inn]]"),
+            vec!["forest", "inn"]
+        );
+        assert_eq!(
+            extract_braced_targets("[[]]hello [[world]]"),
+            vec!["world"]
+        );
+        assert_eq!(
+            extract_braced_targets("[[]]"),
+            Vec::<&str>::new()
+        );
     }
 }
 

@@ -359,18 +359,22 @@ pub fn dparagraph(input: TokenStream) -> TokenStream {
 
     let expanded = quote! {{
         let __ifengine_key = #key;
-        let mut ret = None;
+        let mut ret = "";
 
         #(
-            let mut __ifengine_tmp_strings =
-            ifengine::utils::split_braced(&#expr_tokens);
+            let __ifengine_expr_str = &#expr_tokens;
+            let __ifengine_tmp_strings =
+                ifengine::utils::split_braced(__ifengine_expr_str);
 
             if let Some(__ifengine_tmp_val) = __ifengine_page_state
-            .remove(__ifengine_key)
-            .and_then(|k| {
-                ifengine::utils::find_hash_match(__ifengine_tmp_strings.iter().step_by(2), k).cloned()
-            }) {
-                ret = Some(__ifengine_tmp_val);
+                .remove(__ifengine_key)
+                .and_then(|k| {
+                    ifengine::utils::find_hash_match(
+                        ifengine::utils::extract_braced_targets(__ifengine_expr_str),
+                        k,
+                    )
+                }) {
+                ret = __ifengine_tmp_val;
             }
 
             __ifengine_page_state.push(
@@ -379,9 +383,9 @@ pub fn dparagraph(input: TokenStream) -> TokenStream {
                     object: ifengine::view::Object::Paragraph(
                         ifengine::view::Line::from_interleaved_actions::<false>(
                             __ifengine_key,
-                            __ifengine_tmp_strings
+                            __ifengine_tmp_strings,
                         ),
-                        ""
+                        "",
                     ),
                 }
             );

@@ -138,7 +138,12 @@ pub fn ps(input: TokenStream) -> TokenStream {
 /// # Example
 /// ```rust,ignore
 /// paragraph!("A dark hallway stretches before you.");
-/// paragraph!("HP: {hp}/{max_hp}" :: "stat-line");
+///
+/// // paragraph variant (i.e. dialogue)
+/// paragraph!("Very well" :: ":Adam");
+///
+/// // pure signal
+/// paragraph!(:: "music-1");
 /// ```
 #[proc_macro]
 pub fn paragraph(input: TokenStream) -> TokenStream {
@@ -161,7 +166,6 @@ pub fn paragraph(input: TokenStream) -> TokenStream {
 pub fn paragraphs(input: TokenStream) -> TokenStream {
     view::paragraphs(input)
 }
-
 
 /// Markdown heading.
 ///
@@ -509,7 +513,7 @@ pub fn dynamic_choice(input: TokenStream) -> TokenStream {
 ///
 /// # Example
 /// ```rust,ignore
-/// let choices = vec![
+/// let choices = [
 ///     l!("A"),
 ///     l!("B"),
 ///     l!("C"),
@@ -527,8 +531,8 @@ pub fn dchoice(input: TokenStream) -> TokenStream {
 
 /// Interactive paragraph with clickable links delimited by `[[target]]`.
 ///
-/// Returns `Some(target)` containing the text of whichever link was clicked (once per click),
-/// or `None` if no link has been clicked yet.
+/// Returns the clicked link's target `&str` (once per click), or `""` if no link
+/// has been clicked yet. Empty bracket pairs `[[]]` are skipped, joining surrounding text.
 ///
 /// # Syntax
 /// ```text
@@ -537,12 +541,10 @@ pub fn dchoice(input: TokenStream) -> TokenStream {
 ///
 /// # Example
 /// ```rust,ignore
-/// if let Some(target) = dparagraph!("Go to the [[forest]] or the [[inn]].") {
-///     match target.as_str() {
-///         "forest" => NEXT!(p_forest),
-///         "inn" => NEXT!(p_inn),
-///         _ => {}
-///     }
+/// match dparagraph!("Go to the [[forest]] or the [[inn]].") {
+///     "forest" => NEXT!(p_forest),
+///     "inn" => NEXT!(p_inn),
+///     _ => {}
 /// }
 /// ```
 #[proc_macro]
