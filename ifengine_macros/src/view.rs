@@ -5,7 +5,7 @@ use syn::punctuated::Punctuated;
 use syn::visit_mut::VisitMut;
 use syn::{Error, Expr, ItemFn, Lit, LitStr, Token, parse_macro_input};
 
-use crate::helpers::{expand_line_expr, expand_spans, expand_string_expr};
+use crate::helpers::{expand_line_expr, expand_lines, expand_string_expr};
 use crate::nodes::{LineArgs, is_trailer_next, parse_until_delimiter};
 
 pub fn ifview(_attr: TokenStream, item: TokenStream) -> TokenStream {
@@ -146,15 +146,15 @@ pub fn paragraph(input: TokenStream) -> TokenStream {
         None => quote!(""),
     };
 
-    let spans = expand_spans(exprs);
+    let lines = expand_lines(exprs);
 
     let expanded = quote! {
         __ifengine_page_state.push(
             ifengine::view::StampedObject {
                 id: Some(#key),
                 object: ifengine::view::Object::Paragraph(
-                    ifengine::view::Line::from_spans(
-                        vec![#(#spans),*]
+                    ifengine::view::Line::from_iter(
+                        vec![#(#lines),*]
                     ),
                     #string_expr
                 ),
@@ -409,68 +409,64 @@ pub fn embed(input: TokenStream) -> TokenStream {
     TokenStream::from(expanded)
 }
 
-#[derive(Debug, PartialEq, Eq)]
-pub enum ExtendKind {
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum ExtendVariant {
+    #[default]
+    Span,
     Choice,
     Object,
-    Span,
+}
+
+pub type ExtendKind = ExtendVariant;
+
+impl syn::parse::Parse for ExtendVariant {
+    fn parse(input: syn::parse::ParseStream<'_>) -> syn::Result<Self> {
+        let ident: syn::Ident = input.parse()?;
+        match ident.to_string().as_str() {
+            "Span" => Ok(ExtendVariant::Span),
+            "Choice" => Ok(ExtendVariant::Choice),
+            "Object" => Ok(ExtendVariant::Object),
+            _ => Err(syn::Error::new(
+                ident.span(),
+                "expected ExtendVariant: Choice | Object | Span",
+            )),
+        }
+    }
 }
 
 pub struct ExtendInput {
-    pub kind: ExtendKind,
+    pub kind: ExtendVariant,
     pub exprs: Vec<Expr>,
 }
 
 impl syn::parse::Parse for ExtendInput {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
-        let mut kind = ExtendKind::Span;
+        let mut kind = ExtendVariant::Span;
 
-        let ahead = input.fork();
-        let mut matched_prefix = false;
-
-        if let Ok(lit) = ahead.parse::<LitStr>() {
-            if ahead.peek(Token![:]) {
-                let s = lit.value();
-                match s.as_str() {
-                    "object" => {
-                        kind = ExtendKind::Object;
-                        matched_prefix = true;
+        if input.peek(syn::Ident) {
+            let ahead = input.fork();
+            if let Ok(ident) = ahead.parse::<syn::Ident>() {
+                if ahead.peek(Token![,]) {
+                    match ident.to_string().as_str() {
+                        "Choice" => {
+                            kind = ExtendVariant::Choice;
+                            let _: syn::Ident = input.parse()?;
+                            let _: Token![,] = input.parse()?;
+                        }
+                        "Object" => {
+                            kind = ExtendVariant::Object;
+                            let _: syn::Ident = input.parse()?;
+                            let _: Token![,] = input.parse()?;
+                        }
+                        "Span" => {
+                            kind = ExtendVariant::Span;
+                            let _: syn::Ident = input.parse()?;
+                            let _: Token![,] = input.parse()?;
+                        }
+                        _ => {}
                     }
-                    "choice" => {
-                        kind = ExtendKind::Choice;
-                        matched_prefix = true;
-                    }
-                    "span" => {
-                        kind = ExtendKind::Span;
-                        matched_prefix = true;
-                    }
-                    _ => {}
                 }
             }
-        } else if let Ok(ident) = ahead.parse::<syn::Ident>() {
-            if ahead.peek(Token![:]) {
-                let s = ident.to_string();
-                match s.as_str() {
-                    "object" => {
-                        kind = ExtendKind::Object;
-                        matched_prefix = true;
-                    }
-                    "choice" => {
-                        kind = ExtendKind::Choice;
-                        matched_prefix = true;
-                    }
-                    "span" => {
-                        kind = ExtendKind::Span;
-                        matched_prefix = true;
-                    }
-                    _ => {}
-                }
-            }
-        }
-
-        if matched_prefix {
-            let _: proc_macro2::TokenTree = input.parse()?;
-            let _: Token![:] = input.parse()?;
         }
 
         let exprs = Punctuated::<Expr, Token![,]>::parse_terminated(input)?
@@ -546,35 +542,18 @@ pub fn extend(input: TokenStream) -> TokenStream {
         }
         ExtendKind::Span => {
             for (i, expr) in exprs.into_iter().enumerate() {
-                if let Expr::Lit(syn::ExprLit {
-                    lit: Lit::Str(_), ..
-                }) = &expr
-                {
-                    let spans = expand_spans(std::iter::once(expr));
-                    for (j, span) in spans.into_iter().enumerate() {
-                        let sub_ident = syn::Ident::new(
-                            &format!("__ifengine_span_{i}_{j}"),
-                            proc_macro2::Span::call_site(),
-                        );
-                        evals.push(quote! {
-                            let #sub_ident = #span;
-                        });
-                        pushes.push(quote! {
-                            __line.push(#sub_ident);
-                        });
-                    }
-                } else {
-                    let temp_ident = syn::Ident::new(
-                        &format!("__ifengine_span_{i}"),
-                        proc_macro2::Span::call_site(),
-                    );
-                    evals.push(quote! {
-                        let #temp_ident = #expr;
-                    });
-                    pushes.push(quote! {
-                        __line.push(#temp_ident);
-                    });
-                }
+                let line_expr = expand_line_expr(&expr);
+                let temp_ident = syn::Ident::new(
+                    &format!("__ifengine_line_{i}"),
+                    proc_macro2::Span::call_site(),
+                );
+                evals.push(quote! {
+                    let mut #temp_ident: ifengine::view::Line = #line_expr;
+                });
+                pushes.push(quote! {
+                    __line.spans.append(&mut #temp_ident.spans);
+                    __line.classes.append(&mut #temp_ident.classes);
+                });
             }
 
             let expanded = quote! {

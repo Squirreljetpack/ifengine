@@ -102,7 +102,7 @@ impl<'a> PageState<'a> {
         self.view.last()
     }
 
-    /// Evaluates an embedded page function using a transient [`Game`] and attaches its [`View`].
+    /// Evaluates an embedded page function using a transient [`struct@Game`] and attaches its [`View`].
     ///
     /// If the page returns [`Response::View`], the view is pushed as an [`Object::Embed`]
     /// into the current page and returned. If it returns any other [`Response`] variant (such as

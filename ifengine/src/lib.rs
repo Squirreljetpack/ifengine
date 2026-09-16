@@ -41,7 +41,7 @@ pub mod elements {
     //! | Macro / Element | Syntax Example | Description |
     //! | :--- | :--- | :--- |
     //! | [`s!`](s) | `s!("Badge: {name}")` | Creates a styled inline `Span` with `{var}` interpolation or from expressions. |
-    //! | [`l!`](l) | `l!("Player {name} (Level {level})")` | Creates a `Line` from `{var}` interpolation or multiple `Span`s. |
+    //! | [`l!`](l) | `l!("Player {name} (Level {level})")` | Creates a `Line` from `{var}` interpolation, spans, lines, or strings. |
     //! | [`link!`](link) | `link!("Visit {vendor}'s Shop", shop_room)` | Creates an inline link `Span` navigating to a destination page. |
     //! | [`tun!`](tun) | `tun!("Consult with {mentor}", mentor_tunnel)` | Creates an inline link `Span` calling a page as a tunnel subroutine. |
     //! | [`back!`](back) | `back!("Return to {room}")` or `back!("Rewind", 2)` | Creates an inline link `Span` stepping back in navigation history. |
@@ -49,7 +49,7 @@ pub mod elements {
     //! | [`click!`](click) | `click!("Search desk", { state.found_key = true; })` | Creates an interactive `Span` that triggers a callback when clicked. |
     //! | [`count!`](count) | `count!(\|n\| format!("Clicked {n} times"))` | Creates a dynamic counter `Span` incremented on each click. |
     //! | [`alts!`](alts) | `alts!(Cycle, ["North", "South", "East", "West"])` | Creates cycling, stopping, or shuffled text alternative spans. |
-    //! | [`p!`](p) | `p!("Hello {name}")` or `p!("HP: {hp}" :: "stats")` | Adds a single paragraph block with `{var}` interpolation and optional trailing `:: "metadata"`. |
+    //! | [`p!`](p) | `p!("Hello {name}")` or `p!("HP: {hp}" :: "stats")` | Adds a single paragraph block from lines, spans, or strings with `{var}` interpolation and optional trailing `:: "metadata"`. |
     //! | [`ps!`](ps) | `ps!("Line 1", "Line 2" :: "stats")` | Adds multiple separate paragraph blocks with `{var}` interpolation and optional trailing `:: "metadata"`. |
     //! | [`choice!`](choice) | `choice!(("Open door", p_door), ("Turn back", p_back))` | Displays a static list of clickable choices for page navigation or actions. |
     //! | [`dchoice!`](dchoice) | `dchoice!(items.into_iter().map(...))` | Displays a dynamic choice list generated at runtime from an iterator/collection. |
@@ -65,7 +65,7 @@ pub mod elements {
     //! | [`TUN!`](TUN) | `TUN!(tunnel_page)` | Flow control: enter a tunnel subroutine page. |
     //! | [`END!`](END) | `END!()` | Flow control: terminate story execution. |
     //! | [`YIELD!`](YIELD) | `YIELD!()` or `YIELD!(key)` | Flow control: yield current view immediately, optionally conditionally if key is None. |
-    //! | [`x!`](extend) | `extend!("more text")` or `extend!("choice": "new choice")` | Extends the previous object in the view (Paragraph, Choice, Embed). |
+    //! | [`x!`](extend) | `extend!("more text")` or `extend!(Choice, "new choice")` | Extends the previous object in the view (Paragraph, Choice, Embed). |
     //! | [`get!`](get) | `get!("key")` or `get!("key", "when_some", "when_none")` | Reads state value or evaluates conditional Span expression based on key presence. |
     //! | [`set!`](set) | `set!("key")` or `set!("key", val)` | Sets state key to 0 or a specified value. |
     //! | [`read_key_mask!`](read_key_mask) | `read_key_mask!(KEY_ID)` | Unpacks a `u64` state value into a boolean bitmask array. |

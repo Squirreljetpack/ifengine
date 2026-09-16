@@ -13,7 +13,7 @@ fn page_paragraph_extend(_: &mut GameState) {
     let max_hp = 100;
     p!("Hello,");
     x!(" {name}!");
-    x!("span": s!(" Welcome to the dungeon."));
+    x!(Span, s!(" Welcome to the dungeon."));
     x!(" (HP: {hp}/{max_hp})");
     extend!(" Good luck!");
 }
@@ -38,7 +38,7 @@ fn test_paragraph_extend() {
 #[ifengine::ifview]
 fn page_text_extend(_: &mut GameState) {
     p!("Initial");
-    x!("span": " text", " line");
+    x!(Span, " text", " line");
 }
 
 #[test]
@@ -61,12 +61,11 @@ fn page_choice_extend(_: &mut GameState) {
         "Option 0" => "Chose 0",
         "Option 1" => "Chose 1",
     };
-    // Explicit numbering
-    x!("choice": (2, "Option 2"), (3, "Option 3"));
+    // Explicit numbering with Choice variant identifier
+    x!(Choice, (2, "Option 2"), (3, "Option 3"));
     // Auto-numbering via into_numbered_line (Option<u8> is None => previous + 1)
-    x!("choice": "Option 4", "Option 5");
-    // Also works with unquoted ident prefix `choice:`
-    x!(choice: (10, "Option 10"), "Option 11");
+    x!(Choice, "Option 4", "Option 5");
+    x!(Choice, (10, "Option 10"), "Option 11");
 }
 
 #[test]
@@ -108,8 +107,8 @@ fn subpage_for_embed(_: &mut GameState) {
 #[ifengine::ifview]
 fn page_embed_extend(_: &mut GameState) {
     EMBED!(subpage_for_embed);
-    x!("object": Object::Break);
-    x!(object: Object::Break);
+    x!(Object, Object::Break);
+    x!(Object, Object::Break);
 }
 
 #[test]
@@ -132,8 +131,8 @@ fn test_embed_extend() {
 fn page_shape_mismatch(_: &mut GameState) {
     p!("Just a paragraph");
     // Choice shape pushed onto paragraph should do nothing
-    x!("choice": (1, "Should not be added"));
-    x!("object": Object::Break);
+    x!(Choice, (1, "Should not be added"));
+    x!(Object, Object::Break);
 }
 
 #[test]
@@ -154,8 +153,8 @@ fn test_shape_mismatch_does_nothing() {
 fn page_empty_view_extend(_: &mut GameState) {
     // When view is empty, extend should safely do nothing
     x!("No previous object");
-    x!("choice": "No previous choice");
-    x!("object": Object::Break);
+    x!(Choice, "No previous choice");
+    x!(Object, Object::Break);
 }
 
 #[test]
