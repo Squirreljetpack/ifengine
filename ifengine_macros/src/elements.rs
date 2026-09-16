@@ -4,7 +4,7 @@ use syn::parse::{Parse, ParseStream};
 use syn::punctuated::Punctuated;
 use syn::{Error, Expr, ExprClosure, Ident, Result, Token, parse_macro_input};
 
-pub use crate::helpers::{expand_spans, expand_string_expr};
+pub use crate::helpers::{expand_lines, expand_string_expr};
 use crate::nodes::{ExprAndOptional, MaybeKey};
 
 pub fn s(input: TokenStream) -> TokenStream {
@@ -37,10 +37,10 @@ pub fn s(input: TokenStream) -> TokenStream {
 
 pub fn l(input: TokenStream) -> TokenStream {
     let exprs_parsed = parse_macro_input!(input with Punctuated<Expr, syn::Token![,]>::parse_terminated);
-    let spans = expand_spans(exprs_parsed);
+    let lines = expand_lines(exprs_parsed);
 
     let expanded = quote! {
-        ifengine::view::Line::from_spans(vec![#(#spans),*])
+        ifengine::view::Line::from_iter(vec![#(#lines),*])
     };
 
     expanded.into()

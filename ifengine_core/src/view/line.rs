@@ -2,10 +2,7 @@ use bitflags::bitflags;
 use std::collections::HashMap;
 use std::ops::{Add, AddAssign};
 
-use crate::{
-    Action, PageKey,
-    utils::prose,
-};
+use crate::{Action, PageKey, utils::prose};
 
 /// Abstract span. Similar in principle to an HTML element/egui TextFormat.
 #[derive(Debug, Clone, Default)]
@@ -40,14 +37,10 @@ pub enum SpanVariant {
 
 impl Span {
     pub fn new(s: impl Into<String>) -> Self {
-        Self::from(s.into())
-    }
-
-    pub fn raw(s: impl Into<String>) -> Self {
         Self {
             id: None,
             action: None,
-            content: s.into(),
+            content: prose(&s.into()),
             variant: SpanVariant::None,
             modifiers: Modifier::empty(),
             style: HashMap::new(),
@@ -159,10 +152,6 @@ impl Line {
         }
     }
 
-    pub fn raw(s: impl Into<String>) -> Self {
-        Self::from_spans(vec![Span::raw(s)])
-    }
-
     pub fn cls(mut self, class: impl Into<String>) -> Self {
         self.classes.push(class.into());
         self
@@ -223,61 +212,50 @@ impl Line {
         }
     }
 
-    pub fn from_iter<I: IntoIterator<Item = impl Into<Span>>>(iter: I) -> Self {
-        Self {
-            spans: iter.into_iter().map(|x| x.into()).collect(),
-            classes: Vec::new(),
-        }
-    }
-
-    pub fn from_spans(spans: Vec<Span>) -> Self {
-        Self {
-            spans,
-            classes: Vec::new(),
-        }
-    }
-
-    /// Interleaves unbraced text and interactive braced link spans into a [`Line`].
-    pub fn from_interleaved_actions(
-        parts: Vec<String>,
-        action_fn: impl FnMut(usize, &Span) -> Option<Action>,
+    /// Scans spans without actions, splits bracketed `[[target]]` links, and attaches actions via `action_fn`.
+    ///
+    /// - If `FALLBACK` is `true` and no bracketed targets are found across the entire line,
+    ///   all un-actioned spans are assigned actions via `action_fn`.
+    /// - If `FALLBACK` is `false` and no bracketed targets are found, spans without actions are left as plain text.
+    pub fn interleave_actions<const FALLBACK: bool>(
+        mut self,
+        mut action_fn: impl FnMut(usize, &Span) -> Option<Action>,
     ) -> Self {
-        Self::from_spans(interleave_actions(&Span::raw(""), parts, action_fn))
+        let mut link_idx = 0usize;
+        let mut new_spans = Vec::with_capacity(self.spans.len());
+
+        for span in self.spans {
+            if span.action.is_some() {
+                new_spans.push(span);
+            } else {
+                let parts = crate::utils::split_braced(&span.content);
+                for (i, part) in parts.into_iter().enumerate() {
+                    if part.is_empty() {
+                        continue;
+                    }
+                    let is_link = i % 2 == 1;
+                    let mut s = span.clone().with_text(part);
+                    if is_link {
+                        s.action = action_fn(link_idx, &s);
+                        link_idx += 1;
+                    }
+                    new_spans.push(s);
+                }
+            }
+        }
+
+        if FALLBACK && link_idx == 0 {
+            for span in &mut new_spans {
+                if span.action.is_none() {
+                    span.action = action_fn(link_idx, span);
+                    link_idx += 1;
+                }
+            }
+        }
+
+        self.spans = new_spans;
+        self
     }
-}
-
-/// Interleaves unbraced text and interactive braced link spans into a sequence of [`Span`]s.
-///
-/// Takes a `base_span` (whose styling, classes, and metadata are cloned into each generated span),
-/// a `parts` vector of interleaved strings (typically produced by [`split_braced`]), and an
-/// `action_fn` closure `|i, span| -> Option<Action>` called for each non-empty braced link target.
-///
-/// - Even indices (0, 2, ...) represent regular, non-clickable text segments.
-/// - Odd indices (1, 3, ...) represent link targets delimited by `[[...]]`.
-///
-/// Empty segments are skipped.
-pub fn interleave_actions(
-    base_span: &Span,
-    parts: Vec<String>,
-    mut action_fn: impl FnMut(usize, &Span) -> Option<Action>,
-) -> Vec<Span> {
-    let mut link_idx = 0usize;
-    parts
-        .into_iter()
-        .enumerate()
-        .filter_map(|(i, part)| {
-            if part.is_empty() {
-                return None;
-            }
-
-            let mut span = base_span.clone().with_text(part);
-            if i % 2 == 1 {
-                span.action = action_fn(link_idx, &span);
-                link_idx += 1;
-            }
-            Some(span)
-        })
-        .collect()
 }
 
 bitflags! {
@@ -311,62 +289,52 @@ impl<'a> IntoIterator for &'a Line {
     }
 }
 
-// Into<Span>
-// impl From<String> for Span {
-//     fn from(s: String) -> Self {
-//         Self::new(s)
-//     }
-// }
+// ------------ Span Conversions ------------
 
-// impl From<&str> for Span {
-//     fn from(s: &str) -> Self {
-//         Self::from(s.to_owned())
-//     }
-// }
-
-impl<T: ToString> From<T> for Span {
-    fn from(s: T) -> Self {
-        Self::raw(prose(&s.to_string()))
+impl From<&str> for Span {
+    fn from(s: &str) -> Self {
+        Self::new(s)
     }
 }
 
-impl From<Line> for Span {
-    fn from(mut line: Line) -> Self {
-        if line.spans.len() == 1 {
-            let mut span = line.spans.remove(0);
-            span.classes.extend(line.classes);
-            span
-        } else {
-            Span {
-                id: None,
-                action: None,
-                content: line.content(),
-                variant: SpanVariant::None,
-                modifiers: Modifier::empty(),
-                style: HashMap::new(),
-                classes: line.classes,
-                no_sim: false,
-            }
+impl From<String> for Span {
+    fn from(s: String) -> Self {
+        Self::new(s)
+    }
+}
+
+impl From<&String> for Span {
+    fn from(s: &String) -> Self {
+        Self::new(s.as_str())
+    }
+}
+
+impl From<std::borrow::Cow<'_, str>> for Span {
+    fn from(s: std::borrow::Cow<'_, str>) -> Self {
+        Self::new(s.as_ref())
+    }
+}
+
+impl From<&Span> for Span {
+    fn from(s: &Span) -> Self {
+        s.clone()
+    }
+}
+
+// ------------ Line Conversions ------------
+
+impl<T: Into<Span>> From<T> for Line {
+    fn from(item: T) -> Self {
+        Line {
+            spans: vec![item.into()],
+            classes: Vec::new(),
         }
     }
 }
 
-// Line: From Into<Span>
-impl From<&str> for Line {
-    fn from(item: &str) -> Self {
-        Line::from_iter(std::iter::once(item))
-    }
-}
-
-impl From<String> for Line {
-    fn from(item: String) -> Self {
-        Line::from_iter(std::iter::once(item))
-    }
-}
-
-impl From<Span> for Line {
-    fn from(item: Span) -> Self {
-        Line::from_iter(std::iter::once(item))
+impl From<&Line> for Line {
+    fn from(item: &Line) -> Self {
+        item.clone()
     }
 }
 
@@ -376,42 +344,36 @@ impl From<()> for Line {
     }
 }
 
-// From Vec of &str
 impl From<Vec<&str>> for Line {
     fn from(items: Vec<&str>) -> Self {
         Line::from_iter(items)
     }
 }
 
-// From Vec of String
 impl From<Vec<String>> for Line {
     fn from(items: Vec<String>) -> Self {
         Line::from_iter(items)
     }
 }
 
-// From slice of &str
 impl From<&[&str]> for Line {
     fn from(items: &[&str]) -> Self {
         Line::from_iter(items.iter().copied())
     }
 }
 
-// From slice of String
 impl From<&[String]> for Line {
     fn from(items: &[String]) -> Self {
         Line::from_iter(items.iter().cloned())
     }
 }
 
-// From array of &str
 impl<const N: usize> From<[&str; N]> for Line {
     fn from(items: [&str; N]) -> Self {
         Line::from_iter(items)
     }
 }
 
-// From array of String
 impl<const N: usize> From<[String; N]> for Line {
     fn from(items: [String; N]) -> Self {
         Line::from_iter(items)
@@ -424,132 +386,45 @@ impl<const N: usize> From<[Span; N]> for Line {
     }
 }
 
-impl Add<&str> for Line {
+impl<T: Into<Line>> FromIterator<T> for Line {
+    fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
+        let mut out = Line::new();
+        for item in iter {
+            let mut line = item.into();
+            out.spans.append(&mut line.spans);
+            out.classes.append(&mut line.classes);
+        }
+        out
+    }
+}
+
+impl<T: Into<Line>> Add<T> for Line {
     type Output = Self;
-    fn add(mut self, rhs: &str) -> Self {
-        self.push(Span::from(rhs));
+    fn add(mut self, rhs: T) -> Self {
+        let mut line = rhs.into();
+        self.spans.append(&mut line.spans);
+        self.classes.append(&mut line.classes);
         self
     }
 }
 
-impl Add<String> for Line {
-    type Output = Self;
-    fn add(mut self, rhs: String) -> Self {
-        self.push(Span::from(rhs));
-        self
+impl<T: Into<Line>> AddAssign<T> for Line {
+    fn add_assign(&mut self, rhs: T) {
+        let mut line = rhs.into();
+        self.spans.append(&mut line.spans);
+        self.classes.append(&mut line.classes);
     }
 }
 
-impl Add<&String> for Line {
-    type Output = Self;
-    fn add(self, rhs: &String) -> Self {
-        self + rhs.as_str()
-    }
-}
-
-impl Add<Span> for Line {
-    type Output = Self;
-    fn add(mut self, rhs: Span) -> Self {
-        self.push(rhs);
-        self
-    }
-}
-
-impl Add<&Span> for Line {
-    type Output = Self;
-    fn add(mut self, rhs: &Span) -> Self {
-        self.push(rhs.clone());
-        self
-    }
-}
-
-impl Add<Line> for Line {
-    type Output = Self;
-    fn add(mut self, mut rhs: Line) -> Self {
-        self.spans.append(&mut rhs.spans);
-        self.classes.append(&mut rhs.classes);
-        self
-    }
-}
-
-impl Add<&Line> for Line {
-    type Output = Self;
-    fn add(mut self, rhs: &Line) -> Self {
-        self.spans.extend(rhs.spans.iter().cloned());
-        self.classes.extend(rhs.classes.iter().cloned());
-        self
-    }
-}
-
-impl AddAssign<&str> for Line {
-    fn add_assign(&mut self, rhs: &str) {
-        self.push(Span::from(rhs));
-    }
-}
-
-impl AddAssign<String> for Line {
-    fn add_assign(&mut self, rhs: String) {
-        self.push(Span::from(rhs));
-    }
-}
-
-impl AddAssign<&String> for Line {
-    fn add_assign(&mut self, rhs: &String) {
-        *self += rhs.as_str();
-    }
-}
-
-impl AddAssign<Span> for Line {
-    fn add_assign(&mut self, rhs: Span) {
-        self.push(rhs);
-    }
-}
-
-impl AddAssign<&Span> for Line {
-    fn add_assign(&mut self, rhs: &Span) {
-        self.push(rhs.clone());
-    }
-}
-
-impl AddAssign<Line> for Line {
-    fn add_assign(&mut self, mut rhs: Line) {
-        self.spans.append(&mut rhs.spans);
-        self.classes.append(&mut rhs.classes);
-    }
-}
-
-impl AddAssign<&Line> for Line {
-    fn add_assign(&mut self, rhs: &Line) {
-        self.spans.extend(rhs.spans.iter().cloned());
-        self.classes.extend(rhs.classes.iter().cloned());
-    }
-}
-
-impl Extend<Span> for Line {
-    fn extend<T: IntoIterator<Item = Span>>(&mut self, iter: T) {
-        self.spans.extend(iter);
-    }
-}
-
-impl Extend<Line> for Line {
-    fn extend<T: IntoIterator<Item = Line>>(&mut self, iter: T) {
-        for mut line in iter {
+impl<T: Into<Line>> Extend<T> for Line {
+    fn extend<I: IntoIterator<Item = T>>(&mut self, iter: I) {
+        for item in iter {
+            let mut line = item.into();
             self.spans.append(&mut line.spans);
             self.classes.append(&mut line.classes);
         }
     }
 }
-
-// this is too broad
-// impl<U, S: Into<Span>> From<U> for Line
-// where
-//     U: IntoIterator<Item = S>,
-// {
-//     fn from(items: U) -> Self {
-//         Line::from_iter(items)
-//     }
-// }
-//
 
 // ----------------
 
@@ -665,15 +540,41 @@ mod tests {
     }
 
     #[test]
-    fn test_from_interleaved_actions_skips_empty_spans() {
-        let parts = vec!["".to_string(), "link".to_string(), "".to_string()];
-        let line = Line::from_interleaved_actions(parts, |i, _| {
-            Some(Action::SetBit(1, i as u8))
-        });
-        assert_eq!(line.spans.len(), 1);
-        assert_eq!(line.spans[0].content, "link");
-        assert_eq!(line.spans[0].variant, SpanVariant::None);
-        assert!(line.spans[0].action.is_some());
+    fn test_line_interleave_actions() {
+        // Without fallback: bracketed text becomes links, plain text is untouched
+        let line = Line::from("Go to [[forest]] or [[inn]]")
+            .interleave_actions::<false>(|i, _| Some(Action::SetBit(1, i as u8)));
+        assert_eq!(line.spans.len(), 4);
+        assert_eq!(line.spans[0].content, "Go to ");
+        assert!(line.spans[0].action.is_none());
+        assert_eq!(line.spans[1].content, "forest");
+        assert!(matches!(line.spans[1].action, Some(Action::SetBit(1, 0))));
+        assert_eq!(line.spans[2].content, " or ");
+        assert!(line.spans[2].action.is_none());
+        assert_eq!(line.spans[3].content, "inn");
+        assert!(matches!(line.spans[3].action, Some(Action::SetBit(1, 1))));
+
+        // Without fallback and no brackets: no links
+        let line_nobrackets = Line::from("No links here")
+            .interleave_actions::<false>(|i, _| Some(Action::SetBit(1, i as u8)));
+        assert_eq!(line_nobrackets.spans.len(), 1);
+        assert!(line_nobrackets.spans[0].action.is_none());
+
+        // With fallback and no brackets: entire line becomes clickable link
+        let line_fallback = Line::from("The old chest is locked.")
+            .interleave_actions::<true>(|i, _| Some(Action::SetBit(1, i as u8)));
+        assert_eq!(line_fallback.spans.len(), 1);
+        assert_eq!(line_fallback.spans[0].content, "The old chest is locked.");
+        assert!(matches!(line_fallback.spans[0].action, Some(Action::SetBit(1, 0))));
+
+        // Preserves prototype classes and styles
+        let proto_line = Line::from(Span::new("See [[item]] now").cls("highlight"))
+            .interleave_actions::<false>(|i, _| Some(Action::SetBit(1, i as u8)));
+        assert_eq!(proto_line.spans.len(), 3);
+        assert_eq!(proto_line.spans[0].classes, vec!["highlight"]);
+        assert_eq!(proto_line.spans[1].classes, vec!["highlight"]);
+        assert!(matches!(proto_line.spans[1].action, Some(Action::SetBit(1, 0))));
+        assert_eq!(proto_line.spans[2].classes, vec!["highlight"]);
     }
 
     #[test]
@@ -717,13 +618,38 @@ mod tests {
         let span_prose = Span::from("''Hello... world--test''");
         assert_eq!(span_prose.content, "“Hello… world—test”");
 
-        let span_raw = Span::raw("''Hello... world--test''");
-        assert_eq!(span_raw.content, "''Hello... world--test''");
-
         let line_prose = Line::from("''Hello... world--test''");
         assert_eq!(line_prose.content(), "“Hello… world—test”");
+    }
 
-        let line_raw = Line::raw("''Hello... world--test''");
-        assert_eq!(line_raw.content(), "''Hello... world--test''");
+    #[test]
+    fn test_from_iterator_and_extend() {
+        // Collect from &str
+        let l1: Line = vec!["Hello", ", ", "world!"].into_iter().collect();
+        assert_eq!(l1.content(), "Hello, world!");
+        assert_eq!(l1.spans.len(), 3);
+
+        // Collect from String
+        let l2: Line = vec!["A".to_string(), "B".to_string()].into_iter().collect();
+        assert_eq!(l2.content(), "AB");
+
+        // Collect from Span
+        let spans = vec![Span::new("Span1"), Span::new("Span2")];
+        let l3: Line = spans.iter().collect();
+        assert_eq!(l3.content(), "Span1Span2");
+
+        // Collect from Line and &Line
+        let lines = vec![Line::from("Line1 "), Line::from("Line2")];
+        let l4: Line = lines.iter().collect();
+        assert_eq!(l4.content(), "Line1 Line2");
+
+        // Extend with &Span, &Line, and &str
+        let mut base = Line::from("Base: ");
+        base.extend(&spans);
+        assert_eq!(base.content(), "Base: Span1Span2");
+        base.extend(&lines);
+        assert_eq!(base.content(), "Base: Span1Span2Line1 Line2");
+        base.extend([" - extra", " items"]);
+        assert_eq!(base.content(), "Base: Span1Span2Line1 Line2 - extra items");
     }
 }

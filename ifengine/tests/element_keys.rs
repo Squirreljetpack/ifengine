@@ -390,6 +390,7 @@ fn test_variable_interpolation_macros() {
     if let Object::Paragraph(line, _) = &view.inner[7].object {
         assert!(line.content().contains("Sen"));
         assert!(line.content().contains("42"));
+        assert_eq!(line.spans.len(), 4);
     } else {
         panic!("expected Paragraph for index 7");
     }
@@ -1265,4 +1266,44 @@ fn test_trait_based_keys() {
         choice_obj.id,
         Some(ifengine::core::key::hash_key("choice_key"))
     );
+}
+
+#[ifengine::ifview]
+fn test_line_concatenation_page(_s: &mut ()) {
+    use ifengine::elements::{extend, l, link, p, s};
+    let sub = l!(s!("Prefix: ").cls("bold"), link!("Go next", test_line_concatenation_page));
+    p!(sub, " - postfix text.");
+
+    p!("Start: ");
+    extend!(l!("Extended ", link!("click target", test_line_concatenation_page)));
+}
+
+#[test]
+fn test_nested_line_concatenation() {
+    let mut game =
+        ifengine::Game::new_with_page("test_line_concatenation_page", test_line_concatenation_page);
+    let view = game.view().expect("view should succeed");
+    assert_eq!(view.inner.len(), 2);
+
+    // Check first paragraph
+    if let Object::Paragraph(line, _) = &view.inner[0].object {
+        assert_eq!(line.spans.len(), 3);
+        assert_eq!(line.spans[0].classes, vec!["bold"]);
+        assert!(matches!(line.spans[1].variant, ifengine::view::SpanVariant::Link));
+        assert!(line.spans[1].action.is_some());
+        assert_eq!(line.spans[2].content, " - postfix text.");
+    } else {
+        panic!("expected Paragraph for index 0");
+    }
+
+    // Check extended paragraph
+    if let Object::Paragraph(line, _) = &view.inner[1].object {
+        assert_eq!(line.spans.len(), 3);
+        assert_eq!(line.spans[0].content, "Start: ");
+        assert_eq!(line.spans[1].content, "Extended ");
+        assert!(matches!(line.spans[2].variant, ifengine::view::SpanVariant::Link));
+        assert!(line.spans[2].action.is_some());
+    } else {
+        panic!("expected Paragraph for index 1");
+    }
 }

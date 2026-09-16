@@ -10,28 +10,13 @@ pub fn unwrap_paren(expr: &Expr) -> &Expr {
 }
 
 
-/// Expands string literals containing `{}` into multiple `Span::from(...)` tokens.
-/// Non-string-literal expressions are passed directly to `Span::from(#expr)`.
-pub fn expand_spans(exprs: impl IntoIterator<Item = Expr>) -> Vec<proc_macro2::TokenStream> {
-    let mut spans = Vec::new();
-    for expr in exprs {
-        if let Expr::Lit(ExprLit {
-            lit: Lit::Str(lit_str),
-            ..
-        }) = &expr
-        {
-            expand_format_literal(lit_str, &mut spans);
-        } else {
-            spans.push(quote! {
-                ifengine::view::Span::from(#expr)
-            });
-        }
-    }
-    spans
+/// Expands an iterator of expressions into tokens evaluating to `Line`.
+pub fn expand_lines(exprs: impl IntoIterator<Item = Expr>) -> Vec<proc_macro2::TokenStream> {
+    exprs.into_iter().map(|e| expand_line_expr(&e)).collect()
 }
 
 /// Expands a single expression into a `Line` token stream. If it is a string literal,
-/// parses any `{}` interpolations into spans and calls `Line::from_spans(...)`.
+/// parses any `{}` interpolations into spans and calls `Line::from_iter(...)`.
 /// Otherwise, converts the expression via `Line::from(#expr)`.
 pub fn expand_line_expr(expr: &Expr) -> proc_macro2::TokenStream {
     if let Expr::Lit(ExprLit {
@@ -42,7 +27,7 @@ pub fn expand_line_expr(expr: &Expr) -> proc_macro2::TokenStream {
         let mut spans = Vec::new();
         expand_format_literal(lit_str, &mut spans);
         quote! {
-            ifengine::view::Line::from_spans(vec![#(#spans),*])
+            ifengine::view::Line::from_iter(vec![#(#spans),*])
         }
     } else {
         quote! {
@@ -122,7 +107,7 @@ pub fn expand_format_literal(lit_str: &LitStr, spans: &mut Vec<proc_macro2::Toke
                 match syn::parse_str::<syn::Expr>(expr_str) {
                     Ok(expr) => {
                         spans.push(quote! {
-                            ifengine::view::Span::from(&(#expr))
+                            ifengine::view::Span::from((#expr).to_string())
                         });
                     }
                     Err(err) => {

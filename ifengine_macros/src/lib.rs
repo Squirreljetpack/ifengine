@@ -61,10 +61,10 @@ pub fn clear(input: TokenStream) -> TokenStream {
 /// Append additional content to the last object in the current [`View`](ifengine::View).
 ///
 /// Supports explicit category prefixes (`"choice":`, `"object":`, `"span":` or their unquoted equivalents)
-/// to target different view object variants. If no prefix is supplied, it defaults to pushing spans.
+/// to target different view object variants. If no prefix is supplied, it defaults to extending paragraphs.
 ///
 /// # Prefixes & Targets
-/// - **`"span":` (or omitted default)**: Appends one or more spans to a preceding [`Object::Paragraph`](ifengine::view::Object::Paragraph).
+/// - **`"span":` (or omitted default)**: Appends one or more lines, spans, or string literals to a preceding [`Object::Paragraph`](ifengine::view::Object::Paragraph).
 /// - **`"choice":`**: Appends choices to a preceding [`Object::Choice`](ifengine::view::Object::Choice).
 ///   Accepts any type implementing [`IntoNumberedLine`](ifengine::view::IntoNumberedLine), such as `(u8, Into<Line>)`
 ///   or directly `Into<Line>` (`&str`, `String`, `Line`, etc.). If the index is omitted (`None`), it automatically
@@ -99,7 +99,7 @@ pub fn extend(input: TokenStream) -> TokenStream {
 
 /// Push a single paragraph block ([`Object::Paragraph`](ifengine::view::Object::Paragraph)) to the view.
 ///
-/// Constructed from one or more spans, or string literals.
+/// Constructed from one or more lines, spans, or string literals.
 /// Supports optional trailing `:: "metadata"` to attach [`RenderData`](ifengine::view::RenderData).
 ///
 /// # Example
@@ -132,7 +132,7 @@ pub fn ps(input: TokenStream) -> TokenStream {
 
 /// Push a single paragraph block ([`Object::Paragraph`](ifengine::view::Object::Paragraph)) to the view with standard vertical margins.
 ///
-/// Constructed from one or more spans, or string literals.
+/// Constructed from one or more lines, spans, or string literals.
 /// Supports optional trailing `:: "metadata"` to attach [`RenderData`](ifengine::view::RenderData).
 ///
 /// # Example
@@ -234,7 +234,7 @@ pub fn s(input: TokenStream) -> TokenStream {
     elements::s(input)
 }
 
-/// Create a [`Line`](ifengine::view::Line) from one or more [`Span`](ifengine::view::Span)s.
+/// Create a [`Line`](ifengine::view::Line) from `{var}` interpolation, spans, lines, or string literals.
 ///
 /// # Example
 /// ```rust,ignore
@@ -695,8 +695,8 @@ pub fn fresh(input: TokenStream) -> TokenStream {
 /// Read or evaluate an expression based on persistent page state.
 ///
 /// - `get!(key)`: Reads `Option<u64>` for the given key.
-/// - `get!(key, when_some)`: If `key` is present in state (`Some`), evaluates to `when_some` cast to [`Span`](ifengine::view::Span); otherwise [`Span::default()`].
-/// - `get!(key, when_some, when_none)`: If `key` is present, evaluates to `when_some` cast to [`Span`]; otherwise `when_none` cast to [`Span`].
+/// - `get!(key, when_some)`: If `key` is present in state (`Some`), evaluates to `when_some` cast to [`Span`](ifengine::view::Span); otherwise default.
+/// - `get!(key, when_some, when_none)`: If `key` is present, evaluates to `when_some` cast to [`Span`](ifengine::view::Span); otherwise `when_none` cast to [`Span`](ifengine::view::Span).
 ///
 /// Accepts strings or ints.
 ///
@@ -728,7 +728,7 @@ pub fn set(input: TokenStream) -> TokenStream {
     state::set(input)
 }
 
-/// Read a key as a bitmask. See [`read_key!`].
+/// Read a key as a bitmask.
 ///
 /// # Example
 /// ```rust,ignore
@@ -762,7 +762,7 @@ pub fn unset_key_mask(input: TokenStream) -> TokenStream {
     state::unset_key_mask(input)
 }
 
-/// Increment the value of a key. See [`read_key!`].
+/// Increment the value of a key.
 ///
 /// # Example
 /// ```rust,ignore
