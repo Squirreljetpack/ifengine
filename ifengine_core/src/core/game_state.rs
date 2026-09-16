@@ -3,7 +3,7 @@ use std::{
     ops::{Deref, DerefMut},
 };
 
-use crate::core::PageId;
+use crate::core::{PageId, PageKey, key::USER_KEY_MASK};
 
 /// Internal key-value state store for all pages in the game.
 ///
@@ -49,12 +49,12 @@ impl GameState {
         chapter.inner.insert(key, value);
     }
 
-    /// Sets or increments the value at `key` based on `auto_key`.
-    ///
-    /// Checks if the lower 48 bits (3 * 16 bits) match `auto_key & USER_KEY_MASK`.
-    /// If yes, increments the counter in the top 16 bits (masking to 15 bits); otherwise initializes to `auto_key`.
-    pub fn set_inc(&mut self, page_id: &PageId, key: PageKey, auto_key: u64) {
-        let loc = auto_key & USER_KEY_MASK;
+    /// Sets dirty bit on `key` if current value matches `expected & !(1 << 63)` (or is None/0).
+    /// Stores `(1 << 63) | loc` where `loc = expected & USER_KEY_MASK`.
+    pub fn set_dirty(&mut self, page_id: &PageId, key: PageKey, expected: u64) {
+        const DIRTY_BIT: u64 = 1 << 63;
+        const MASK_63: u64 = !DIRTY_BIT;
+        let loc = expected & USER_KEY_MASK;
         let chapter = self
             .inner
             .entry(page_id.clone())
@@ -62,14 +62,14 @@ impl GameState {
                 inner: HashMap::new(),
             });
         match chapter.inner.get_mut(&key) {
-            Some(v) if (*v & USER_KEY_MASK) == loc => {
-                let count = ((*v >> 48) & 0x7FFF) as u16;
-                let new_count = (count.saturating_add(1)) & 0x7FFF;
-                *v = ((new_count as u64) << 48) | loc;
+            Some(v) => {
+                let current_val = *v;
+                if current_val == 0 || (current_val & MASK_63) == loc {
+                    *v = DIRTY_BIT | loc;
+                }
             }
-            Some(v) => *v = auto_key,
             None => {
-                chapter.inner.insert(key, auto_key);
+                chapter.inner.insert(key, DIRTY_BIT | loc);
             }
         }
     }
@@ -137,20 +137,6 @@ impl GameState {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct PageMap {
     inner: HashMap<PageKey, u64>,
-}
-
-/// The key used by [`PageState`](crate::core::PageState) to track state
-pub type PageKey = u64;
-
-/// The mask for user keys and location payloads (lower 48 bits, top 16 bits must be 0).
-pub const USER_KEY_MASK: u64 = 0x0000_FFFF_FFFF_FFFF;
-
-/// Top bit reserved for string-hashed lookup keys.
-pub const HASH_KEY_BIT: u64 = 1u64 << 63;
-
-/// Computes a 64-bit FNV-1a hash of a string with the top bit (bit 63) set to 1.
-pub const fn hash_key(s: &str) -> PageKey {
-    const_fnv1a_hash::fnv1a_hash_str_64(s) | HASH_KEY_BIT
 }
 
 // ---------------- BOILERPLATE ----------------------------

@@ -1,8 +1,8 @@
 use std::borrow::Cow;
 
 use crate::{
-    Action, Game, GameError, View,
-    core::{GameContext, game_state::PageKey},
+    Action, Game, GameError, PageKey, View,
+    core::GameContext,
     view::{Line, Object, Span},
 };
 

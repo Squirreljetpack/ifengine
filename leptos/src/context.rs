@@ -1,4 +1,4 @@
-use ifengine::core::{Action, game_state::PageKey};
+use ifengine::{Action, PageKey};
 use leptos::prelude::*;
 
 use crate::transition::TransitionManager;

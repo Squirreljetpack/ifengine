@@ -2198,7 +2198,6 @@ dependencies = [
 name = "ifengine_macros"
 version = "0.1.2"
 dependencies = [
- "const-fnv1a-hash",
  "ifengine_core",
  "proc-macro2",
  "quote",

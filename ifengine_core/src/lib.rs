@@ -11,6 +11,7 @@ pub mod view;
 pub use {
     core::Action,
     core::Game,
+    core::PageKey,
     errors::*,
     view::View,
 };

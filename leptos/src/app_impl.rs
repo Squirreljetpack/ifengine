@@ -1,6 +1,6 @@
 use std::sync::{Arc, RwLock};
 
-use ifengine::core::{Action, game_state::PageKey};
+use ifengine::{Action, PageKey};
 use leptos::prelude::*;
 
 use crate::components::{Footer, Header, ModalMode, ObjectView, SaveLoadModal};

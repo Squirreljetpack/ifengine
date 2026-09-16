@@ -6,7 +6,7 @@ mod line;
 pub use image::*;
 pub use line::*;
 
-use crate::core::{PageId, game_state::PageKey};
+use crate::{PageKey, core::PageId};
 
 /// Optional styling or layout metadata attached to an [`Object`] for consumption by custom frontends.
 pub type RenderData = &'static str;

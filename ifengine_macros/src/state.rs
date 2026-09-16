@@ -4,7 +4,7 @@ use syn::parse::{Parse, ParseStream, Parser};
 use syn::punctuated::Punctuated;
 use syn::{Error, Expr, ExprClosure, Ident, Result, Token, parse_macro_input};
 
-use crate::helpers::{expand_string_expr, key_to_tokens, unwrap_paren};
+use crate::helpers::{expand_string_expr, unwrap_paren};
 use crate::nodes::ExprAndOptional;
 
 pub fn fresh(input: TokenStream) -> TokenStream {
@@ -34,7 +34,7 @@ pub fn get(input: TokenStream) -> TokenStream {
         .into();
     }
 
-    let key_expr = key_to_tokens(&parts[0]);
+    let key_expr = &parts[0];
 
     let expanded = match parts.len() {
         1 => quote! {
@@ -65,18 +65,13 @@ pub fn get(input: TokenStream) -> TokenStream {
     expanded.into()
 }
 
-pub fn read_key(input: TokenStream) -> TokenStream {
-    get(input)
-}
-
 pub fn read_key_mask(input: TokenStream) -> TokenStream {
     let ExprAndOptional { expr: key, n } = syn::parse_macro_input!(input as ExprAndOptional);
-    let key_expr = key_to_tokens(&key);
 
     let n = n.unwrap_or_else(|| syn::parse_quote!(64));
 
     quote! {
-        __ifengine_page_state.get_mask::<#n>(#key_expr)
+        __ifengine_page_state.get_mask::<#n>(#key)
     }
     .into()
 }
@@ -111,21 +106,16 @@ pub fn set(input: TokenStream) -> TokenStream {
         (&parts[0], Some(&parts[1]))
     };
 
-    let key_expr = key_to_tokens(key);
     let val_expr = match val {
         Some(v) => quote!(#v),
         None => quote!(0u64),
     };
 
     let expanded = quote! {
-        __ifengine_page_state.insert(#key_expr, #val_expr)
+        __ifengine_page_state.insert(#key, #val_expr)
     };
 
     expanded.into()
-}
-
-pub fn set_key(input: TokenStream) -> TokenStream {
-    set(input)
 }
 
 pub fn set_key_mask(input: TokenStream) -> TokenStream {
@@ -142,7 +132,6 @@ pub fn set_key_mask(input: TokenStream) -> TokenStream {
             .to_compile_error()
             .into();
     };
-    let key_expr = key_to_tokens(key);
     let bits: Vec<&Expr> = iter.collect();
 
     let mut mask = 0u64;
@@ -169,8 +158,9 @@ pub fn set_key_mask(input: TokenStream) -> TokenStream {
 
     let expanded = quote! {
         {
-            let old = __ifengine_page_state.get(#key_expr).unwrap_or(0u64);
-            __ifengine_page_state.insert(#key_expr, old | #mask);
+            let k = #key;
+            let old = __ifengine_page_state.get(k).unwrap_or(0u64);
+            __ifengine_page_state.insert(k, old | #mask);
         }
     };
 
@@ -191,7 +181,6 @@ pub fn unset_key_mask(input: TokenStream) -> TokenStream {
             .to_compile_error()
             .into();
     };
-    let key_expr = key_to_tokens(key);
     let bits: Vec<&Expr> = iter.collect();
 
     let mut mask = 0u64;
@@ -218,8 +207,9 @@ pub fn unset_key_mask(input: TokenStream) -> TokenStream {
 
     let expanded = quote! {
         {
-            let old = __ifengine_page_state.get(#key_expr).unwrap_or(0u64);
-            __ifengine_page_state.insert(#key_expr, old & !#mask);
+            let k = #key;
+            let old = __ifengine_page_state.get(k).unwrap_or(0u64);
+            __ifengine_page_state.insert(k, old & !#mask);
         }
     };
 
@@ -228,11 +218,10 @@ pub fn unset_key_mask(input: TokenStream) -> TokenStream {
 
 pub fn inc_key(input: TokenStream) -> TokenStream {
     let expr = syn::parse_macro_input!(input as syn::Expr);
-    let key_expr = key_to_tokens(&expr);
 
     let expanded = quote! {
         {
-            let k = #key_expr;
+            let k = #expr;
             let v = __ifengine_page_state.get(k).unwrap_or(0);
             __ifengine_page_state.insert(k, v.wrapping_add(1));
         }
@@ -243,10 +232,9 @@ pub fn inc_key(input: TokenStream) -> TokenStream {
 
 pub fn reset_key(input: TokenStream) -> TokenStream {
     let expr = syn::parse_macro_input!(input as syn::Expr);
-    let key_expr = key_to_tokens(&expr);
 
     let expanded = quote! {
-        __ifengine_page_state.remove(#key_expr)
+        __ifengine_page_state.remove(#expr)
     };
 
     expanded.into()

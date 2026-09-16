@@ -6,7 +6,7 @@
 
 use std::collections::HashMap;
 
-use ifengine::core::{PageId, game_state::PageKey};
+use ifengine::{PageKey, core::PageId};
 use leptos::prelude::*;
 
 use crate::consts::{DEFAULT_FADE_IN, DEFAULT_FADE_OUT};

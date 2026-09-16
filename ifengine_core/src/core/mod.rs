@@ -1,5 +1,8 @@
 //! Core types and logic.
 
+pub mod key;
+pub use key::PageKey;
+
 // Page
 mod page;
 mod page_state;
@@ -8,7 +11,6 @@ pub use page_state::*;
 
 // Global state
 pub mod game_state;
-pub use game_state::{HASH_KEY_BIT, PageKey, PageMap, USER_KEY_MASK, hash_key};
 
 // app, state -(guide)-> run -> view -(composed)-> element
 mod game;

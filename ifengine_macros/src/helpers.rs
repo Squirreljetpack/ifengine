@@ -9,18 +9,6 @@ pub fn unwrap_paren(expr: &Expr) -> &Expr {
     }
 }
 
-/// Converts a key expression to proc_macro2 tokens, hashing string literals with top bit = 1.
-pub fn key_to_tokens(expr: &Expr) -> proc_macro2::TokenStream {
-    match unwrap_paren(expr) {
-        Expr::Lit(ExprLit {
-            lit: Lit::Str(s), ..
-        }) => {
-            let hash = const_fnv1a_hash::fnv1a_hash_str_64(&s.value()) | (1u64 << 63);
-            quote!(#hash)
-        }
-        _ => quote!(#expr),
-    }
-}
 
 /// Expands string literals containing `{}` into multiple `Span::from(...)` tokens.
 /// Non-string-literal expressions are passed directly to `Span::from(#expr)`.

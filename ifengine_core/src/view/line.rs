@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use std::ops::{Add, AddAssign};
 
 use crate::{
-    core::{Action, game_state::PageKey},
+    Action, PageKey,
     utils::prose,
 };
 

@@ -65,6 +65,7 @@ macro_rules! END {
     };
 }
 
+pub use crate::core::key::IntoPageKey;
 pub use crate::{BACK, END, NEXT, TUN};
 
 /// The variants accepted by the `choices` / `mchoice` macro on the left-hand side.

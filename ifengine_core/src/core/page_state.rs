@@ -3,8 +3,9 @@ use std::cell::RefCell;
 use crate::{
     Game,
     core::{
-        GameContext, GameTags, Page, PageId, Response,
-        game_state::{PageKey, PageMap, USER_KEY_MASK, hash_key},
+        GameContext, GameTags, Page, PageId, PageKey, Response,
+        game_state::PageMap,
+        key::{IntoPageKey, USER_KEY_MASK},
     },
     view::{Object, RenderData, StampedObject, View},
 };
@@ -55,24 +56,13 @@ impl<'a> PageState<'a> {
     }
 }
 
-/// Computes a 16-bit FNV-1a hash of a byte slice.
-const fn fnv1a_16(bytes: &[u8]) -> u64 {
-    let mut hash = 0xcbf29ce484222325u64;
-    let mut i = 0;
-    while i < bytes.len() {
-        hash ^= bytes[i] as u64;
-        hash = hash.wrapping_mul(0x100000001b3);
-        i += 1;
-    }
-    (hash ^ (hash >> 32)) & 0xFFFF
-}
-
 /// Constructs the 48-bit location payload from file path, line number, and column number:
-/// - Bits 47..32 (16 bits): File path hash
+/// - Bits 47..32 (16 bits): File path hash (16-bit folded FNV-1a)
 /// - Bits 31..16 (16 bits): Line number
 /// - Bits 15..0  (16 bits): Column number
 const fn loc_from_file_line_col(file: &str, line: u32, col: u32) -> u64 {
-    let file_hash_16 = fnv1a_16(file.as_bytes());
+    let hash = const_fnv1a_hash::fnv1a_hash_str_64(file);
+    let file_hash_16 = (hash ^ (hash >> 32)) & 0xFFFF;
     let line_16 = (line as u64) & 0xFFFF;
     let col_16 = (col as u64) & 0xFFFF;
     (file_hash_16 << 32) | (line_16 << 16) | col_16
@@ -190,7 +180,8 @@ impl<'a> PageState<'a> {
     // --------- Chapter state
     // indexing takes owned for convenience (PageKey is copy)
     /// Retrieves the raw `u64` value associated with `key` in the page's state, if present.
-    pub fn get(&self, key: PageKey) -> Option<u64> {
+    pub fn get(&self, key: impl IntoPageKey) -> Option<u64> {
+        let key = key.into_page_key();
         self.page_state.borrow().get(&key).copied()
     }
 
@@ -198,7 +189,8 @@ impl<'a> PageState<'a> {
     /// bit indices `(0..64)` that are set (i.e. where bit `i` is 1).
     ///
     /// Returns an empty [`Vec`] if the key does not exist.
-    pub fn get_mask_indices(&self, key: PageKey) -> Vec<usize> {
+    pub fn get_mask_indices(&self, key: impl IntoPageKey) -> Vec<usize> {
+        let key = key.into_page_key();
         let val = match self.page_state.borrow().get(&key).copied() {
             Some(v) => v,
             None => return Vec::new(),
@@ -217,7 +209,8 @@ impl<'a> PageState<'a> {
     /// boolean array of length `N`, where index `i` is `true` if bit `i` is set.
     ///
     /// Returns `[false; N]` if the key does not exist.
-    pub fn get_mask<const N: usize>(&self, key: PageKey) -> [bool; N] {
+    pub fn get_mask<const N: usize>(&self, key: impl IntoPageKey) -> [bool; N] {
+        let key = key.into_page_key();
         let val = match self.page_state.borrow().get(&key).copied() {
             Some(v) => v,
             None => return [false; N],
@@ -230,7 +223,8 @@ impl<'a> PageState<'a> {
     /// least significant set bit (calculated via trailing zeros).
     ///
     /// Returns `None` if the key does not exist or if the stored value is `0`.
-    pub fn get_mask_last(&self, key: PageKey) -> Option<u8> {
+    pub fn get_mask_last(&self, key: impl IntoPageKey) -> Option<u8> {
+        let key = key.into_page_key();
         let val = match self.page_state.borrow().get(&key).copied() {
             Some(v) => v,
             None => return None,
@@ -248,7 +242,8 @@ impl<'a> PageState<'a> {
     ///
     /// Returns `None` if the key was not found or if the stored value was `0`.
     /// Used by choice macros (e.g. `dchoice!`) to consume a single click selection.
-    pub fn remove_mask_last(&mut self, key: PageKey) -> Option<u8> {
+    pub fn remove_mask_last(&mut self, key: impl IntoPageKey) -> Option<u8> {
+        let key = key.into_page_key();
         let val = match self.page_state.borrow_mut().remove(&key) {
             Some(v) => v,
             None => return None,
@@ -288,13 +283,15 @@ impl<'a> PageState<'a> {
     }
 
     /// Inserts or updates a raw `u64` value for `key` in the page's persistent state.
-    pub fn insert(&self, key: PageKey, value: u64) {
+    pub fn insert(&self, key: impl IntoPageKey, value: u64) {
+        let key = key.into_page_key();
         self.page_state.borrow_mut().insert(key, value);
     }
 
     /// Removes `key` from the page's persistent state and returns its previous `u64` value,
     /// or `None` if the key was not present.
-    pub fn remove(&self, key: PageKey) -> Option<u64> {
+    pub fn remove(&self, key: impl IntoPageKey) -> Option<u64> {
+        let key = key.into_page_key();
         self.page_state.borrow_mut().remove(&key)
     }
 
@@ -302,7 +299,8 @@ impl<'a> PageState<'a> {
     ///
     /// If it is `0`, updates it to `1` and returns `true`. Otherwise returns `false`.
     /// Primarily used by `click!` to ensure a click handler executes only on the initial click.
-    pub fn was_zero(&self, key: PageKey) -> bool {
+    pub fn was_zero(&self, key: impl IntoPageKey) -> bool {
+        let key = key.into_page_key();
         if let Some(x) = self.page_state.borrow_mut().get_mut(&key)
             && *x == 0
         {
@@ -318,7 +316,8 @@ impl<'a> PageState<'a> {
     /// When set, clears the dirty bit and increments the lower 63-bit value.
     /// Returns `true` if the dirty bit was set and the value before incrementing was `< max_clicks`
     /// (or if `max_clicks == 0`, meaning unbounded).
-    pub fn poll_click(&self, key: PageKey, max_clicks: u64) -> bool {
+    pub fn poll_click(&self, key: impl IntoPageKey, max_clicks: u64) -> bool {
+        let key = key.into_page_key();
         const DIRTY_BIT: u64 = 1 << 63;
         if let Some(x) = self.page_state.borrow_mut().get_mut(&key) {
             if (*x & DIRTY_BIT) != 0 {
@@ -337,14 +336,15 @@ impl<'a> PageState<'a> {
     /// and a non-zero counter (`val >> 48 != 0`). If matched, clears the top 16 bits (leaving
     /// the location payload) and returns `Some(&span.content)`.
     pub fn poll_dparagraph_last(&self, auto_key: PageKey) -> Option<&str> {
+        const DIRTY_BIT: u64 = 1 << 63;
         let loc = auto_key & USER_KEY_MASK;
         if let Some(stamped) = self.view.last() {
             if let Object::Paragraph(line, _) = &stamped.object {
                 for span in &line.spans {
-                    if let Some(crate::core::Action::SetInc(hk, _)) = span.action {
+                    if let Some(crate::core::Action::SetDirty(hk, _)) = span.action {
                         if let Some(val) = self.get(hk) {
-                            if (val & USER_KEY_MASK) == loc && (val >> 48) != 0 {
-                                self.insert(hk, loc);
+                            if (val & USER_KEY_MASK) == loc && (val & DIRTY_BIT) != 0 {
+                                self.insert(hk, val & !DIRTY_BIT);
                                 return Some(&span.content);
                             }
                         }
@@ -384,7 +384,7 @@ impl<'a> fmt::Display for PageState<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::core::HASH_KEY_BIT;
+    use crate::core::key::{HASH_KEY_BIT, hash_key};
     use std::collections::HashSet;
 
     #[test]

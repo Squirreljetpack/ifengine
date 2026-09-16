@@ -2,6 +2,12 @@ use std::sync::atomic::{AtomicPtr, Ordering};
 
 pub type ProseFn = fn(&str) -> String;
 
+/// Helper to convert a string slice or reference to &str without #[must_use] warnings.
+#[inline(always)]
+pub fn as_str(s: &str) -> &str {
+    s
+}
+
 static PROSE_FN: AtomicPtr<()> =
     AtomicPtr::new(default_prose as fn(&str) -> String as *mut ());
 

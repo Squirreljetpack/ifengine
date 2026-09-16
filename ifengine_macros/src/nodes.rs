@@ -19,7 +19,9 @@ pub enum MaybeKey {
 impl MaybeKey {
     pub fn into_tokens(self) -> proc_macro2::TokenStream {
         match self {
-            MaybeKey::Key(key_expr) => quote!(((#key_expr) as u64 & 0x0000_FFFF_FFFF_FFFF)),
+            MaybeKey::Key(key_expr) => quote! {
+                ifengine::core::key::IntoPageKey::into_page_key(#key_expr)
+            },
             MaybeKey::Auto => {
                 quote! {
                     __ifengine_page_state.auto_key()

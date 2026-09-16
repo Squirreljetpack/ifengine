@@ -64,10 +64,12 @@ pub mod elements {
     //! | [`BACK!`](BACK) | `BACK!()` or `BACK!(2)` | Flow control: navigate back 1 (or `n`) steps in history. |
     //! | [`TUN!`](TUN) | `TUN!(tunnel_page)` | Flow control: enter a tunnel subroutine page. |
     //! | [`END!`](END) | `END!()` | Flow control: terminate story execution. |
+    //! | [`YIELD!`](YIELD) | `YIELD!()` or `YIELD!(key)` | Flow control: yield current view immediately, optionally conditionally if key is None. |
     //! | [`x!`](extend) | `extend!("more text")` or `extend!("choice": "new choice")` | Extends the previous object in the view (Paragraph, Choice, Embed). |
     //! | [`get!`](get) | `get!("key")` or `get!("key", "when_some", "when_none")` | Reads state value or evaluates conditional Span expression based on key presence. |
     //! | [`set!`](set) | `set!("key")` or `set!("key", val)` | Sets state key to 0 or a specified value. |
     //! | [`read_key_mask!`](read_key_mask) | `read_key_mask!(KEY_ID)` | Unpacks a `u64` state value into a boolean bitmask array. |
+    //! | [`reset_key!`](reset_key) | `reset_key!(KEY_ID)` | Remove a entry from state. |
 
     pub use ifengine_core::elements::*;
     pub use ifengine_core::{BACK, END, NEXT, TUN};

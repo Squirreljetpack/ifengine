@@ -1,4 +1,4 @@
-use ifengine::core::game_state::PageKey;
+use ifengine::PageKey;
 use ifengine::view::Line;
 use leptos::prelude::*;
 

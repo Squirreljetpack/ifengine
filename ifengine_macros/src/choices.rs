@@ -351,7 +351,9 @@ pub fn dparagraph(input: TokenStream) -> TokenStream {
     } = syn::parse_macro_input!(input as LineArgs);
 
     let key = match maybe_key {
-        MaybeKey::Key(k) => quote!((1u64 << 48) | (((#k) as u64) & ifengine::core::USER_KEY_MASK)),
+        MaybeKey::Key(k) => {
+            quote!((1u64 << 48) | (((#k) as u64) & ifengine::core::key::USER_KEY_MASK))
+        }
         MaybeKey::Auto => quote!(__ifengine_page_state.auto_key()),
     };
     let string_expr = match trailer {
@@ -361,40 +363,59 @@ pub fn dparagraph(input: TokenStream) -> TokenStream {
 
     let spans = expand_spans(exprs);
 
-    let expanded = quote! {{
-        let __ifengine_key = #key;
+    let expanded = quote! {
+        ifengine::utils::as_str(&{
+            let __ifengine_key = #key;
+            let __ifengine_loc = __ifengine_key & ifengine::core::key::USER_KEY_MASK;
+            let mut __clicked_target = String::new();
 
-        let __line_spans: Vec<ifengine::view::Span> = vec![#(#spans),*]
-            .into_iter()
-            .fold(Vec::new(), |mut acc, span| {
-                if span.action.is_some() {
-                    acc.push(span);
-                } else {
-                    let __parts = ifengine::utils::split_braced(&span.content);
-                    acc.extend(ifengine::view::interleave_actions(
-                        &span,
-                        __parts,
-                        |_i, link_span| {
-                            let hk = ifengine::core::hash_key(&link_span.content);
-                            Some(ifengine::core::Action::SetInc(hk, __ifengine_key))
-                        },
-                    ));
+            let __line_spans: Vec<ifengine::view::Span> = vec![#(#spans),*]
+                .into_iter()
+                .fold(Vec::new(), |mut acc, span| {
+                    if span.action.is_some() {
+                        acc.push(span);
+                    } else {
+                        acc.extend(ifengine::view::interleave_actions(
+                            &span,
+                            ifengine::utils::split_braced(&span.content),
+                            |_i, link_span| {
+                                let hk = ifengine::core::key::hash_key(&link_span.content);
+                                let should_attach = match __ifengine_page_state.get(hk) {
+                                    None | Some(0) => true,
+                                    Some(val) => {
+                                        if (val & ifengine::core::key::USER_KEY_MASK == __ifengine_loc)
+                                            && ((val & (1u64 << 63)) != 0)
+                                        {
+                                            __clicked_target = link_span.content.clone();
+                                            __ifengine_page_state.insert(hk, val & !(1u64 << 63));
+                                        }
+                                        false
+                                    }
+                                };
+                                if should_attach {
+                                    Some(ifengine::core::Action::SetDirty(hk, __ifengine_key))
+                                } else {
+                                    None
+                                }
+                            },
+                        ));
+                    }
+                    acc
+                });
+
+            __ifengine_page_state.push(
+                ifengine::view::StampedObject {
+                    id: Some(__ifengine_key),
+                    object: ifengine::view::Object::Paragraph(
+                        ifengine::view::Line::from_spans(__line_spans),
+                        #string_expr,
+                    ),
                 }
-                acc
-            });
+            );
 
-        __ifengine_page_state.push(
-            ifengine::view::StampedObject {
-                id: Some(__ifengine_key),
-                object: ifengine::view::Object::Paragraph(
-                    ifengine::view::Line::from_spans(__line_spans),
-                    #string_expr,
-                ),
-            }
-        );
-
-        __ifengine_page_state.poll_dparagraph_last(__ifengine_key).unwrap_or("")
-    }};
+            __clicked_target
+        })
+    };
 
     expanded.into()
 }

@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
-use crate::core::game_state::{GameState, PageKey};
+use crate::core::{PageKey, game_state::GameState};
 use crate::core::{Page, PageHandle, PageId, Response};
 use crate::view::View;
 use crate::{Action, GameError};
@@ -231,8 +231,8 @@ impl GameInner {
             Action::Set(k, v) => {
                 self.state.insert(&self.last_id, k, v);
             }
-            Action::SetInc(k, initial) => {
-                self.state.set_inc(&self.last_id, k, initial);
+            Action::SetDirty(k, expected) => {
+                self.state.set_dirty(&self.last_id, k, expected);
             }
             Action::Inc(k) => {
                 self.state.inc(&self.last_id, k);

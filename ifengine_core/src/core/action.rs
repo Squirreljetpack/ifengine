@@ -1,4 +1,4 @@
-use crate::core::{PageHandle, game_state::PageKey};
+use crate::core::{PageHandle, PageKey};
 
 /// Adds an effect to a [`Span`](crate::view::Span)
 /// Spans with an action occlude their containing object (i.e. [`Choice`](crate::view::Object::Choice))
@@ -8,7 +8,7 @@ pub enum Action {
     None,
     SetBit(PageKey, u8),
     Set(PageKey, u64),
-    SetInc(PageKey, u64),
+    SetDirty(PageKey, u64),
     Inc(PageKey),
     Reset(PageKey),
     /// The name of the handle here is purely descriptive, and NOT guaranteed to be the actual id of the page, see [`PageState`](crate::core::PageState)

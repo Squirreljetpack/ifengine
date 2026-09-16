@@ -198,7 +198,8 @@ pub fn img(input: TokenStream) -> TokenStream {
 
 /// Immediately yield a [`Response::View`](ifengine::core::Response::View) with the current [`View`](ifengine::View).
 ///
-/// This returns `!`, exiting the current function.
+/// Can optionally accept a state key: `YIELD!(key)`. If present, checks if the value stored under
+/// that key `.is_some()`, and yields if not (i.e. if `None`).
 #[proc_macro]
 #[allow(non_snake_case)]
 pub fn r#YIELD(input: TokenStream) -> TokenStream {
@@ -697,7 +698,7 @@ pub fn fresh(input: TokenStream) -> TokenStream {
 /// - `get!(key, when_some)`: If `key` is present in state (`Some`), evaluates to `when_some` cast to [`Span`](ifengine::view::Span); otherwise [`Span::default()`].
 /// - `get!(key, when_some, when_none)`: If `key` is present, evaluates to `when_some` cast to [`Span`]; otherwise `when_none` cast to [`Span`].
 ///
-/// If `key` is a string literal, it is automatically hashed with FNV-1a 64-bit and bit 63 set to 1.
+/// Accepts strings or ints.
 ///
 /// # Examples
 /// ```rust,ignore
@@ -715,7 +716,7 @@ pub fn get(input: TokenStream) -> TokenStream {
 /// - `set!(key)`: Inserts `0u64` for `key` (so that `get!(key)` returns `Some(0)`).
 /// - `set!(key, val)`: Inserts `val` for `key`.
 ///
-/// If `key` is a string literal, it is automatically hashed with FNV-1a 64-bit and bit 63 set to 1.
+/// Accepts strings or ints.
 ///
 /// # Examples
 /// ```rust,ignore
@@ -725,19 +726,6 @@ pub fn get(input: TokenStream) -> TokenStream {
 #[proc_macro]
 pub fn set(input: TokenStream) -> TokenStream {
     state::set(input)
-}
-
-/// Read the value of a key in the internal [`PageState`](ifengine::core::PageState).
-///
-/// Alias for [`get!`].
-///
-/// # Example
-/// ```rust,ignore
-/// let value = read_key!(my_key);
-/// ```
-#[proc_macro]
-pub fn read_key(input: TokenStream) -> TokenStream {
-    state::read_key(input)
 }
 
 /// Read a key as a bitmask. See [`read_key!`].
@@ -750,19 +738,6 @@ pub fn read_key(input: TokenStream) -> TokenStream {
 #[proc_macro]
 pub fn read_key_mask(input: TokenStream) -> TokenStream {
     state::read_key_mask(input)
-}
-
-/// Set a key to a value.
-///
-/// Alias for [`set!`].
-///
-/// # Example
-/// ```rust,ignore
-/// set_key!(my_key, 42);
-/// ```
-#[proc_macro]
-pub fn set_key(input: TokenStream) -> TokenStream {
-    state::set_key(input)
 }
 
 /// Set individual bits of a key to true. See [`read_key_mask!`].
@@ -798,7 +773,9 @@ pub fn inc_key(input: TokenStream) -> TokenStream {
     state::inc_key(input)
 }
 
-/// Reset (remove) a key from state. See [`read_key!`].
+/// Reset a key (remove from state).
+///
+/// Accepts strings or ints.
 ///
 /// # Example
 /// ```rust,ignore

@@ -1,5 +1,6 @@
 use proc_macro::TokenStream;
 use quote::quote;
+use syn::parse::Parser;
 use syn::punctuated::Punctuated;
 use syn::visit_mut::VisitMut;
 use syn::{Error, Expr, ItemFn, Lit, LitStr, Token, parse_macro_input};
@@ -341,9 +342,33 @@ impl syn::parse::Parse for EmbedInput {
 }
 
 #[allow(non_snake_case)]
-pub fn r#YIELD(_input: TokenStream) -> TokenStream {
+pub fn r#YIELD(input: TokenStream) -> TokenStream {
+    let parts = match Punctuated::<Expr, Token![,]>::parse_terminated.parse(input) {
+        Ok(parts) => parts,
+        Err(e) => return e.to_compile_error().into(),
+    };
+
+    if parts.is_empty() {
+        let expanded = quote! {
+            return __ifengine_page_state.into_response()
+        };
+        return expanded.into();
+    }
+
+    if parts.len() > 1 {
+        return Error::new_spanned(
+            parts,
+            "YIELD! expects 0 or 1 argument: YIELD!() or YIELD!(key)",
+        )
+        .to_compile_error()
+        .into();
+    }
+
+    let key_expr = &parts[0];
     let expanded = quote! {
-        return __ifengine_page_state.into_response()
+        if __ifengine_page_state.get(#key_expr).is_none() {
+            return __ifengine_page_state.into_response();
+        }
     };
     expanded.into()
 }
