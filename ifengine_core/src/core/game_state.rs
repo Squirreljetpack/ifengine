@@ -49,6 +49,31 @@ impl GameState {
         chapter.inner.insert(key, value);
     }
 
+    /// Sets or increments the value at `key` based on `auto_key`.
+    ///
+    /// Checks if the lower 48 bits (3 * 16 bits) match `auto_key & USER_KEY_MASK`.
+    /// If yes, increments the counter in the top 16 bits (masking to 15 bits); otherwise initializes to `auto_key`.
+    pub fn set_inc(&mut self, page_id: &PageId, key: PageKey, auto_key: u64) {
+        let loc = auto_key & USER_KEY_MASK;
+        let chapter = self
+            .inner
+            .entry(page_id.clone())
+            .or_insert_with(|| PageMap {
+                inner: HashMap::new(),
+            });
+        match chapter.inner.get_mut(&key) {
+            Some(v) if (*v & USER_KEY_MASK) == loc => {
+                let count = ((*v >> 48) & 0x7FFF) as u16;
+                let new_count = (count.saturating_add(1)) & 0x7FFF;
+                *v = ((new_count as u64) << 48) | loc;
+            }
+            Some(v) => *v = auto_key,
+            None => {
+                chapter.inner.insert(key, auto_key);
+            }
+        }
+    }
+
     /// Remove a specific value at the given key.
     pub fn remove(&mut self, page_id: &PageId, key: PageKey) {
         if let Some(chapter) = self.inner.get_mut(page_id) {
@@ -116,6 +141,17 @@ pub struct PageMap {
 
 /// The key used by [`PageState`](crate::core::PageState) to track state
 pub type PageKey = u64;
+
+/// The mask for user keys and location payloads (lower 48 bits, top 16 bits must be 0).
+pub const USER_KEY_MASK: u64 = 0x0000_FFFF_FFFF_FFFF;
+
+/// Top bit reserved for string-hashed lookup keys.
+pub const HASH_KEY_BIT: u64 = 1u64 << 63;
+
+/// Computes a 64-bit FNV-1a hash of a string with the top bit (bit 63) set to 1.
+pub const fn hash_key(s: &str) -> PageKey {
+    const_fnv1a_hash::fnv1a_hash_str_64(s) | HASH_KEY_BIT
+}
 
 // ---------------- BOILERPLATE ----------------------------
 

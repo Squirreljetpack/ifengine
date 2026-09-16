@@ -231,6 +231,9 @@ impl GameInner {
             Action::Set(k, v) => {
                 self.state.insert(&self.last_id, k, v);
             }
+            Action::SetInc(k, initial) => {
+                self.state.set_inc(&self.last_id, k, initial);
+            }
             Action::Inc(k) => {
                 self.state.inc(&self.last_id, k);
             }

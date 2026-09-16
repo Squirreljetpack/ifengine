@@ -562,7 +562,7 @@ pub fn dparagraph(input: TokenStream) -> TokenStream {
 ///
 /// # Syntax
 /// ```text
-/// mparagraph!((maybe_key), expr)
+/// mparagraph!((maybe_key), expr1, expr2, ..., exprN)
 /// ```
 ///
 /// # Example
@@ -624,12 +624,12 @@ pub fn replace(input: TokenStream) -> TokenStream {
 
 /// Interactive replacement line that does not push to the view, returning a [`Line`](ifengine::view::Line).
 ///
-/// Intended for nesting inside [`replace!`] (or another `replacement!`), allowing chained
+/// Intended for nesting inside [`replace!`] (or another [`replace_line!`]), allowing chained
 /// multi-stage in-place replacements sharing the parent paragraph's transition identity.
 ///
 /// # Syntax
 /// ```text
-/// replacement!(string_expr [=> replacement])
+/// replace_line!(string_expr [=> replacement])
 /// ```
 ///
 /// # Examples
@@ -637,8 +637,43 @@ pub fn replace(input: TokenStream) -> TokenStream {
 /// replace!("The lock is [[sealed]]." => repl!("The doorway is [[open]]." => "You step inside."));
 /// ```
 #[proc_macro]
+pub fn replace_line(input: TokenStream) -> TokenStream {
+    choices::replace_line(input)
+}
+
+/// Alias for [`replace_line!`].
+#[proc_macro]
+pub fn repl(input: TokenStream) -> TokenStream {
+    choices::replace_line(input)
+}
+
+/// Deprecated alias for [`replace_line!`].
+#[proc_macro]
 pub fn replacement(input: TokenStream) -> TokenStream {
-    choices::replacement(input)
+    choices::replace_line(input)
+}
+
+/// Interactive replacement span that does not push to the view, returning a [`Span`](ifengine::view::Span).
+///
+/// # Syntax
+/// ```text
+/// replace_span!(string_expr [=> replacement])
+/// ```
+///
+/// # Examples
+/// ```rust,ignore
+/// p!("The lock is ", replace_span!("sealed" => "open"), ".");
+/// p!("Status: ", reps!("active" => "inactive"));
+/// ```
+#[proc_macro]
+pub fn replace_span(input: TokenStream) -> TokenStream {
+    choices::replace_span(input)
+}
+
+/// Alias for [`replace_span!`].
+#[proc_macro]
+pub fn reps(input: TokenStream) -> TokenStream {
+    choices::replace_span(input)
 }
 
 // =========================================================================
@@ -656,7 +691,45 @@ pub fn fresh(input: TokenStream) -> TokenStream {
     state::fresh(input)
 }
 
+/// Read or evaluate an expression based on persistent page state.
+///
+/// - `get!(key)`: Reads `Option<u64>` for the given key.
+/// - `get!(key, when_some)`: If `key` is present in state (`Some`), evaluates to `when_some` cast to [`Span`](ifengine::view::Span); otherwise [`Span::default()`].
+/// - `get!(key, when_some, when_none)`: If `key` is present, evaluates to `when_some` cast to [`Span`]; otherwise `when_none` cast to [`Span`].
+///
+/// If `key` is a string literal, it is automatically hashed with FNV-1a 64-bit and bit 63 set to 1.
+///
+/// # Examples
+/// ```rust,ignore
+/// let val = get!("my_key");
+/// p!(get!("opened_chest", "The chest stands open.", "A locked chest sits here."));
+/// p!(get!("has_gold", "You have gold!"));
+/// ```
+#[proc_macro]
+pub fn get(input: TokenStream) -> TokenStream {
+    state::get(input)
+}
+
+/// Set a persistent page state key.
+///
+/// - `set!(key)`: Inserts `0u64` for `key` (so that `get!(key)` returns `Some(0)`).
+/// - `set!(key, val)`: Inserts `val` for `key`.
+///
+/// If `key` is a string literal, it is automatically hashed with FNV-1a 64-bit and bit 63 set to 1.
+///
+/// # Examples
+/// ```rust,ignore
+/// set!("chest_opened");
+/// set!("gold", 50);
+/// ```
+#[proc_macro]
+pub fn set(input: TokenStream) -> TokenStream {
+    state::set(input)
+}
+
 /// Read the value of a key in the internal [`PageState`](ifengine::core::PageState).
+///
+/// Alias for [`get!`].
 ///
 /// # Example
 /// ```rust,ignore
@@ -679,7 +752,9 @@ pub fn read_key_mask(input: TokenStream) -> TokenStream {
     state::read_key_mask(input)
 }
 
-/// Set a key to a value. See [`read_key!`].
+/// Set a key to a value.
+///
+/// Alias for [`set!`].
 ///
 /// # Example
 /// ```rust,ignore

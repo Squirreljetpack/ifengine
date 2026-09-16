@@ -148,7 +148,6 @@ pub fn extract_braced_targets(s: &str) -> Vec<&str> {
     result
 }
 
-#[cfg(feature = "rand")]
 pub fn find_hash_match<I, S>(strings: I, target: u64) -> Option<S>
 where
     I: IntoIterator<Item = S>,
@@ -157,15 +156,6 @@ where
     strings
         .into_iter()
         .find(|s| const_fnv1a_hash::fnv1a_hash_str_64(s.as_ref()) == target)
-}
-
-#[cfg(not(feature = "rand"))]
-pub fn find_hash_match<I, S>(strings: I, target: u64) -> Option<S>
-where
-    I: IntoIterator<Item = S>,
-    S: AsRef<str>,
-{
-    strings.into_iter().nth(target as usize)
 }
 
 #[cfg(test)]

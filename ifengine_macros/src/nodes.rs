@@ -2,7 +2,6 @@ use quote::quote;
 use syn::{
     Expr, Result, Token,
     parse::{Parse, ParseStream},
-    punctuated::Punctuated,
 };
 
 /// Optional u64 key specified in the first position, surrounded in brackets.
@@ -33,14 +32,18 @@ impl MaybeKey {
 impl Parse for MaybeKey {
     fn parse(input: ParseStream) -> Result<Self> {
         if input.peek(syn::token::Paren) {
+            let ahead = input.fork();
             let content;
-            syn::parenthesized!(content in input);
-            let key_expr: Expr = content.parse()?;
-            let _ = input.parse::<Token![,]>();
-            Ok(MaybeKey::Key(key_expr))
-        } else {
-            Ok(MaybeKey::Auto)
+            syn::parenthesized!(content in ahead);
+            if content.parse::<Expr>().is_ok() && ahead.peek(Token![,]) {
+                let content;
+                syn::parenthesized!(content in input);
+                let key_expr: Expr = content.parse()?;
+                let _comma: Token![,] = input.parse()?;
+                return Ok(MaybeKey::Key(key_expr));
+            }
         }
+        Ok(MaybeKey::Auto)
     }
 }
 
@@ -55,22 +58,6 @@ impl Parse for KeyExpr {
         let expr: Expr = input.parse()?;
 
         Ok(KeyExpr { maybe_key, expr })
-    }
-}
-
-pub struct KeyExprs {
-    pub maybe_key: MaybeKey,
-    pub exprs: Vec<Expr>,
-}
-
-impl Parse for KeyExprs {
-    fn parse(input: ParseStream) -> Result<Self> {
-        let maybe_key = input.parse()?;
-        let exprs: Punctuated<Expr, Token![,]> = Punctuated::parse_terminated(input)?;
-        Ok(KeyExprs {
-            maybe_key,
-            exprs: exprs.into_iter().collect(),
-        })
     }
 }
 
@@ -93,3 +80,68 @@ impl syn::parse::Parse for ExprAndOptional {
         Ok(Self { expr: key, n })
     }
 }
+
+pub(crate) fn is_trailer_next(input: ParseStream) -> bool {
+    let ahead = input.fork();
+    if ahead.parse::<Token![::]>().is_ok() {
+        if ahead.parse::<syn::LitStr>().is_ok() && ahead.is_empty() {
+            return true;
+        }
+    }
+    false
+}
+
+pub(crate) fn parse_until_delimiter(input: ParseStream) -> Result<proc_macro2::TokenStream> {
+    let mut tokens = proc_macro2::TokenStream::new();
+    while !input.is_empty() && !input.peek(Token![,]) && !is_trailer_next(input) {
+        let tt: proc_macro2::TokenTree = input.parse()?;
+        tokens.extend(std::iter::once(tt));
+    }
+    Ok(tokens)
+}
+
+pub struct LineArgs {
+    pub maybe_key: MaybeKey,
+    pub exprs: Vec<Expr>,
+    pub trailer: Option<syn::LitStr>,
+}
+
+impl Parse for LineArgs {
+    fn parse(input: ParseStream) -> Result<Self> {
+        let maybe_key = input.parse()?;
+        let mut exprs = Vec::new();
+        let mut trailer = None;
+
+        while !input.is_empty() {
+            if is_trailer_next(input) {
+                let _coloncolon: Token![::] = input.parse()?;
+                let lit: syn::LitStr = input.parse()?;
+                trailer = Some(lit);
+                break;
+            }
+
+            let expr_tokens = parse_until_delimiter(input)?;
+            if !expr_tokens.is_empty() {
+                exprs.push(syn::parse2(expr_tokens)?);
+            }
+
+            if input.peek(Token![,]) {
+                let _ = input.parse::<Token![,]>()?;
+            } else if is_trailer_next(input) {
+                let _coloncolon: Token![::] = input.parse()?;
+                let lit: syn::LitStr = input.parse()?;
+                trailer = Some(lit);
+                break;
+            } else {
+                break;
+            }
+        }
+
+        Ok(LineArgs {
+            maybe_key,
+            exprs,
+            trailer,
+        })
+    }
+}
+

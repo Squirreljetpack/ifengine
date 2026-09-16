@@ -3,10 +3,7 @@ use std::collections::HashMap;
 use std::ops::{Add, AddAssign};
 
 use crate::{
-    core::{
-        Action,
-        game_state::PageKey,
-    },
+    core::{Action, game_state::PageKey},
     utils::prose,
 };
 
@@ -240,47 +237,47 @@ impl Line {
         }
     }
 
-    pub fn from_interleaved_actions<const MASK: bool>(
-        key: PageKey,
+    /// Interleaves unbraced text and interactive braced link spans into a [`Line`].
+    pub fn from_interleaved_actions(
         parts: Vec<String>,
+        action_fn: impl FnMut(usize, &Span) -> Option<Action>,
     ) -> Self {
-        let mut spans = Vec::new();
-
-        for (i, part) in parts.into_iter().enumerate() {
-            // odd indices are braced, even indices are unbraced
-            if i % 2 == 1 {
-                if MASK {
-                    spans.push(
-                        Span::from(part)
-                            .with_action(Action::SetBit(key, i as u8 / 2)),
-                    );
-                } else {
-                    let h: u64;
-
-                    #[cfg(feature = "rand")]
-                    {
-                        h = const_fnv1a_hash::fnv1a_hash_str_64(&part);
-                    }
-                    #[cfg(not(feature = "rand"))]
-                    {
-                        h = (i / 2) as u64;
-                    }
-
-                    spans.push(
-                        Span::from(part)
-                            .with_action(Action::Set(key, h)),
-                    );
-                }
-            } else if !part.is_empty() {
-                spans.push(Span::from(part));
-            }
-        }
-
-        Line {
-            spans,
-            classes: Vec::new(),
-        }
+        Self::from_spans(interleave_actions(&Span::raw(""), parts, action_fn))
     }
+}
+
+/// Interleaves unbraced text and interactive braced link spans into a sequence of [`Span`]s.
+///
+/// Takes a `base_span` (whose styling, classes, and metadata are cloned into each generated span),
+/// a `parts` vector of interleaved strings (typically produced by [`split_braced`]), and an
+/// `action_fn` closure `|i, span| -> Option<Action>` called for each non-empty braced link target.
+///
+/// - Even indices (0, 2, ...) represent regular, non-clickable text segments.
+/// - Odd indices (1, 3, ...) represent link targets delimited by `[[...]]`.
+///
+/// Empty segments are skipped.
+pub fn interleave_actions(
+    base_span: &Span,
+    parts: Vec<String>,
+    mut action_fn: impl FnMut(usize, &Span) -> Option<Action>,
+) -> Vec<Span> {
+    let mut link_idx = 0usize;
+    parts
+        .into_iter()
+        .enumerate()
+        .filter_map(|(i, part)| {
+            if part.is_empty() {
+                return None;
+            }
+
+            let mut span = base_span.clone().with_text(part);
+            if i % 2 == 1 {
+                span.action = action_fn(link_idx, &span);
+                link_idx += 1;
+            }
+            Some(span)
+        })
+        .collect()
 }
 
 bitflags! {
@@ -606,9 +603,7 @@ mod tests {
 
     #[test]
     fn test_line_builders() {
-        let line = Line::new()
-            .cls("my-line")
-            .classes(["line-fade"]);
+        let line = Line::new().cls("my-line").classes(["line-fade"]);
 
         assert_eq!(line.classes, vec!["my-line", "line-fade"]);
     }
@@ -672,7 +667,9 @@ mod tests {
     #[test]
     fn test_from_interleaved_actions_skips_empty_spans() {
         let parts = vec!["".to_string(), "link".to_string(), "".to_string()];
-        let line = Line::from_interleaved_actions::<true>(1, parts);
+        let line = Line::from_interleaved_actions(parts, |i, _| {
+            Some(Action::SetBit(1, i as u8))
+        });
         assert_eq!(line.spans.len(), 1);
         assert_eq!(line.spans[0].content, "link");
         assert_eq!(line.spans[0].variant, SpanVariant::None);
@@ -730,4 +727,3 @@ mod tests {
         assert_eq!(line_raw.content(), "''Hello... world--test''");
     }
 }
-

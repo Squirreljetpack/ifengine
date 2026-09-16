@@ -54,18 +54,19 @@ pub mod elements {
     //! | [`choice!`](choice) | `choice!(("Open door", p_door), ("Turn back", p_back))` | Displays a static list of clickable choices for page navigation or actions. |
     //! | [`dchoice!`](dchoice) | `dchoice!(items.into_iter().map(...))` | Displays a dynamic choice list generated at runtime from an iterator/collection. |
     //! | [`mchoice!`](mchoice) | `mchoice!((key), ...)` | Choice menu with an explicit state key override. |
-    //! | [`dparagraph!`](dparagraph) | `dparagraph!("Go to [[forest]] or [[inn]]")` | Interactive paragraph with clickable links; returns clicked target `&str` on selection (`""` initially). |
-    //! | [`mparagraph!`](mparagraph) | `mparagraph!("Take [[torch]] and [[sword]]")` | Interactive paragraph with wiki-style links; tracks multiple clicked tokens and returns `Vec<bool>`. |
+    //! | [`dp!`](dparagraph) | `dparagraph!("Go to [[forest]] or [[inn]]")` | Interactive paragraph with clickable links; returns clicked target `&str` on selection (`""` initially). |
+    //! | [`mp!`](mparagraph) | `mparagraph!("Take [[torch]] and [[sword]]")` | Interactive paragraph with wiki-style links; tracks multiple clicked tokens and returns `Vec<bool>`. |
     //! | [`replace!`](replace) | `replace!("Chest is [[locked]].", "Unlocked!")` | Clickable paragraph that transitions into a replacement line or collapses to 0 height. |
-    //! | [`repl!`](replacement) | `replacement!("Chest is [[locked]].", "Unlocked!")` | Replacement line that does not push to view, returning content for nesting in `replace!`. |
+    //! | [`repl!`](replace_line) | `replace_line!("Chest is [[locked]].", "Unlocked!")` | Line that is replaced on click. |
+    //! | [`reps!`](replace_span) | `replace_span!("sealed" => "open")` | Span that is replaced on click. |
     //! | [`NEXT!`](NEXT) | `NEXT!(next_page)` | Flow control: transition to the specified page function. |
     //! | [`EMBED!`](EMBED) | `EMBED!(sub_page)` | Flow control: evaluate sub-page with transient Game and embed View; propagate transitions. |
     //! | [`BACK!`](BACK) | `BACK!()` or `BACK!(2)` | Flow control: navigate back 1 (or `n`) steps in history. |
     //! | [`TUN!`](TUN) | `TUN!(tunnel_page)` | Flow control: enter a tunnel subroutine page. |
     //! | [`END!`](END) | `END!()` | Flow control: terminate story execution. |
     //! | [`x!`](extend) | `extend!("more text")` or `extend!("choice": "new choice")` | Extends the previous object in the view (Paragraph, Choice, Embed). |
-    //! | [`read_key!`](read_key) | `read_key!(KEY_ID)` | Reads the stored `u64` state value for a key. |
-    //! | [`set_key!`](set_key) | `set_key!(KEY_ID, val)` | Stores or updates the `u64` state value for a key. |
+    //! | [`get!`](get) | `get!("key")` or `get!("key", "when_some", "when_none")` | Reads state value or evaluates conditional Span expression based on key presence. |
+    //! | [`set!`](set) | `set!("key")` or `set!("key", val)` | Sets state key to 0 or a specified value. |
     //! | [`read_key_mask!`](read_key_mask) | `read_key_mask!(KEY_ID)` | Unpacks a `u64` state value into a boolean bitmask array. |
 
     pub use ifengine_core::elements::*;
@@ -77,6 +78,6 @@ pub mod elements {
     #[cfg(feature = "macros")]
     pub use ifengine_macros::{
         EMBED as emb, dparagraph as dp, extend as x, mchoice as choices, mparagraph as mp,
-        paragraph as p, paragraphs as ps, replacement as repl,
+        paragraph as p, paragraphs as ps, replace_line as repl, replace_span as reps,
     };
 }

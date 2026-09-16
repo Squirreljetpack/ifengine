@@ -4,13 +4,10 @@ use crate::{
     Game,
     core::{
         GameContext, GameTags, Page, PageId, Response,
-        game_state::{PageKey, PageMap},
+        game_state::{PageKey, PageMap, USER_KEY_MASK, hash_key},
     },
     view::{Object, RenderData, StampedObject, View},
 };
-
-/// The mask for user keys (top 16 bits must be 0, allowing up to 48-bit user payloads).
-const USER_KEY_MASK: u64 = 0x0000_FFFF_FFFF_FFFF;
 
 /// The `#[ifview]` decorator instantiates this from a reference to [`Game`](struct@crate::Game), using it to add elements which read and write to [`GameState`](crate::core::game_state::GameState).
 /// Will produce a [`View`] if the decorated function doesn't exit early.
@@ -84,8 +81,8 @@ const fn loc_from_file_line_col(file: &str, line: u32, col: u32) -> u64 {
 impl<'a> PageState<'a> {
     /// Generates a deterministic key for an automatically-keyed element using the caller's location.
     ///
-    /// The top 16 bits store the 1-based instance counter (`1..=65535`), ensuring that
-    /// auto keys never collide with user keys (which have top 16 bits = 0).
+    /// Bits 48..62 store the 1-based instance counter (`1..=32767`), ensuring that
+    /// auto keys never collide with user keys (top 16 bits = 0) or hashed keys (bit 63 = 1).
     /// The lower 48 bits store the location payload:
     /// - Bits 47..32 (16 bits): File path hash
     /// - Bits 31..16 (16 bits): Line number
@@ -98,7 +95,7 @@ impl<'a> PageState<'a> {
         let count = counters.entry(loc).or_insert(1);
         let c = *count;
         *count = count.saturating_add(1);
-        ((c as u64) << 48) | (loc & USER_KEY_MASK)
+        (((c as u64) & 0x7FFF) << 48) | (loc & USER_KEY_MASK)
     }
     /// Appends a view element (wrapped in [`StampedObject`]) to the underlying [`View`].
     pub fn push(&mut self, item: impl Into<StampedObject>) {
@@ -333,6 +330,31 @@ impl<'a> PageState<'a> {
         false
     }
 
+    /// Polls targets for the most recently pushed paragraph.
+    ///
+    /// Iterates over the spans of the last paragraph object, checking if any span with
+    /// [`crate::core::Action::SetInc(hk, _)`] has a matching location payload (`val & USER_KEY_MASK == loc`)
+    /// and a non-zero counter (`val >> 48 != 0`). If matched, clears the top 16 bits (leaving
+    /// the location payload) and returns `Some(&span.content)`.
+    pub fn poll_dparagraph_last(&self, auto_key: PageKey) -> Option<&str> {
+        let loc = auto_key & USER_KEY_MASK;
+        if let Some(stamped) = self.view.last() {
+            if let Object::Paragraph(line, _) = &stamped.object {
+                for span in &line.spans {
+                    if let Some(crate::core::Action::SetInc(hk, _)) = span.action {
+                        if let Some(val) = self.get(hk) {
+                            if (val & USER_KEY_MASK) == loc && (val >> 48) != 0 {
+                                self.insert(hk, loc);
+                                return Some(&span.content);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        None
+    }
+
     /// Adds a tag to both the current [`View`]'s tag list and the global [`GameTags`].
     ///
     /// Returns `true` if the tag was newly inserted into global game tags, or `false` if already present.
@@ -362,6 +384,7 @@ impl<'a> fmt::Display for PageState<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::core::HASH_KEY_BIT;
     use std::collections::HashSet;
 
     #[test]
@@ -405,7 +428,20 @@ mod tests {
         let state2 = PageState::new("test", false, false, &mut page_map2, &mut tags2);
 
         let keys2 = render_elements(&state2);
-
         assert_eq!(keys1, keys2);
+
+        // Auto keys always have bit 63 = 0
+        for k in &keys1 {
+            assert_eq!(k & HASH_KEY_BIT, 0, "auto key must not have top bit set");
+        }
+
+        // String hash keys always have bit 63 = 1
+        let hk = hash_key("my_variable");
+        assert_eq!(
+            hk & HASH_KEY_BIT,
+            HASH_KEY_BIT,
+            "hashed key must have top bit set"
+        );
+        assert_ne!(hk, hash_key("other_variable"));
     }
 }
