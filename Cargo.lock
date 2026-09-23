@@ -2184,6 +2184,7 @@ dependencies = [
  "forest",
  "getrandom 0.3.4",
  "ifengine",
+ "image",
  "js-sys",
  "leptos",
  "postcard",
@@ -2216,6 +2217,8 @@ dependencies = [
  "num-traits",
  "png",
  "tiff",
+ "zune-core",
+ "zune-jpeg",
 ]
 
 [[package]]

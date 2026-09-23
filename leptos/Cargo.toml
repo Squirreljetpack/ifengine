@@ -38,5 +38,8 @@ saltwrack = ["dep:saltwrack"]
 forest = ["dep:forest"]
 test = ["dep:test_story"]
 
+[build-dependencies]
+image = { version = "0.25", default-features = false, features = [ "png", "jpeg", "ico" ] }
+
 [lints]
 workspace = true

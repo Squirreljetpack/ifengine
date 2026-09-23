@@ -12,6 +12,7 @@ use serde_hjson::from_str;
 
 const FONTS_PATH: &str = "../assets/fonts";
 const COLORS_PATH: &str = "../assets/colors";
+const ICON_PATH: &str = "../assets/imgs/icon.png";
 
 fn to_absolute(p: impl AsRef<Path>) -> PathBuf {
     Path::new(&env::var("CARGO_MANIFEST_DIR").unwrap()).join(p.as_ref())
@@ -63,6 +64,30 @@ fn main() {
         }
     }
     write!(out, "{}", code).unwrap();
+
+    println!("cargo:rerun-if-changed={ICON_PATH}");
+    let icon_file = to_absolute(ICON_PATH);
+    if let Ok(img) = image::open(&icon_file) {
+        let assets_dir = to_absolute("assets");
+        fs::create_dir_all(&assets_dir).ok();
+
+        let sizes: &[(&str, u32, u32)] = &[
+            ("icon-256.png", 256, 256),
+            ("icon-1024.png", 1024, 1024),
+            ("icon_ios_touch_192.png", 192, 192),
+            ("maskable_icon_x512.png", 512, 512),
+        ];
+
+        for (filename, w, h) in sizes {
+            let target = assets_dir.join(filename);
+            let resized = img.resize_exact(*w, *h, image::imageops::FilterType::Lanczos3);
+            let _ = resized.save(&target);
+        }
+
+        let favicon_path = assets_dir.join("favicon.ico");
+        let resized_fav = img.resize_exact(64, 64, image::imageops::FilterType::Lanczos3);
+        let _ = resized_fav.save(&favicon_path);
+    }
 }
 
 fn add_fonts_from_dir(

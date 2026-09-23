@@ -11,6 +11,10 @@ site/
 dist/
 .stage/
 
+# Generated icons
+/public/favicon.ico
+/public/icon-*.png
+
 # Tailwind / CSS build artifacts
 /style/*.css
 !/style/main.css
