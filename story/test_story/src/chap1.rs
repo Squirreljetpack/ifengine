@@ -132,12 +132,8 @@ pub fn rainy_day(s: &mut State) {
 
     mchoice! {
         (6),
-        "1" => {
-            // eprintln!("1 clicked")
-        },
-        "2" => {
-            // eprintln!("2 clicked")
-        },
+        "1" => "1 clicked",
+        "2" => "2 clicked",
     };
 }
 

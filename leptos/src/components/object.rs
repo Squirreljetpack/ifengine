@@ -39,7 +39,7 @@ pub fn ObjectView(stamped: StampedObject) -> impl IntoView {
                     <div class="passage-popup-backdrop" data-render=render_data>
                         <div class="passage-popup-dialog">
                             <div class="passage-text" data-render=render_data>
-                                <LineView line=line />
+                                <LineView line=line is_changed=is_changed />
                             </div>
                         </div>
                     </div>
@@ -58,7 +58,7 @@ pub fn ObjectView(stamped: StampedObject) -> impl IntoView {
                 view! {
                     <p class="passage-paragraph passage-dialogue" data-render=render_data style=dialogue_style>
                         <span class="dialogue-speaker">{speaker}</span>
-                        <LineView line=line />
+                        <LineView line=line is_changed=is_changed />
                     </p>
                 }
                 .into_any()
@@ -95,14 +95,14 @@ pub fn ObjectView(stamped: StampedObject) -> impl IntoView {
                 if !render_data.is_empty() {
                     view! {
                         <p class="passage-paragraph" data-render=render_data style=p_style>
-                            <LineView line=line />
+                            <LineView line=line is_changed=is_changed />
                         </p>
                     }
                     .into_any()
                 } else {
                     view! {
                         <p class="passage-paragraph" style=p_style>
-                            <LineView line=line />
+                            <LineView line=line is_changed=is_changed />
                         </p>
                     }
                     .into_any()
@@ -201,7 +201,7 @@ pub fn ObjectView(stamped: StampedObject) -> impl IntoView {
 
         Object::Note(line, _indices) => view! {
             <aside class="passage-note" style=vt_style>
-                <LineView line=line />
+                <LineView line=line is_changed=is_changed />
             </aside>
         }
         .into_any(),

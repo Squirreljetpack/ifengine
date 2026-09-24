@@ -31,6 +31,7 @@ pub fn p3(state: &mut State) {
     );
 
     let names = [
+        "Sen",
         "The neutral honorific of respect: a fine choice for any purpose.",
         "Ammar",
         "An honorific translating to “sibling”, common among egalitarians, communalists, and anarchists.",

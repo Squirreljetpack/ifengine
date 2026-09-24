@@ -3,7 +3,6 @@ use leptos::prelude::*;
 
 use crate::components::choice::ActiveChoiceContext;
 use crate::components::span::SpanView;
-use crate::context::StoryContext;
 use crate::transition::{
     TransitionPhase, compute_initial_phase, generate_active_transition_style,
     parse_transition_classes, setup_transition_timers,
@@ -14,11 +13,10 @@ use crate::transition::{
 pub fn LineView(
     line: Line,
     #[prop(optional_no_strip)] choice: Option<ActiveChoiceContext>,
+    #[prop(default = false)] is_changed: bool,
 ) -> impl IntoView {
-    let ctx = expect_context::<StoryContext>();
     let config = parse_transition_classes(&line.classes);
-    let is_fresh = ctx.transitions.read_untracked().is_fresh;
-    let should_animate = config.has_transition() && !is_fresh;
+    let should_animate = config.has_transition() && is_changed;
 
     let (phase, set_phase) = signal(compute_initial_phase(&config, should_animate));
     if should_animate {

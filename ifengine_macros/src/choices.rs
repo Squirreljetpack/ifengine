@@ -189,6 +189,7 @@ pub fn mchoice(input: TokenStream) -> TokenStream {
             };
 
             quote! {
+                let __arm_key = __ifengine_page_state.auto_key();
                 if (__ifengine_tmp_mask & (1u64 << #i)) != 0 {
                     #[allow(unreachable_code)]
                     {
@@ -196,7 +197,7 @@ pub fn mchoice(input: TokenStream) -> TokenStream {
                         if !__arm_line.spans.is_empty() {
                             __ifengine_page_state.push(
                                 ifengine::view::StampedObject {
-                                    id: None,
+                                    id: Some(__arm_key),
                                     object: ifengine::view::Object::Paragraph(__arm_line, ""),
                                 }
                             );

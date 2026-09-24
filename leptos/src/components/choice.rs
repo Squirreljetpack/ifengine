@@ -20,6 +20,7 @@ fn ChoiceItemView(
     choice_idx: u8,
     line: Line,
     has_internal_actions: bool,
+    #[prop(default = false)] is_changed: bool,
 ) -> impl IntoView {
     let ctx = expect_context::<StoryContext>();
     let choice_ctx = Some(ActiveChoiceContext {
@@ -27,18 +28,23 @@ fn ChoiceItemView(
         index: choice_idx,
     });
 
+    let item_vt_style = format!(
+        "view-transition-name: item-{key}-{choice_idx}; view-transition-class: reflow;"
+    );
+
     if has_internal_actions {
         view! {
             <div
                 class="choice-item choice-item-inline"
                 role="button"
                 tabindex="0"
+                style=item_vt_style
                 on:click=move |e: leptos::ev::MouseEvent| {
                     e.prevent_default();
                     ctx.dispatch_choice.run((key, choice_idx));
                 }
             >
-                <LineView line=line choice=choice_ctx />
+                <LineView line=line choice=choice_ctx is_changed=is_changed />
             </div>
         }
         .into_any()
@@ -47,12 +53,13 @@ fn ChoiceItemView(
             <button
                 type="button"
                 class="choice-item choice-button"
+                style=item_vt_style
                 on:click=move |e: leptos::ev::MouseEvent| {
                     e.prevent_default();
                     ctx.dispatch_choice.run((key, choice_idx));
                 }
             >
-                <LineView line=line choice=choice_ctx />
+                <LineView line=line choice=choice_ctx is_changed=is_changed />
             </button>
         }
         .into_any()
@@ -108,6 +115,7 @@ pub fn ChoiceView(key: PageKey, choices: Vec<(u8, Line)>) -> impl IntoView {
                         choice_idx=idx
                         line=line
                         has_internal_actions=has_internal_actions
+                        is_changed=is_changed
                     />
                 }
             }).collect::<Vec<_>>() }
