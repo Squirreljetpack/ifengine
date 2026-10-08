@@ -18,12 +18,12 @@ pub use app::App;
 cfg_if::cfg_if! {
     if #[cfg(feature = "test")] {
         pub use test_story as story;
+    } else if #[cfg(feature = "chant")] {
+        pub use chant as story;
     } else if #[cfg(feature = "forest")] {
         pub use forest as story;
     } else if #[cfg(feature = "saltwrack")] {
         pub use saltwrack as story;
-    } else if #[cfg(feature = "chant")] {
-        pub use chant as story;
     } else {
         compile_error!("At least one story feature must be enabled: `saltwrack`, `forest`, `test`, or `chant`");
     }

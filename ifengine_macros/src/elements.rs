@@ -8,6 +8,13 @@ pub use crate::helpers::{expand_lines, expand_string_expr};
 use crate::nodes::{ExprAndOptional, MaybeKey};
 
 pub fn s(input: TokenStream) -> TokenStream {
+    let input2 = proc_macro2::TokenStream::from(input.clone());
+    if let Ok(replace_input) = syn::parse2::<crate::choices::ReplaceInput>(input2) {
+        if replace_input.has_arrow {
+            return crate::choices::replace_span(input);
+        }
+    }
+
     let exprs_parsed = parse_macro_input!(input with Punctuated<Expr, syn::Token![,]>::parse_terminated);
     let exprs: Vec<Expr> = exprs_parsed.into_iter().collect();
 
@@ -36,6 +43,13 @@ pub fn s(input: TokenStream) -> TokenStream {
 }
 
 pub fn l(input: TokenStream) -> TokenStream {
+    let input2 = proc_macro2::TokenStream::from(input.clone());
+    if let Ok(replace_input) = syn::parse2::<crate::choices::ReplaceInput>(input2) {
+        if replace_input.has_arrow {
+            return crate::choices::replace_line(input);
+        }
+    }
+
     let exprs_parsed = parse_macro_input!(input with Punctuated<Expr, syn::Token![,]>::parse_terminated);
     let lines = expand_lines(exprs_parsed);
 
@@ -372,7 +386,7 @@ pub fn count(input: TokenStream) -> TokenStream {
 pub struct ClickInput {
     pub maybe_key: MaybeKey,
     pub expr: Expr,
-    pub block: Expr,
+    pub block: Option<Expr>,
     pub max_clicks: Option<Expr>,
 }
 
@@ -385,12 +399,12 @@ impl Parse for ClickInput {
         let block = if input.peek(Token![,]) {
             input.parse::<Token![,]>()?;
             if input.is_empty() {
-                syn::parse_quote!({})
+                None
             } else {
-                input.parse::<Expr>()?
+                Some(input.parse::<Expr>()?)
             }
         } else {
-            syn::parse_quote!({})
+            None
         };
 
         let max_clicks = if input.peek(Token![,]) {
@@ -431,17 +445,26 @@ pub fn click(input: TokenStream) -> TokenStream {
         None => quote! { 0u64 },
     };
 
+    let poll_action = match block {
+        Some(b) => quote! {
+            let _ = #b;
+        },
+        None => quote! {
+            __ifengine_page_state.insert(&span.content, 0u64);
+        },
+    };
+
     let expanded = quote! {{
         let __ifengine_key = #key;
-        if __ifengine_page_state.poll_click(__ifengine_key, #max_clicks_tokens) {
-            let _ = #block;
-        };
-
         let span = ifengine::view::Span::from(
             #expr_tokens
         )
         .with_id(__ifengine_key)
         .with_action(ifengine::Action::SetBit(__ifengine_key, 63));
+
+        if __ifengine_page_state.poll_click(__ifengine_key, #max_clicks_tokens) {
+            #poll_action
+        };
 
         // sim the handler
         if __ifengine_page_state.get(__ifengine_key).is_some_and(|v| {

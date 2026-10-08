@@ -7,6 +7,6 @@ pub mod save_load_modal;
 pub mod span;
 
 pub use footer::Footer;
-pub use header::Header;
+pub use header::{Header, HeaderItem};
 pub use object::ObjectView;
 pub use save_load_modal::{ModalMode, SaveLoadModal};

@@ -479,6 +479,7 @@ pub fn mparagraph(input: TokenStream) -> TokenStream {
 pub struct ReplaceInput {
     pub maybe_key: MaybeKey,
     pub expr: Expr,
+    pub has_arrow: bool,
     pub replacement: Option<Expr>,
 }
 
@@ -486,16 +487,17 @@ impl syn::parse::Parse for ReplaceInput {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
         let maybe_key = input.parse()?;
         let expr: Expr = input.parse()?;
-        let block = if input.parse::<Token![=>]>().is_ok() {
-            Some(input.parse()?)
+        let (has_arrow, block) = if input.parse::<Token![=>]>().is_ok() {
+            (true, Some(input.parse()?))
         } else if input.parse::<Token![,]>().is_ok() && !input.is_empty() {
-            Some(input.parse()?)
+            (false, Some(input.parse()?))
         } else {
-            None
+            (false, None)
         };
         Ok(ReplaceInput {
             maybe_key,
             expr,
+            has_arrow,
             replacement: block,
         })
     }
@@ -530,6 +532,7 @@ pub fn replace(input: TokenStream) -> TokenStream {
     let ReplaceInput {
         maybe_key,
         expr,
+        has_arrow: _,
         replacement: block,
     } = syn::parse_macro_input!(input as ReplaceInput);
 
@@ -575,47 +578,68 @@ pub fn replace(input: TokenStream) -> TokenStream {
 
 pub fn replace_line(input: TokenStream) -> TokenStream {
     let ReplaceInput {
-        maybe_key: _,
+        maybe_key,
         expr,
+        has_arrow: _,
         replacement: block,
     } = syn::parse_macro_input!(input as ReplaceInput);
 
+    let key_tokens = maybe_key.into_tokens();
     let line_expr = expand_line_expr(&expr);
-    let replacement_tokens = match block {
-        Some(b) => quote! { ifengine::view::Line::from({ #b }) },
-        None => quote! { ifengine::view::Line::from(()) },
-    };
+    let replacement_tokens = expand_replacement_block(&expr, &block);
 
     let expanded = quote! {{
-        let __ifengine_internal_key = __ifengine_page_state.auto_key();
+        let __ifengine_internal_key = #key_tokens;
 
         if __ifengine_page_state.get(__ifengine_internal_key).unwrap_or(0) != 0 {
-            #replacement_tokens
+            (#replacement_tokens).fill_ids(__ifengine_internal_key)
         } else {
             #line_expr.interleave_actions::<true>(|i, _span| {
                 Some(ifengine::core::Action::SetBit(__ifengine_internal_key, i as u8))
-            })
+            }).fill_ids(__ifengine_internal_key)
         }
     }};
 
     expanded.into()
 }
 
+fn expand_span_replacement_block(expr: &Expr, block: &Option<Expr>) -> proc_macro2::TokenStream {
+    let expr_tokens = expand_string_expr(expr);
+    match block {
+        Some(b) if matches!(unwrap_paren(b), Expr::Closure(_)) => {
+            let closure = unwrap_paren(b);
+            quote! {
+                {
+                    fn __ifengine_call_closure<R>(
+                        f: impl FnOnce(ifengine::view::Span) -> R,
+                        s: ifengine::view::Span,
+                    ) -> R {
+                        f(s)
+                    }
+                    let __orig_span = ifengine::view::Span::from(#expr_tokens).clean();
+                    ifengine::view::Span::from(__ifengine_call_closure(#closure, __orig_span))
+                }
+            }
+        }
+        Some(b) => quote! { ifengine::view::Span::from({ #b }) },
+        None => quote! { ifengine::view::Span::default() },
+    }
+}
+
 pub fn replace_span(input: TokenStream) -> TokenStream {
     let ReplaceInput {
-        maybe_key: _,
+        maybe_key,
         expr,
+        has_arrow: _,
         replacement: block,
     } = syn::parse_macro_input!(input as ReplaceInput);
 
+    let key_tokens = maybe_key.into_tokens();
     let expr_tokens = expand_string_expr(&expr);
-    let replacement_tokens = match block {
-        Some(b) => quote! { ifengine::view::Span::from({ #b }) },
-        None => quote! { ifengine::view::Span::default() },
-    };
+    let replacement_tokens = expand_span_replacement_block(&expr, &block);
 
     let expanded = quote! {{
-        let __ifengine_internal_key = __ifengine_page_state.auto_key();
+        let __ifengine_internal_key = #key_tokens;
 
         if __ifengine_page_state.get(__ifengine_internal_key).unwrap_or(0) != 0 {
             #replacement_tokens

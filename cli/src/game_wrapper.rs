@@ -60,17 +60,7 @@ impl ActiveGame {
 
     pub fn status_summary(&self) -> Vec<String> {
         match self {
-            Self::Chant(g) => {
-                let s = &g.context;
-                vec![
-                    format!("Lives: {}/9", s.lives),
-                    format!("Guineas: {}", s.guineas),
-                    format!("Realm: {}", s.current_realm.display_name()),
-                    format!("Inventory: {} item(s)", s.inventory.len()),
-                    format!("Ghost-Sight: {}", if s.ghost_sight_active { "Active" } else { "Inactive" }),
-                    format!("Inventory Modal: {}", if s.inventory_open { "OPEN" } else { "Closed" }),
-                ]
-            }
+            Self::Chant(g) => g.context.header(),
             Self::Forest(g) => {
                 let s = &g.context;
                 vec![
@@ -103,16 +93,16 @@ impl ActiveGame {
         }
     }
 
-    pub fn simulate(&self) -> SimReport {
+    pub fn simulate(&self, max_depth: Option<usize>) -> SimReport {
         let story = self.story_name();
         let mut visited_count = 0;
         let mut endpoints = 0;
         let errors = Vec::new();
 
-        const MAX_DEPTH: usize = 6;
+        let depth_limit = max_depth.unwrap_or(6);
         match self {
             Self::Chant(g) => {
-                let sim = g.simulate(|state| state.depth < MAX_DEPTH);
+                let sim = g.simulate(|state| state.depth < depth_limit);
                 for (_id, records) in sim.runs {
                     visited_count += records.0.len();
                     for rec in &records.0 {
@@ -121,7 +111,7 @@ impl ActiveGame {
                 }
             }
             Self::Forest(g) => {
-                let sim = g.simulate(|state| state.depth < MAX_DEPTH);
+                let sim = g.simulate(|state| state.depth < depth_limit);
                 for (_id, records) in sim.runs {
                     visited_count += records.0.len();
                     for rec in &records.0 {
@@ -130,7 +120,7 @@ impl ActiveGame {
                 }
             }
             Self::Saltwrack(g) => {
-                let sim = g.simulate(|state| state.depth < MAX_DEPTH);
+                let sim = g.simulate(|state| state.depth < depth_limit);
                 for (_id, records) in sim.runs {
                     visited_count += records.0.len();
                     for rec in &records.0 {
@@ -139,7 +129,7 @@ impl ActiveGame {
                 }
             }
             Self::TestStory(g) => {
-                let sim = g.simulate(|state| state.depth < MAX_DEPTH);
+                let sim = g.simulate(|state| state.depth < depth_limit);
                 for (_id, records) in sim.runs {
                     visited_count += records.0.len();
                     for rec in &records.0 {
@@ -156,6 +146,17 @@ impl ActiveGame {
             errors,
         }
     }
+}
+
+fn find_item_by_name(s: &str) -> Option<chant::ItemId> {
+    let clean = |t: &str| {
+        t.chars()
+            .filter(|c| c.is_alphabetic())
+            .flat_map(char::to_lowercase)
+            .collect::<String>()
+    };
+    let query = clean(s);
+    chant::ItemId::all().find(|item| clean(&format!("{item:?} {}", item.name())).contains(&query))
 }
 
 fn apply_chant_action(g: &mut chant::Game, action: &str, args: &[String]) -> Result<String, String> {
@@ -182,7 +183,60 @@ fn apply_chant_action(g: &mut chant::Game, action: &str, args: &[String]) -> Res
                     }
                     Ok(format!("Inventory modal is now {}.", if s.inventory_open { "OPEN" } else { "CLOSED" }))
                 }
-                other => Err(format!("Unknown mode '{other}'. Use open, close, or toggle.")),
+                "list" | "items" => {
+                    if s.inventory.is_empty() && s.items_worn.is_empty() {
+                        Ok("Inventory and worn items are empty.".into())
+                    } else {
+                        let inv_str = s.inventory.iter().map(|i| format!("{} ({}g)", i.name(), i.value_guineas())).collect::<Vec<_>>().join(", ");
+                        let worn_str = s.items_worn.iter().map(|i| i.name()).collect::<Vec<_>>().join(", ");
+                        Ok(format!("Inventory: [{inv_str}] | Worn: [{worn_str}]"))
+                    }
+                }
+                other => Err(format!("Unknown mode '{other}'. Use open, close, toggle, or list.")),
+            }
+        }
+        "items" => {
+            if s.inventory.is_empty() && s.items_worn.is_empty() {
+                Ok("Inventory and worn items are empty.".into())
+            } else {
+                let inv_str = s.inventory.iter().map(|i| format!("{} ({}g)", i.name(), i.value_guineas())).collect::<Vec<_>>().join(", ");
+                let worn_str = s.items_worn.iter().map(|i| i.name()).collect::<Vec<_>>().join(", ");
+                Ok(format!("Inventory: [{inv_str}] | Worn: [{worn_str}]"))
+            }
+        }
+        "lives" => {
+            let amount: u8 = args.first()
+                .ok_or_else(|| "Usage: action lives <amount>".to_string())?
+                .parse()
+                .map_err(|e| format!("Invalid amount: {e}"))?;
+            s.lives = amount;
+            if s.lives <= 7 {
+                s.ghost_sight_active = true;
+            }
+            Ok(format!("Set lives to {amount}/9."))
+        }
+        "give" => {
+            if args.is_empty() {
+                return Err("Usage: action give <item_name>".into());
+            }
+            let query = args.join(" ");
+            let item = find_item_by_name(&query)
+                .ok_or_else(|| format!("Could not find item matching '{query}'"))?;
+            s.give_item(item);
+            Ok(format!("Added '{}' to inventory.", item.name()))
+        }
+        "take" | "remove" => {
+            if args.is_empty() {
+                return Err("Usage: action take <item_name>".into());
+            }
+            let query = args.join(" ");
+            let item = find_item_by_name(&query)
+                .ok_or_else(|| format!("Could not find item matching '{query}'"))?;
+            if s.has_item(item) {
+                s.take_item(item);
+                Ok(format!("Removed '{}' from inventory.", item.name()))
+            } else {
+                Err(format!("Item '{}' is not in inventory.", item.name()))
             }
         }
         "money" | "guineas" => {
@@ -200,7 +254,11 @@ fn apply_chant_action(g: &mut chant::Game, action: &str, args: &[String]) -> Res
             let field = args[0].to_lowercase();
             let val = &args[1];
             match field.as_str() {
-                "lives" => { s.lives = val.parse().map_err(|e| format!("{e}"))?; }
+                "lives" => {
+                    let n: u8 = val.parse().map_err(|e| format!("{e}"))?;
+                    s.lives = n;
+                    if s.lives <= 7 { s.ghost_sight_active = true; }
+                }
                 "ghost_sight_active" | "ghost_sight" => { s.ghost_sight_active = parse_bool(val)?; }
                 "nursery_floorboard_open" => { s.nursery_floorboard_open = parse_bool(val)?; }
                 "tacroy_firmed_up" => { s.tacroy_firmed_up = parse_bool(val)?; }
@@ -212,7 +270,7 @@ fn apply_chant_action(g: &mut chant::Game, action: &str, args: &[String]) -> Res
             Ok(format!("Field '{field}' set to {val}."))
         }
         unknown => Err(format!(
-            "Unknown action '{unknown}'. Supported actions: inventory [open|close|toggle], money <amount>, set <field> <val>"
+            "Unknown action '{unknown}'. Supported actions: inventory [open|close|toggle|list], items, give <item>, take <item>, lives <count>, money <amount>, set <field> <val>"
         )),
     }
 }

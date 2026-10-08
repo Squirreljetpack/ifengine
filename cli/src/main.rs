@@ -24,15 +24,17 @@ USAGE:
   ifengine-cli [OPTIONS] <SUBCOMMAND> [ARGS...]
 
 SUBCOMMANDS:
-  new [story]             Start a new game (default: chant; also supports forest, saltwrack, test_story)
+  play [story]            Launch continuous interactive session (aliases: repl, interactive)
+                          Default story: chant (also supports forest, saltwrack, test_story)
+  new [story]             Start a new game and display the first page
                           If story is omitted and a save exists, restarts that story.
-  choose <id_or_text>     Interact with an element by index [0, 1...] or matching text
+  choose <index>          Interact with an element by integer index [0, 1...]
   view                    Display current story view and available choices
-  action <name> [args...] Perform a global state action (e.g. inventory, money, lives, give, inspect, set)
+  action <name> [args...] Perform a global state action (e.g. inventory, money, lives, give, take, set)
                           Aliases: act, do
   save <path>             Export current game state to a custom path
   load <path>             Load game state from a custom path
-  simulate [story]        Run headless simulation exploring story branches (alias: sim)
+  simulate [story] [depth] Run headless simulation exploring story branches (alias: sim)
   help                    Print this help information
 
 OPTIONS:
@@ -107,10 +109,10 @@ fn save_state(path: &Path, game: &ActiveGame) -> Result<(), String> {
 
 fn output_game_view(game: &mut ActiveGame, json: bool, notice: Option<&str>) -> Result<(), String> {
     let story = game.story_name();
-    let status = game.status_summary();
     let view = game
         .view()
         .map_err(|e| format!("Error rendering page view: {e:?}"))?;
+    let status = game.status_summary();
 
     if json {
         let mut val = render::render_view_to_json(story, &status, &view);
@@ -129,12 +131,186 @@ fn output_game_view(game: &mut ActiveGame, json: bool, notice: Option<&str>) -> 
     Ok(())
 }
 
-fn normalize_for_match(s: &str) -> String {
-    s.to_lowercase()
-        .replace(['’', '‘', '`'], "'")
-        .replace(['“', '”'], "\"")
-        .trim()
-        .to_string()
+fn perform_choice(game: &mut ActiveGame, chosen_index: usize) -> Result<String, String> {
+    let view = game
+        .view()
+        .map_err(|e| format!("Error rendering view: {e:?}"))?;
+
+    let interactables = view.interactables_flat::<false>();
+    if interactables.is_empty() {
+        return Err(format!(
+            "No interactable choices or links available on current page '{}'.",
+            view.pageid.0
+        ));
+    }
+
+    if chosen_index >= interactables.len() {
+        return Err(format!(
+            "Choice index {chosen_index} out of range (available: 0..{}).",
+            interactables.len()
+        ));
+    }
+
+    let chosen_interactable = interactables[chosen_index];
+    let chosen_label = chosen_interactable.content().to_string();
+
+    game.interact(chosen_interactable)
+        .map_err(|e| format!("Error executing interaction: {e:?}"))?;
+
+    Ok(format!("Chose [{chosen_index}]: '{chosen_label}'"))
+}
+
+fn run_repl(config: &CliConfig) -> ExitCode {
+    use std::io::{self, BufRead, Write};
+
+    let mut game = if config.state_file.exists() {
+        match load_state(&config.state_file) {
+            Ok(g) => g,
+            Err(_) => {
+                let story_name = config.args.first().map(|s| s.as_str()).unwrap_or("chant");
+                match ActiveGame::new_story(story_name) {
+                    Ok(g) => g,
+                    Err(e) => {
+                        eprintln!("Error: {e}");
+                        return ExitCode::FAILURE;
+                    }
+                }
+            }
+        }
+    } else {
+        let story_name = config.args.first().map(|s| s.as_str()).unwrap_or("chant");
+        match ActiveGame::new_story(story_name) {
+            Ok(g) => g,
+            Err(e) => {
+                eprintln!("Error: {e}");
+                return ExitCode::FAILURE;
+            }
+        }
+    };
+
+    println!("=== Welcome to ifengine-cli Interactive Session ===");
+    println!("Type an integer choice index. Type 'help' for commands, 'quit' to exit.\n");
+    if let Err(e) = output_game_view(&mut game, config.json, None) {
+        eprintln!("{e}");
+    }
+
+    let stdin = io::stdin();
+    let mut lines = stdin.lock().lines();
+
+    loop {
+        print!("> ");
+        let _ = io::stdout().flush();
+
+        let line = match lines.next() {
+            Some(Ok(l)) => l.trim().to_string(),
+            Some(Err(e)) => {
+                eprintln!("Input error: {e}");
+                break;
+            }
+            None => break,
+        };
+
+        if line.is_empty() {
+            continue;
+        }
+
+        let parts: Vec<&str> = line.split_whitespace().collect();
+        let cmd = parts[0].to_lowercase();
+
+        match cmd.as_str() {
+            "quit" | "exit" | "q" => {
+                println!("Saving state to '{}' and exiting.", config.state_file.display());
+                let _ = save_state(&config.state_file, &game);
+                break;
+            }
+            "help" | "h" | "?" => {
+                println!("Interactive Commands:");
+                println!("  <index>            Make a choice or follow link");
+                println!("  view / look / l    Reprint current page and choices");
+                println!("  inv [open|close]   Toggle or view inventory");
+                println!("  action <name> ...  Run cheat or state action (lives, money, give, take)");
+                println!("  new [story]        Restart game");
+                println!("  save [path]        Save progress");
+                println!("  load [path]        Load progress");
+                println!("  quit / exit / q    Save progress and exit\n");
+            }
+            "view" | "look" | "l" => {
+                let _ = output_game_view(&mut game, config.json, None);
+            }
+            "inv" | "inventory" => {
+                let mode = parts.get(1).copied().unwrap_or("toggle");
+                match game.apply_action("inventory", &[mode.to_string()]) {
+                    Ok(msg) => {
+                        let _ = output_game_view(&mut game, config.json, Some(&msg));
+                        let _ = save_state(&config.state_file, &game);
+                    }
+                    Err(err) => println!("Error: {err}"),
+                }
+            }
+            "new" => {
+                let story = parts.get(1).copied().unwrap_or_else(|| game.story_name());
+                match ActiveGame::new_story(story) {
+                    Ok(new_g) => {
+                        game = new_g;
+                        let notice = format!("Started new game of '{story}'");
+                        let _ = output_game_view(&mut game, config.json, Some(&notice));
+                        let _ = save_state(&config.state_file, &game);
+                    }
+                    Err(e) => println!("Error: {e}"),
+                }
+            }
+            "save" => {
+                let path = parts.get(1).map(PathBuf::from).unwrap_or_else(|| config.state_file.clone());
+                match save_state(&path, &game) {
+                    Ok(()) => println!("Saved to '{}'.", path.display()),
+                    Err(e) => println!("Error saving: {e}"),
+                }
+            }
+            "load" => {
+                let path = parts.get(1).map(PathBuf::from).unwrap_or_else(|| config.state_file.clone());
+                match load_state(&path) {
+                    Ok(loaded) => {
+                        game = loaded;
+                        let notice = format!("Loaded state from '{}'", path.display());
+                        let _ = output_game_view(&mut game, config.json, Some(&notice));
+                    }
+                    Err(e) => println!("Error loading: {e}"),
+                }
+            }
+            "action" | "act" | "do" => {
+                if parts.len() < 2 {
+                    println!("Usage: action <name> [args...]");
+                } else {
+                    let name = parts[1];
+                    let args: Vec<String> = parts[2..].iter().map(|s| s.to_string()).collect();
+                    match game.apply_action(name, &args) {
+                        Ok(msg) => {
+                            let _ = output_game_view(&mut game, config.json, Some(&msg));
+                            let _ = save_state(&config.state_file, &game);
+                        }
+                        Err(e) => println!("Action error: {e}"),
+                    }
+                }
+            }
+            _ => {
+                if let Ok(idx) = line.parse::<usize>() {
+                    match perform_choice(&mut game, idx) {
+                        Ok(notice) => {
+                            let _ = output_game_view(&mut game, config.json, Some(&notice));
+                            let _ = save_state(&config.state_file, &game);
+                        }
+                        Err(err) => {
+                            println!("Error: {err}");
+                        }
+                    }
+                } else {
+                    println!("Invalid input: enter an integer choice index [0, 1...] or a command like 'view', 'inv', 'action', 'quit'.");
+                }
+            }
+        }
+    }
+
+    ExitCode::SUCCESS
 }
 
 fn main() -> ExitCode {
@@ -151,11 +327,11 @@ fn main() -> ExitCode {
             print_help();
             ExitCode::SUCCESS
         }
+        "play" | "repl" | "interactive" => run_repl(&config),
         "new" => {
             let story_name = if let Some(name) = config.args.first() {
                 name.as_str()
             } else if config.state_file.exists() {
-                // Restart existing game if state exists
                 match load_state(&config.state_file) {
                     Ok(existing) => existing.story_name(),
                     Err(_) => "chant",
@@ -202,10 +378,18 @@ fn main() -> ExitCode {
             ExitCode::SUCCESS
         }
         "choose" => {
-            let target = match config.args.first() {
+            let target_str = match config.args.first() {
                 Some(t) => t.trim(),
                 None => {
-                    eprintln!("Error: 'choose' subcommand requires an interactable index or text. Usage: ifengine-cli choose <id_or_text>");
+                    eprintln!("Error: 'choose' subcommand requires an integer index. Usage: ifengine-cli choose <index>");
+                    return ExitCode::FAILURE;
+                }
+            };
+
+            let chosen_index = match target_str.parse::<usize>() {
+                Ok(idx) => idx,
+                Err(_) => {
+                    eprintln!("Error: 'choose' requires an integer index (e.g. 'ifengine-cli choose 0').");
                     return ExitCode::FAILURE;
                 }
             };
@@ -218,53 +402,14 @@ fn main() -> ExitCode {
                 }
             };
 
-            let view = match game.view() {
-                Ok(v) => v,
+            let notice = match perform_choice(&mut game, chosen_index) {
+                Ok(n) => n,
                 Err(err) => {
-                    eprintln!("Error rendering view: {err:?}");
+                    eprintln!("{err}");
                     return ExitCode::FAILURE;
                 }
             };
 
-            let interactables = view.interactables_sim();
-            if interactables.is_empty() {
-                eprintln!("Error: No interactable choices or links available on current page '{}'.", view.pageid.0);
-                return ExitCode::FAILURE;
-            }
-
-            let chosen_index = if let Ok(idx) = target.parse::<usize>() {
-                if idx >= interactables.len() {
-                    eprintln!("Error: Choice index {idx} out of range (available: 0..{}).", interactables.len());
-                    return ExitCode::FAILURE;
-                }
-                idx
-            } else {
-                // Match by text content with normalized quotes/apostrophes
-                let norm_target = normalize_for_match(target);
-                let exact_match = interactables.iter().position(|e| normalize_for_match(&e.content()) == norm_target);
-                let substring_match = interactables.iter().position(|e| normalize_for_match(&e.content()).contains(&norm_target));
-
-                match exact_match.or(substring_match) {
-                    Some(idx) => idx,
-                    None => {
-                        eprintln!("Error: Could not find interactable matching '{target}'. Available choices:");
-                        for (i, item) in interactables.iter().enumerate() {
-                            eprintln!("  [{i}] {}", item.content().trim());
-                        }
-                        return ExitCode::FAILURE;
-                    }
-                }
-            };
-
-            let chosen_interactable = interactables[chosen_index];
-            let chosen_label = chosen_interactable.content().to_string();
-
-            if let Err(err) = game.interact(chosen_interactable) {
-                eprintln!("Error executing interaction: {err:?}");
-                return ExitCode::FAILURE;
-            }
-
-            let notice = format!("Chose [{chosen_index}]: '{chosen_label}'");
             if let Err(err) = output_game_view(&mut game, config.json, Some(&notice)) {
                 eprintln!("{err}");
                 return ExitCode::FAILURE;
@@ -373,6 +518,7 @@ fn main() -> ExitCode {
         }
         "simulate" | "sim" => {
             let story_name = config.args.first().map(|s| s.as_str()).unwrap_or("chant");
+            let depth = config.args.get(1).and_then(|d| d.parse::<usize>().ok());
             let game = match ActiveGame::new_story(story_name) {
                 Ok(g) => g,
                 Err(err) => {
@@ -381,8 +527,9 @@ fn main() -> ExitCode {
                 }
             };
 
-            println!("Simulating story '{story_name}'...");
-            let report = game.simulate();
+            let depth_str = depth.map(|d| format!(" (max depth: {d})")).unwrap_or_default();
+            println!("Simulating story '{story_name}'{depth_str}...");
+            let report = game.simulate(depth);
             println!("Simulation Complete for '{}':", report.story);
             println!("  Reachable pages recorded: {}", report.total_pages_visited);
             println!("  Branch endpoints reached: {}", report.endpoints);

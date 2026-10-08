@@ -774,12 +774,12 @@ fn test_get_and_set_macros() {
 
 #[ifengine::ifview]
 fn test_replace_span_page(_: &mut ()) {
-    use ifengine::elements::{p, replace_line, replace_span, reps};
+    use ifengine::elements::{l, p, s};
 
-    // Test replace_span inside a paragraph
-    let sp = replace_span!("locked" => "unlocked");
-    let sp2 = reps!("closed" => "opened");
-    let sp3 = reps!("sealed" => {
+    // Test s! replacement inside a paragraph
+    let sp = s!("locked" => "unlocked");
+    let sp2 = s!("closed" => "opened");
+    let sp3 = s!("sealed" => {
         let prefix = "broken";
         format!("{prefix} lock")
     });
@@ -793,8 +793,8 @@ fn test_replace_span_page(_: &mut ()) {
         "."
     );
 
-    // Test replace_line
-    let _ = replace_line!("The gate is [[shut]]" => "The gate is open");
+    // Test l! replacement
+    let _ = l!("The gate is [[shut]]" => "The gate is open");
 }
 
 #[test]

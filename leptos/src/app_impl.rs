@@ -3,7 +3,7 @@ use std::sync::{Arc, RwLock};
 use ifengine::{Action, PageKey};
 use leptos::prelude::*;
 
-use crate::components::{Footer, Header, ModalMode, ObjectView, SaveLoadModal};
+use crate::components::{Footer, Header, HeaderItem, ModalMode, ObjectView, SaveLoadModal};
 use crate::consts::*;
 use crate::context::StoryContext;
 use crate::transition::TransitionManager;
@@ -17,8 +17,18 @@ pub enum PageTransitionPhase {
     Entering,
 }
 
-/// Type alias for a thread-safe header extractor function pointer.
-pub type HeaderExtractor<C> = fn(&ifengine::Game<C>) -> Vec<String>;
+/// A raw header item as returned by the extractor: either plain text or an action with a game handler.
+#[allow(dead_code)]
+pub enum RawHeaderItem<C> {
+    Text(String),
+    Action {
+        label: String,
+        handler: fn(&mut ifengine::Game<C>),
+    },
+}
+
+/// Type alias for a header extractor function returning three slots of raw header items.
+pub type HeaderExtractor<C> = fn(&ifengine::Game<C>) -> [Vec<RawHeaderItem<C>>; 3];
 
 /// Generic story application runner component.
 ///
@@ -28,8 +38,8 @@ pub type HeaderExtractor<C> = fn(&ifengine::Game<C>) -> Vec<String>;
 pub fn StoryApp<C>(
     /// Initial game instance.
     game: ifengine::Game<C>,
-    /// Optional header extractor function returning header items (left, center, right).
-    #[prop(optional)]
+    /// Optional header extractor returning three slots (left / center / right) of items.
+    #[prop(optional_no_strip)]
     header_extractor: Option<HeaderExtractor<C>>,
 ) -> impl IntoView
 where
@@ -40,6 +50,19 @@ where
         + Sync
         + 'static,
 {
+    if let Some(doc) = web_sys::window().and_then(|w| w.document()) {
+        if let Some(root) = doc.document_element() {
+            use wasm_bindgen::JsCast;
+            if let Ok(html_el) = root.dyn_into::<web_sys::HtmlElement>() {
+                let style = html_el.style();
+                let _ = style.set_property("--element-transition-out-duration", &format!("{ELEMENT_TRANSITION_OUT}ms"));
+                let _ = style.set_property("--element-transition-in-duration", &format!("{ELEMENT_TRANSITION_IN}ms"));
+                let _ = style.set_property("--page-transition-out-duration", &format!("{PAGE_TRANSITION_OUT}ms"));
+                let _ = style.set_property("--page-transition-in-duration", &format!("{PAGE_TRANSITION_IN}ms"));
+            }
+        }
+    }
+
     let game_lock = Arc::new(RwLock::new(game));
 
     let initial_view = game_lock
@@ -48,16 +71,28 @@ where
         .view()
         .expect("failed to evaluate initial story page");
 
-    let initial_header = header_extractor.map_or_else(Vec::new, |f| f(&game_lock.read().unwrap()));
+    let (dispatch_header_action_cell, set_dispatch_header_action_cell) =
+        signal(Option::<Callback<fn(&mut ifengine::Game<C>)>>::None);
+
+    let dispatch_action_cb = Callback::new(move |handler: fn(&mut ifengine::Game<C>)| {
+        if let Some(cb) = dispatch_header_action_cell.get_untracked() {
+            cb.run(handler);
+        }
+    });
+
+    let initial_slots = header_extractor.map_or_else(
+        || [vec![], vec![], vec![]],
+        |f| resolve_slots(f(&game_lock.read().unwrap()), dispatch_action_cb),
+    );
 
     let transitions = RwSignal::new(TransitionManager::new(initial_view.pageid.clone()));
     let (current_view, set_current_view) = signal(initial_view);
-    let (header_items, set_header_items) = signal(initial_header);
+    let (header_slots, set_header_slots) = signal(initial_slots);
     let (transition_phase, set_transition_phase) = signal(PageTransitionPhase::None);
     let (active_modal, set_active_modal) = signal(Option::<ModalMode>::None);
 
     // execute the fade-out -> swap -> fade-in transition
-    let trigger_page_transition = move |new_view: ifengine::View, header: Vec<String>| {
+    let trigger_page_transition = move |new_view: ifengine::View, slots: [Vec<HeaderItem>; 3]| {
         set_transition_phase.set(PageTransitionPhase::Leaving);
 
         set_timeout(
@@ -66,7 +101,7 @@ where
                     .write_untracked()
                     .on_view_change(&new_view.pageid, true);
 
-                set_header_items.set(header);
+                set_header_slots.set(slots);
                 set_current_view.set(new_view);
 
                 if let Some(window) = web_sys::window() {
@@ -98,10 +133,13 @@ where
 
             crate::storage::save_autosave(game);
 
-            let header = header_extractor.map_or_else(Vec::new, |f| f(game));
+            let slots = header_extractor.map_or_else(
+                || [vec![], vec![], vec![]],
+                |f| resolve_slots(f(game), dispatch_action_cb),
+            );
 
             if game.fresh() {
-                trigger_page_transition(new_view, header);
+                trigger_page_transition(new_view, slots);
             } else {
                 transitions
                     .write_untracked()
@@ -111,11 +149,11 @@ where
                 let new_has_modal = has_modal(&new_view);
 
                 if cur_has_modal || new_has_modal {
-                    set_header_items.set(header);
+                    set_header_slots.set(slots);
                     set_current_view.set(new_view);
                 } else {
                     run_with_view_transition(move || {
-                        set_header_items.set(header);
+                        set_header_slots.set(slots);
                         set_current_view.set(new_view);
                     });
                 }
@@ -171,6 +209,16 @@ where
         set_active_modal.set(None);
     });
 
+    let game_for_header = Arc::clone(&game_lock);
+    let on_refresh_header = refresh_view.clone();
+    let dispatch_header_action: Callback<fn(&mut ifengine::Game<C>)> =
+        Callback::new(move |handler: fn(&mut ifengine::Game<C>)| {
+            let mut game = game_for_header.write().unwrap();
+            handler(&mut game);
+            on_refresh_header(&mut game);
+        });
+    set_dispatch_header_action_cell.set(Some(dispatch_header_action));
+
     let game_for_load = Arc::clone(&game_lock);
     let on_refresh_load = refresh_view.clone();
     let on_load_game = Callback::new(move |loaded_game: ifengine::Game<C>| {
@@ -200,7 +248,9 @@ where
     view! {
         <div id="backdrop">
             <main id="page" aria-live="polite">
-                <Header items=header_items />
+                <Header
+                    slots=header_slots
+                />
 
                 <article class=article_class>
                     {move || {
@@ -264,12 +314,29 @@ fn has_modal(view: &ifengine::View) -> bool {
 
 fn stamped_has_modal(stamped: &ifengine::view::StampedObject) -> bool {
     match &stamped.object {
-        ifengine::view::Object::Paragraph(_, rd) => {
-            *rd == "popup" || *rd == "modal"
-        }
+        ifengine::view::Object::Paragraph(_, rd) => *rd == "popup" || *rd == "modal",
         ifengine::view::Object::Embed(embedded, rd) => {
             *rd == "popup" || *rd == "modal" || has_modal(embedded)
         }
         _ => false,
     }
+}
+
+/// Converts raw extractor output into resolved [`HeaderItem`] slots by wrapping each action
+/// handler in a `Callback` that dispatches through the shared game action dispatcher.
+fn resolve_slots<C: 'static>(
+    raw: [Vec<RawHeaderItem<C>>; 3],
+    dispatch: Callback<fn(&mut ifengine::Game<C>)>,
+) -> [Vec<HeaderItem>; 3] {
+    raw.map(|slot| {
+        slot.into_iter()
+            .map(|item| match item {
+                RawHeaderItem::Text(t) => HeaderItem::Text(t),
+                RawHeaderItem::Action { label, handler } => HeaderItem::Action {
+                    label,
+                    callback: Callback::new(move |()| dispatch.run(handler)),
+                },
+            })
+            .collect()
+    })
 }

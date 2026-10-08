@@ -40,8 +40,8 @@ pub mod elements {
     //!
     //! | Macro / Element | Syntax Example | Description |
     //! | :--- | :--- | :--- |
-    //! | [`s!`](s) | `s!("Badge: {name}")` | Creates a styled inline `Span` with `{var}` interpolation or from expressions. |
-    //! | [`l!`](l) | `l!("Player {name} (Level {level})")` | Creates a `Line` from `{var}` interpolation, spans, lines, or strings. |
+    //! | [`s!`](s) | `s!("Badge: {name}")` or `s!("sealed" => "open")` | Creates an inline `Span` with `{var}` interpolation, or an in-place clickable replacement `Span` when `=>` is present. |
+    //! | [`l!`](l) | `l!("Player {name}")` or `l!("The door is [[shut]]." => "The door is open.")` | Creates a `Line` from `{var}` interpolation, spans, lines, or strings, or an in-place clickable replacement `Line` when `=>` is present. |
     //! | [`link!`](link) | `link!("Visit {vendor}'s Shop", shop_room)` | Creates an inline link `Span` navigating to a destination page. |
     //! | [`tun!`](tun) | `tun!("Consult with {mentor}", mentor_tunnel)` | Creates an inline link `Span` calling a page as a tunnel subroutine. |
     //! | [`back!`](back) | `back!("Return to {room}")` or `back!("Rewind", 2)` | Creates an inline link `Span` stepping back in navigation history. |
@@ -57,10 +57,8 @@ pub mod elements {
     //! | [`dp!`](dparagraph) | `dparagraph!("Go to [[forest]] or [[inn]]")` | Interactive paragraph with clickable links; returns clicked target `&str` on selection (`""` initially). |
     //! | [`mp!`](mparagraph) | `mparagraph!("Take [[torch]] and [[sword]]")` | Interactive paragraph with wiki-style links; tracks multiple clicked tokens and returns `Vec<bool>`. |
     //! | [`replace!`](replace) | `replace!("Chest is [[locked]].", "Unlocked!")` | Clickable paragraph that transitions into a replacement line or collapses to 0 height. |
-    //! | [`repl!`](replace_line) | `replace_line!("Chest is [[locked]].", "Unlocked!")` | Line that is replaced on click. |
-    //! | [`reps!`](replace_span) | `replace_span!("sealed" => "open")` | Span that is replaced on click. |
     //! | [`NEXT!`](NEXT) | `NEXT!(next_page)` | Flow control: transition to the specified page function. |
-    //! | [`EMBED!`](EMBED) | `EMBED!(sub_page)` | Flow control: evaluate sub-page with transient Game and embed View; propagate transitions. |
+    //! | [`EMBED!`](EMBED) | `EMBED!(sub_page)` | Flow control: evaluate sub-page with transient Game and embed View; automatically uses the current page context. |
     //! | [`BACK!`](BACK) | `BACK!()` or `BACK!(2)` | Flow control: navigate back 1 (or `n`) steps in history. |
     //! | [`TUN!`](TUN) | `TUN!(tunnel_page)` | Flow control: enter a tunnel subroutine page. |
     //! | [`END!`](END) | `END!()` | Flow control: terminate story execution. |
@@ -80,6 +78,6 @@ pub mod elements {
     #[cfg(feature = "macros")]
     pub use ifengine_macros::{
         EMBED as emb, dparagraph as dp, extend as x, mchoice as choices, mparagraph as mp,
-        paragraph as p, paragraphs as ps, replace_line as repl, replace_span as reps,
+        paragraph as p, paragraphs as ps,
     };
 }

@@ -2,7 +2,7 @@ use super::State;
 use ifengine::{
     elements::{
         EMBED, alts, back, choice, click, count, dchoice, dynamic_choice, fresh, img, link,
-        mchoice, p, repl, replace, s, l
+        mchoice, p, replace, s, l
     },
     ifview,
 };
@@ -26,9 +26,9 @@ pub fn rainy_day(s: &mut State) {
 
     replace!(
         "The ancient lock is [[sealed]].",
-        repl!(
-            "The doorway lies [[open]].",
-            repl!("Stick your hand [[inside]].", "AAAAH!")
+        l!(
+            "The doorway lies [[open]]." =>
+            l!("Stick your hand [[inside]]." => "AAAAH!")
         )
     );
 

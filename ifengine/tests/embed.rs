@@ -160,8 +160,8 @@ fn test_embed_expanded_in_interactables() {
     );
     let view = game.view().expect("view should succeed");
 
-    // interactables() and interactables_sim() must directly surface the child's choices
-    let sim_interactables = view.interactables_sim();
+    // interactables() and interactables_flat::<true>() must directly surface the child's choices
+    let sim_interactables = view.interactables_flat::<true>();
     assert_eq!(sim_interactables.len(), 2);
     assert_eq!(sim_interactables[0].content(), "Child Option A");
     assert_eq!(sim_interactables[1].content(), "Child Option B");

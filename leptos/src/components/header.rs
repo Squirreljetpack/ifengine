@@ -1,26 +1,54 @@
 use leptos::prelude::*;
 
-/// Story header component rendering game status metadata (e.g. Day, Miles, Rations).
+/// A single rendered item in a header slot: either plain text or a clickable link.
+#[derive(Clone)]
+pub enum HeaderItem {
+    Text(String),
+    Action { label: String, callback: Callback<()> },
+}
+
+/// Story header component rendering three slots (left / center / right), each accepting
+/// a mix of plain text and action links.
 #[component]
-pub fn Header(items: ReadSignal<Vec<String>>) -> impl IntoView {
+pub fn Header(slots: ReadSignal<[Vec<HeaderItem>; 3]>) -> impl IntoView {
     view! {
         {move || {
-            let list = items.get();
-            if list.is_empty() {
+            let [left, center, right] = slots.get();
+            let all_empty = left.is_empty() && center.is_empty() && right.is_empty();
+
+            if all_empty {
                 None
             } else {
-                let left = list.first().cloned().unwrap_or_default();
-                let center = list.get(1).cloned().unwrap_or_default();
-                let right = list.get(2).cloned().unwrap_or_default();
-
                 Some(view! {
                     <header class="passage-header header-has-content">
-                        <div class="header-section header-left">{left}</div>
-                        <div class="header-section header-center">{center}</div>
-                        <div class="header-section header-right">{right}</div>
+                        <div class="header-section header-left">{render_slot(left)}</div>
+                        <div class="header-section header-center">{render_slot(center)}</div>
+                        <div class="header-section header-right">{render_slot(right)}</div>
                     </header>
                 })
             }
         }}
     }
+}
+
+fn render_slot(items: Vec<HeaderItem>) -> impl IntoView {
+    items
+        .into_iter()
+        .map(|item| match item {
+            HeaderItem::Text(t) => view! { <span class="header-text">{t}</span> }.into_any(),
+            HeaderItem::Action { label, callback } => view! {
+                <a
+                    class="header-action-link"
+                    href="#"
+                    on:click=move |e| {
+                        e.prevent_default();
+                        callback.run(());
+                    }
+                >
+                    {label}
+                </a>
+            }
+            .into_any(),
+        })
+        .collect::<Vec<_>>()
 }

@@ -12,10 +12,16 @@ use crate::transition::{generate_view_transition_style, is_line_delayed, line_in
 pub fn ObjectView(stamped: StampedObject) -> impl IntoView {
     let ctx = expect_context::<StoryContext>();
     let id = stamped.id;
-    let is_changed = ctx
-        .transitions
-        .write_untracked()
-        .is_content_changed(id, stamped.content_hash());
+    let is_changed = match &stamped.object {
+        Object::Paragraph(..) => ctx
+            .transitions
+            .write_untracked()
+            .is_paragraph_changed(id, stamped.content_hash()),
+        _ => ctx
+            .transitions
+            .write_untracked()
+            .is_content_changed(id, stamped.content_hash()),
+    };
     let vt_style = generate_view_transition_style(id, is_changed);
 
     match stamped.object {
@@ -39,7 +45,7 @@ pub fn ObjectView(stamped: StampedObject) -> impl IntoView {
                     <div class="passage-popup-backdrop" data-render=render_data>
                         <div class="passage-popup-dialog">
                             <div class="passage-text" data-render=render_data>
-                                <LineView line=line is_changed=is_changed />
+                                <LineView line=line parent_id=id is_changed=is_changed />
                             </div>
                         </div>
                     </div>
@@ -58,7 +64,7 @@ pub fn ObjectView(stamped: StampedObject) -> impl IntoView {
                 view! {
                     <p class="passage-paragraph passage-dialogue" data-render=render_data style=dialogue_style>
                         <span class="dialogue-speaker">{speaker}</span>
-                        <LineView line=line is_changed=is_changed />
+                        <LineView line=line parent_id=id is_changed=is_changed />
                     </p>
                 }
                 .into_any()
@@ -95,14 +101,14 @@ pub fn ObjectView(stamped: StampedObject) -> impl IntoView {
                 if !render_data.is_empty() {
                     view! {
                         <p class="passage-paragraph" data-render=render_data style=p_style>
-                            <LineView line=line is_changed=is_changed />
+                            <LineView line=line parent_id=id is_changed=is_changed />
                         </p>
                     }
                     .into_any()
                 } else {
                     view! {
                         <p class="passage-paragraph" style=p_style>
-                            <LineView line=line is_changed=is_changed />
+                            <LineView line=line parent_id=id is_changed=is_changed />
                         </p>
                     }
                     .into_any()
@@ -201,7 +207,7 @@ pub fn ObjectView(stamped: StampedObject) -> impl IntoView {
 
         Object::Note(line, _indices) => view! {
             <aside class="passage-note" style=vt_style>
-                <LineView line=line is_changed=is_changed />
+                <LineView line=line parent_id=id is_changed=is_changed />
             </aside>
         }
         .into_any(),

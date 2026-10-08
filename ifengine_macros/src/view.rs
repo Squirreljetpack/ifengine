@@ -2,14 +2,13 @@ use proc_macro::TokenStream;
 use quote::quote;
 use syn::parse::Parser;
 use syn::punctuated::Punctuated;
-use syn::visit_mut::VisitMut;
 use syn::{Error, Expr, ItemFn, Lit, LitStr, Token, parse_macro_input};
 
 use crate::helpers::{expand_line_expr, expand_lines, expand_string_expr};
 use crate::nodes::{LineArgs, is_trailer_next, parse_until_delimiter};
 
 pub fn ifview(_attr: TokenStream, item: TokenStream) -> TokenStream {
-    let mut input = parse_macro_input!(item as ItemFn);
+    let input = parse_macro_input!(item as ItemFn);
 
     let name = &input.sig.ident;
 
@@ -38,40 +37,6 @@ pub fn ifview(_attr: TokenStream, item: TokenStream) -> TokenStream {
             .into();
     };
 
-    struct EmbedRewriter<'a> {
-        ctx_ident: &'a syn::Ident,
-    }
-
-    impl<'a> VisitMut for EmbedRewriter<'a> {
-        fn visit_macro_mut(&mut self, mac: &mut syn::Macro) {
-            if mac.path.is_ident("EMBED")
-                || mac
-                    .path
-                    .segments
-                    .last()
-                    .map_or(false, |s| s.ident == "EMBED")
-            {
-                if let Ok(embed_input) = syn::parse2::<EmbedInput>(mac.tokens.clone()) {
-                    if embed_input.ctx.is_none() && embed_input.target_fn.is_some() {
-                        let target = embed_input.target_fn.unwrap();
-                        let ctx = self.ctx_ident;
-                        let trailer = match embed_input.render_data {
-                            Some(rd) => quote!(:: #rd),
-                            None => quote!(),
-                        };
-                        mac.tokens = quote!(#target, #ctx #trailer);
-                    }
-                }
-            }
-            syn::visit_mut::visit_macro_mut(self, mac);
-        }
-    }
-
-    EmbedRewriter {
-        ctx_ident: &ctx_ident,
-    }
-    .visit_block_mut(&mut input.block);
-
     let original_block = &input.block;
 
     let bind_ctx = quote! {
@@ -79,29 +44,39 @@ pub fn ifview(_attr: TokenStream, item: TokenStream) -> TokenStream {
         let mut __ifengine_ctx = &mut __ifengine_game.context;
         #[allow(unused_variables)]
         let #ctx_arg = &mut *__ifengine_ctx;
+        // Keep the accessor tied to the author's binding. Reborrowing through the
+        // hidden reference directly would conflict when the binding is used later.
+        #[allow(unused_macros)]
+        macro_rules! __ifengine_ctx {
+            () => { &mut *#ctx_ident };
+        }
     };
 
     let expanded = quote! {
         pub fn #name(__ifengine_game: &mut ifengine::Game<#ctx_type>)
         -> ifengine::core::Response
         {
+            let __ifengine_pre_embed = __ifengine_game.pre_embed.clone();
+            let __ifengine_post_embed = __ifengine_game.post_embed.clone();
             let __ifengine_simulating = __ifengine_game.simulating();
             #bind_ctx
             let __ifengine_game_tags = &mut __ifengine_game.tags;
             let __ifengine_game = &mut __ifengine_game.inner;
             let __ifengine_page_id: &'static str = concat!(module_path!(), "::", stringify!(#name));
-            let mut __ifengine_page_state = ifengine::core::PageState::new(
+            let mut __ifengine_page_state = ifengine::core::PageState::new_with_embeds(
                 __ifengine_game.page_id(__ifengine_page_id),
                 __ifengine_game.fresh(),
                 __ifengine_simulating,
                 __ifengine_game.state.get_page_mut(__ifengine_page_id),
                 __ifengine_game_tags,
+                __ifengine_pre_embed,
+                __ifengine_post_embed,
             );
 
             #original_block
 
             #[allow(unreachable_code)]
-            __ifengine_page_state.into_response()
+            __ifengine_page_state.into_response_with_context(__ifengine_ctx)
         }
 
         ifengine::inventory::submit! {
@@ -350,7 +325,7 @@ pub fn r#YIELD(input: TokenStream) -> TokenStream {
 
     if parts.is_empty() {
         let expanded = quote! {
-            return __ifengine_page_state.into_response()
+            return __ifengine_page_state.into_response_with_context(__ifengine_ctx)
         };
         return expanded.into();
     }
@@ -367,7 +342,7 @@ pub fn r#YIELD(input: TokenStream) -> TokenStream {
     let key_expr = &parts[0];
     let expanded = quote! {
         if __ifengine_page_state.get(#key_expr).is_none() {
-            return __ifengine_page_state.into_response();
+            return __ifengine_page_state.into_response_with_context(__ifengine_ctx);
         }
     };
     expanded.into()
@@ -394,7 +369,7 @@ pub fn embed(input: TokenStream) -> TokenStream {
         Some(f) => {
             let ctx_expr = match ctx {
                 Some(c) => quote!(#c),
-                None => quote!(__ifengine_ctx),
+                None => quote!(__ifengine_ctx!()),
             };
 
             quote! {

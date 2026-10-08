@@ -15,13 +15,19 @@ use crate::transition::{
 pub fn SpanView(
     span: Span,
     #[prop(optional_no_strip)] choice: Option<ActiveChoiceContext>,
+    #[prop(default = false)] in_group: bool,
+    #[prop(default = false)] is_changed: bool,
 ) -> impl IntoView {
     let ctx = expect_context::<StoryContext>();
     let config = parse_transition_classes(&span.classes);
-    let is_changed = ctx
-        .transitions
-        .write_untracked()
-        .is_content_changed(span.id, span.content_hash());
+    let is_changed = if in_group {
+        is_changed
+    } else {
+        ctx
+            .transitions
+            .write_untracked()
+            .is_content_changed(span.id, span.content_hash())
+    };
     let should_animate = config.has_transition() && is_changed;
 
     let (phase, set_phase) = signal(compute_initial_phase(&config, should_animate));
@@ -29,7 +35,11 @@ pub fn SpanView(
         setup_transition_timers(&config, set_phase);
     }
 
-    let vt_style = generate_view_transition_style(span.id, is_changed);
+    let vt_style = if in_group {
+        String::new()
+    } else {
+        generate_view_transition_style(span.id, is_changed)
+    };
     let base_style = span_to_css_style(&span);
 
     let span_config = config.clone();

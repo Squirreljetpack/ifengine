@@ -3,7 +3,7 @@ use std::cell::RefCell;
 use crate::{
     Game,
     core::{
-        GameContext, GameTags, Page, PageId, PageKey, Response,
+        GameContext, GameTags, Page, PageHandle, PageId, PageKey, Response,
         game_state::PageMap,
         key::{IntoPageKey, USER_KEY_MASK},
     },
@@ -20,6 +20,8 @@ pub struct PageState<'a> {
     pub seed: Option<u64>,
     fresh: bool,
     game_tags: &'a mut GameTags,
+    pre_embed: Option<PageHandle>,
+    post_embed: Option<PageHandle>,
     /// [`simulate`](crate::Game::simulate)
     pub simulating: bool,
     call_site_counters: RefCell<std::collections::HashMap<u64, u16>>,
@@ -43,6 +45,33 @@ impl<'a> PageState<'a> {
         page_state: &'a mut PageMap,
         game_tags: &'a mut GameTags,
     ) -> Self {
+        Self::new_with_embeds(
+            name,
+            fresh,
+            simulating,
+            page_state,
+            game_tags,
+            None,
+            None,
+        )
+    }
+
+    /// Creates a [`PageState`] with optional views to render around the page.
+    ///
+    /// The hooks are evaluated with the same context and page state as the
+    /// page being rendered. A hook that returns a [`Response::View`] is
+    /// wrapped in an [`Object::Embed`](crate::view::Object::Embed) and placed
+    /// before or after the page view when [`Self::into_response_with_context`]
+    /// is called.
+    pub fn new_with_embeds(
+        name: impl Into<PageId>,
+        fresh: bool,
+        simulating: bool,
+        page_state: &'a mut PageMap,
+        game_tags: &'a mut GameTags,
+        pre_embed: Option<PageHandle>,
+        post_embed: Option<PageHandle>,
+    ) -> Self {
         Self {
             view: View::new(name.into()),
             page_state: RefCell::new(page_state),
@@ -50,6 +79,8 @@ impl<'a> PageState<'a> {
             seed: None,
             fresh,
             game_tags,
+            pre_embed,
+            post_embed,
             simulating,
             call_site_counters: RefCell::new(std::collections::HashMap::new()),
         }
@@ -90,6 +121,11 @@ impl<'a> PageState<'a> {
     /// Appends a view element (wrapped in [`StampedObject`]) to the underlying [`View`].
     pub fn push(&mut self, item: impl Into<StampedObject>) {
         self.view.push(item.into());
+    }
+
+    /// Clears all elements from the underlying [`View`].
+    pub fn clear(&mut self) {
+        self.view.clear();
     }
 
     /// Returns a mutable reference to the last stamped object in the page view, if any.
@@ -169,6 +205,70 @@ impl<'a> PageState<'a> {
     /// This is invoked at the end of `#[ifview]` functions to produce the final response.
     pub fn into_response(self) -> Response {
         Response::View(self.view)
+    }
+
+    /// Consumes the [`PageState`] and applies its configured pre/post hooks
+    /// before returning the rendered response.
+    pub fn into_response_with_context<C: GameContext>(mut self, ctx: &mut C) -> Response {
+        if let Some(pre_embed) = self.pre_embed.take() {
+            match self.eval_page_handle(&pre_embed, ctx) {
+                Response::View(embed_view) => {
+                    if !embed_view.inner.is_empty() {
+                        self.view.inner.insert(
+                            0,
+                            StampedObject::new(Object::Embed(embed_view, "")),
+                        );
+                    }
+                }
+                response => return response,
+            }
+        }
+
+        if let Some(post_embed) = self.post_embed.take() {
+            match self.eval_page_handle(&post_embed, ctx) {
+                Response::View(embed_view) => {
+                    if !embed_view.inner.is_empty() {
+                        self.view
+                            .inner
+                            .push(StampedObject::new(Object::Embed(embed_view, "")));
+                    }
+                }
+                response => return response,
+            }
+        }
+
+        Response::View(self.view)
+    }
+
+    /// Evaluates a page hook using a transient game that shares this page's
+    /// context, tags, and state map.
+    fn eval_page_handle<C: GameContext>(
+        &mut self,
+        page: &PageHandle,
+        ctx: &mut C,
+    ) -> Response {
+        let context = std::mem::take(ctx);
+        let tags = std::mem::take(self.game_tags);
+        let parent_map = std::mem::take(&mut **self.page_state.borrow_mut());
+
+        let mut transient_game = Game::new_transient_with_map(
+            parent_map,
+            self.view.pageid.clone(),
+            context,
+            tags,
+            self.simulating,
+            self.fresh,
+        );
+
+        let response = page.call(&mut transient_game);
+
+        *ctx = transient_game.context;
+        *self.game_tags = transient_game.tags;
+        if let Some(map) = transient_game.inner.state.take_shared() {
+            **self.page_state.borrow_mut() = map;
+        }
+
+        response
     }
 
     /// Returns `true` if this is the first time the page is being rendered (i.e. fresh load),

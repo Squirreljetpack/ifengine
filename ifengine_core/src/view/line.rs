@@ -192,6 +192,16 @@ impl Line {
         self.spans.push(span.into());
     }
 
+    /// Assigns `id` to all child spans that do not already have an ID.
+    pub fn fill_ids(mut self, id: PageKey) -> Self {
+        for span in &mut self.spans {
+            if span.id.is_none() {
+                span.id = Some(id);
+            }
+        }
+        self
+    }
+
     pub fn content(&self) -> String {
         let mut s = String::new();
         for span in &self.spans {
@@ -432,6 +442,20 @@ impl<T: Into<Line>> Add<T> for Line {
         self.spans.append(&mut line.spans);
         self.classes.append(&mut line.classes);
         self
+    }
+}
+
+impl<T: Into<Line>> Add<T> for Span {
+    type Output = Line;
+    fn add(self, rhs: T) -> Line {
+        Line::from(self) + rhs
+    }
+}
+
+impl<T: Into<Line>> Add<T> for &Span {
+    type Output = Line;
+    fn add(self, rhs: T) -> Line {
+        Line::from(self) + rhs
     }
 }
 

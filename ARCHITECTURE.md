@@ -247,7 +247,7 @@ flowchart TD
     NextState -- No --> Pop["Pop SimulationState"]
     Pop --> Exec["Call page function until View"]
     Exec --> Record["Record PageRecord (Tags, Ends, Incoming Edges)"]
-    Record --> Filter["Extract interactables via view.interactables_sim()"]
+    Record --> Filter["Extract interactables via view.interactables_flat::<true>()"]
     Filter --> Fork["Fork game state per branch"]
     Fork --> ApplyAction["Apply Interactable Action"]
     ApplyAction --> Classify{"Result"}

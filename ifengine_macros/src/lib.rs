@@ -192,22 +192,31 @@ pub fn EMBED(input: TokenStream) -> TokenStream {
 // Elements
 // =========================================================================
 
-/// Create a [`Span`](ifengine::view::Span).
+/// Create a [`Span`](ifengine::view::Span), or an interactive replacement span when `=>` is present.
 ///
-/// # Example
+/// # Examples
 /// ```rust,ignore
 /// s!("Gold: {player.gold}")
+///
+/// // Replaced in-place on click:
+/// s!("sealed" => "open")
+/// s!((my_key), "sealed" => "open")
 /// ```
 #[proc_macro]
 pub fn s(input: TokenStream) -> TokenStream {
     elements::s(input)
 }
 
-/// Create a [`Line`](ifengine::view::Line) from `{var}` interpolation, spans, lines, or string literals.
+/// Create a [`Line`](ifengine::view::Line) from `{var}` interpolation, spans, lines, or string literals,
+/// or an interactive replacement line with clickable `[[bracketed]]` targets when `=>` is present.
 ///
-/// # Example
+/// # Examples
 /// ```rust,ignore
 /// l!("Player {name} (Level {level})")
+///
+/// // Replaced in-place when a bracketed link is clicked:
+/// l!("The doorway is [[open]]." => "You step inside.")
+/// l!((my_key), "The doorway is [[open]]." => "You step inside.")
 /// ```
 #[proc_macro]
 pub fn l(input: TokenStream) -> TokenStream {
@@ -593,42 +602,6 @@ pub fn mparagraph(input: TokenStream) -> TokenStream {
 #[proc_macro]
 pub fn replace(input: TokenStream) -> TokenStream {
     choices::replace(input)
-}
-
-/// Interactive replacement line that does not push to the view, returning a [`Line`](ifengine::view::Line).
-///
-/// Intended for nesting inside [`replace!`] (or another [`replace_line!`]), allowing chained
-/// multi-stage in-place replacements sharing the parent paragraph's transition identity.
-///
-/// # Syntax
-/// ```text
-/// replace_line!(string_expr [=> replacement])
-/// ```
-///
-/// # Examples
-/// ```rust,ignore
-/// replace!("The lock is [[sealed]]." => repl!("The doorway is [[open]]." => "You step inside."));
-/// ```
-#[proc_macro]
-pub fn replace_line(input: TokenStream) -> TokenStream {
-    choices::replace_line(input)
-}
-
-/// Interactive replacement span that does not push to the view, returning a [`Span`](ifengine::view::Span).
-///
-/// # Syntax
-/// ```text
-/// replace_span!(string_expr [=> replacement])
-/// ```
-///
-/// # Examples
-/// ```rust,ignore
-/// p!("The lock is ", replace_span!("sealed" => "open"), ".");
-/// p!("Status: ", reps!("active" => "inactive"));
-/// ```
-#[proc_macro]
-pub fn replace_span(input: TokenStream) -> TokenStream {
-    choices::replace_span(input)
 }
 
 // =========================================================================

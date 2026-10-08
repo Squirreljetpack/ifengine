@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
-use crate::core::{PageKey, game_state::GameState};
 use crate::core::{Page, PageHandle, PageId, Response};
+use crate::core::{PageKey, game_state::GameState};
 use crate::view::View;
 use crate::{Action, GameError};
 
@@ -69,6 +69,10 @@ pub struct Game<C = StringMap> {
     pub context: C,
     pub tags: GameTags,
     pub(crate) simulating: bool,
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub pre_embed: Option<PageHandle>,
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub post_embed: Option<PageHandle>,
 }
 
 impl<C: GameContext> Game<C> {
@@ -89,7 +93,21 @@ impl<C: GameContext> Game<C> {
             tags: Default::default(),
             inner,
             simulating: false,
+            pre_embed: None,
+            post_embed: None,
         }
+    }
+
+    pub fn set_pre_embed(&mut self, page: Page<C>) -> &mut Self {
+        let id = crate::core::resolve_page_id(page).unwrap_or("").into();
+        self.pre_embed = Some(PageHandle::new(id, page));
+        self
+    }
+
+    pub fn set_post_embed(&mut self, page: Page<C>) -> &mut Self {
+        let id = crate::core::resolve_page_id(page).unwrap_or("").into();
+        self.post_embed = Some(PageHandle::new(id, page));
+        self
     }
 
     pub fn simulating(&self) -> bool {
@@ -103,6 +121,8 @@ impl<C: GameContext> Game<C> {
             tags,
             inner: GameInner::new_transient(fresh),
             simulating,
+            pre_embed: None,
+            post_embed: None,
         }
     }
 
@@ -120,6 +140,8 @@ impl<C: GameContext> Game<C> {
             tags,
             inner: GameInner::new_transient_with_map(shared, parent_id, fresh),
             simulating,
+            pre_embed: None,
+            post_embed: None,
         }
     }
 

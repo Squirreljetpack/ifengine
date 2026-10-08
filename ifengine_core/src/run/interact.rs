@@ -100,15 +100,15 @@ impl View {
         out
     }
 
-    /// Flatten all nested interactables into one linear Vec
-    /// Filters out None Actions
-    pub fn interactables_sim(&self) -> Vec<Interactable<'_>> {
+    /// Flatten all nested interactables into one linear Vec.
+    /// Filters out `Action::None`. When `SIM` is `true`, also filters out spans marked with `no_sim`.
+    pub fn interactables_flat<const SIM: bool>(&self) -> Vec<Interactable<'_>> {
         self.interactables()
             .into_iter()
             .flat_map(|v| {
                 v.into_iter().filter(|e| {
                     if let Interactable::Span(_, span) = e
-                        && (span.no_sim || matches!(span.action, Some(Action::None)))
+                        && ((SIM && span.no_sim) || matches!(span.action, Some(Action::None)))
                     {
                         false
                     } else {
@@ -137,7 +137,7 @@ impl<C: GameContext> Game<C> {
 
     /// Forks the game state for each interactable in the view and applies it.
     pub fn interact_all<F>(&self, view: View) -> Vec<Result<Self, GameError>> {
-        view.interactables_sim()
+        view.interactables_flat::<true>()
             .into_iter()
             .map(|e| {
                 let mut g = self.clone();

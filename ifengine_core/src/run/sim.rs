@@ -16,7 +16,7 @@ impl<C: GameContext> Game<C> {
     /// # Algorithm
     /// 1. Clones the initial game state with `simulating = true`.
     /// 2. Executes each reachable branch in depth-first order by enumerating all
-    ///    simulatable interactables ([`interactables_sim`](View::interactables_sim)).
+    ///    simulatable interactables ([`interactables_flat`](View::interactables_flat)).
     /// 3. When a tunnel boundary is encountered ([`Action::Tunnel`] or [`Response::Tunnel`]),
     ///    the tunnel's target is queued for a separate traversal pass in [`runs`](Simulation::runs).
     /// 4. Records visited pages, incoming transitions, collected tags, and terminal conditions
@@ -167,7 +167,7 @@ impl<C: GameContext> Game<C> {
         records.insert_view(s, &pageid, v);
         s.inner.last_id = pageid.clone();
 
-        for e in v.interactables_sim() {
+        for e in v.interactables_flat::<true>() {
             _dbg!(&e.content());
             let mut next = s.next();
             match next.interact_sim(e) {

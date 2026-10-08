@@ -16,7 +16,7 @@ pub fn render_view_to_text(story: &str, status: &[String], view: &View) -> Strin
 
     render_objects_to_text(&view.inner, &mut out, 0);
 
-    let interactables = view.interactables_sim();
+    let interactables = view.interactables_flat::<false>();
     out.push_str("\n--------------------------------------------------------------------------------\n");
     if interactables.is_empty() {
         out.push_str("NO AVAILABLE INTERACTION (Game terminal state or page transition)\n");
@@ -94,7 +94,7 @@ pub fn render_view_to_json(story: &str, status: &[String], view: &View) -> serde
     let mut prose_lines = Vec::new();
     extract_prose(&view.inner, &mut prose_lines);
 
-    let interactables = view.interactables_sim();
+    let interactables = view.interactables_flat::<false>();
     let items: Vec<serde_json::Value> = interactables
         .iter()
         .enumerate()

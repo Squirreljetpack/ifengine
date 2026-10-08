@@ -44,7 +44,7 @@ fn ChoiceItemView(
                     ctx.dispatch_choice.run((key, choice_idx));
                 }
             >
-                <LineView line=line choice=choice_ctx is_changed=is_changed />
+                <LineView line=line choice=choice_ctx is_changed=is_changed parent_id=Some(key) />
             </div>
         }
         .into_any()
@@ -59,7 +59,7 @@ fn ChoiceItemView(
                     ctx.dispatch_choice.run((key, choice_idx));
                 }
             >
-                <LineView line=line choice=choice_ctx is_changed=is_changed />
+                <LineView line=line choice=choice_ctx is_changed=is_changed parent_id=Some(key) />
             </button>
         }
         .into_any()

@@ -210,6 +210,27 @@ mod serde_impl {
             d.deserialize_str(PageIdVisitor)
         }
     }
+
+    impl Serialize for PageHandle {
+        fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+        {
+            self.canonical_id().serialize(serializer)
+        }
+    }
+
+    impl<'de> Deserialize<'de> for PageHandle {
+        fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+        where
+            D: Deserializer<'de>,
+        {
+            let id = PageId::deserialize(deserializer)?;
+            crate::core::resolve_page(&id).ok_or_else(|| {
+                serde::de::Error::custom(format!("Failed to resolve page '{id}'"))
+            })
+        }
+    }
 }
 impl std::ops::Deref for PageId {
     type Target = str;
