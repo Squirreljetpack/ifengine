@@ -273,6 +273,16 @@ impl Line {
         self.spans = new_spans;
         self
     }
+
+    /// Clears actions on inner spans that satisfy the given predicate.
+    pub fn clear_actions(&mut self, mut predicate: impl FnMut(&Span) -> bool) -> &mut Self {
+        for span in &mut self.spans {
+            if predicate(span) {
+                span.action = None;
+            }
+        }
+        self
+    }
 }
 
 bitflags! {
