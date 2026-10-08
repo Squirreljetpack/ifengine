@@ -370,7 +370,9 @@ pub fn dparagraph(input: TokenStream) -> TokenStream {
             let __max_clicks: usize = (#max_expr) as usize;
             if __clicked_count >= __max_clicks {
                 for span in &mut __out_line.spans {
-                    span.action = None;
+                    if matches!(&span.action, Some(ifengine::core::Action::SetDirty(_, k)) if *k == __ifengine_key) {
+                        span.action = None;
+                    }
                 }
             }
         },
