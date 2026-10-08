@@ -15,7 +15,8 @@ pub fn s(input: TokenStream) -> TokenStream {
         }
     }
 
-    let exprs_parsed = parse_macro_input!(input with Punctuated<Expr, syn::Token![,]>::parse_terminated);
+    let exprs_parsed =
+        parse_macro_input!(input with Punctuated<Expr, syn::Token![,]>::parse_terminated);
     let exprs: Vec<Expr> = exprs_parsed.into_iter().collect();
 
     let expanded = match exprs.len() {
@@ -50,18 +51,21 @@ pub fn l(input: TokenStream) -> TokenStream {
         }
     }
 
-    let exprs_parsed = parse_macro_input!(input with Punctuated<Expr, syn::Token![,]>::parse_terminated);
+    let exprs_parsed =
+        parse_macro_input!(input with Punctuated<Expr, syn::Token![,]>::parse_terminated);
     let lines = expand_lines(exprs_parsed);
 
     let expanded = quote! {
         ifengine::view::Line::from_iter(vec![#(#lines),*])
+            .delimit_group(__ifengine_page_state.auto_key())
     };
 
     expanded.into()
 }
 
 pub fn link(input: TokenStream) -> TokenStream {
-    let exprs_parsed = parse_macro_input!(input with Punctuated<Expr, syn::Token![,]>::parse_terminated);
+    let exprs_parsed =
+        parse_macro_input!(input with Punctuated<Expr, syn::Token![,]>::parse_terminated);
     let exprs: Vec<Expr> = exprs_parsed.into_iter().collect();
 
     let expanded = match exprs.len() {
@@ -100,7 +104,8 @@ pub fn link(input: TokenStream) -> TokenStream {
 }
 
 pub fn tun(input: TokenStream) -> TokenStream {
-    let exprs_parsed = parse_macro_input!(input with Punctuated<Expr, syn::Token![,]>::parse_terminated);
+    let exprs_parsed =
+        parse_macro_input!(input with Punctuated<Expr, syn::Token![,]>::parse_terminated);
     let exprs: Vec<Expr> = exprs_parsed.into_iter().collect();
 
     let expanded = match exprs.len() {
@@ -442,7 +447,13 @@ pub fn click(input: TokenStream) -> TokenStream {
     let expr_tokens = crate::helpers::expand_string_expr(&expr);
     let max_clicks_tokens = match max_clicks {
         Some(m) => quote! { ((#m) as u64) },
-        None => quote! { 0u64 },
+        None => {
+            if block.is_some() {
+                quote! { 0u64 }
+            } else {
+                quote! { 1u64 }
+            }
+        }
     };
 
     let poll_action = match block {
@@ -456,30 +467,36 @@ pub fn click(input: TokenStream) -> TokenStream {
 
     let expanded = quote! {{
         let __ifengine_key = #key;
-        let span = ifengine::view::Span::from(
+        let mut span = ifengine::view::Span::from(
             #expr_tokens
         )
-        .with_id(__ifengine_key)
-        .with_action(ifengine::Action::SetBit(__ifengine_key, 63));
+        .with_id(__ifengine_key);
 
         if __ifengine_page_state.poll_click(__ifengine_key, #max_clicks_tokens) {
             #poll_action
         };
 
-        // sim the handler
-        if __ifengine_page_state.get(__ifengine_key).is_some_and(|v| {
-            let max = #max_clicks_tokens;
-            let count = v & !(1u64 << 63);
-            if max == 0 {
-                count >= 1
-            } else {
-                count >= max
-            }
-        }) {
-            span.no_sim()
+        let __ifengine_max = #max_clicks_tokens;
+        let __ifengine_count = __ifengine_page_state
+            .get(__ifengine_key)
+            .map(|v| v & !(1u64 << 63))
+            .unwrap_or(0);
+
+        let __ifengine_exceeded = if __ifengine_max == 0 {
+            false
         } else {
-            span
+            __ifengine_count >= __ifengine_max
+        };
+
+        if !__ifengine_exceeded {
+            span = span.with_action(ifengine::Action::SetBit(__ifengine_key, 63));
         }
+
+        if __ifengine_exceeded || (__ifengine_max == 0 && __ifengine_count >= 1) {
+            span = span.no_sim();
+        }
+
+        span
     }};
 
     expanded.into()

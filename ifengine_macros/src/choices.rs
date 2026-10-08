@@ -433,6 +433,7 @@ pub fn mparagraph(input: TokenStream) -> TokenStream {
     let LineArgs {
         maybe_key,
         exprs,
+        classes,
         trailer,
     } = syn::parse_macro_input!(input as LineArgs);
 
@@ -458,7 +459,7 @@ pub fn mparagraph(input: TokenStream) -> TokenStream {
                 } else {
                     Some(ifengine::core::Action::SetBit(__ifengine_key, curr as u8))
                 }
-            });
+            })#(.cls(#classes))*;
 
         __ifengine_page_state.push(
             ifengine::view::StampedObject {
@@ -592,11 +593,11 @@ pub fn replace_line(input: TokenStream) -> TokenStream {
         let __ifengine_internal_key = #key_tokens;
 
         if __ifengine_page_state.get(__ifengine_internal_key).unwrap_or(0) != 0 {
-            (#replacement_tokens).fill_ids(__ifengine_internal_key)
+            (#replacement_tokens).delimit_group(__ifengine_internal_key)
         } else {
             #line_expr.interleave_actions::<true>(|i, _span| {
                 Some(ifengine::core::Action::SetBit(__ifengine_internal_key, i as u8))
-            }).fill_ids(__ifengine_internal_key)
+            }).delimit_group(__ifengine_internal_key)
         }
     }};
 

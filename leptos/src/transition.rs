@@ -196,24 +196,24 @@ impl TransitionManager {
         }
     }
 
-    /// Checks whether a paragraph's content changed or is newly revealed on the current page.
+    /// Checks whether an item or passage is newly revealed on the current page.
     ///
-    /// For paragraphs, only newly revealed paragraphs (or morphs from choices where `prev_hash == 0`)
-    /// receive `fade` animation. Paragraphs that were already visible on the page (`prev_hash != 0`)
-    /// receive `reflow` (`false`) to prevent existing text from flashing or refading when inline
-    /// spans or clauses are progressively revealed.
-    pub fn is_paragraph_changed(&mut self, id: Option<PageKey>, hash: u64) -> bool {
+    /// Only newly revealed elements (or morphs from choices where `prev_hash == 0`)
+    /// receive entrance transition animations (`fade`). Elements that were already visible
+    /// on the page (`prev_hash != 0`) receive `reflow` (`false`) to prevent existing text from
+    /// flashing or refading when inline spans, clauses, or child views are updated.
+    pub fn is_revealed(&mut self, id: Option<PageKey>) -> bool {
         let Some(key) = id else {
             return false;
         };
 
         let item_key = (self.current_page.clone(), key);
         if let Some(&prev_hash) = self.seen_page_items.get(&item_key) {
-            self.seen_page_items.insert(item_key, hash);
-            prev_hash == 0 && hash != 0
+            self.seen_page_items.insert(item_key, 1);
+            prev_hash == 0
         } else {
-            self.seen_page_items.insert(item_key, hash);
-            if self.is_fresh { false } else { hash != 0 }
+            self.seen_page_items.insert(item_key, 1);
+            !self.is_fresh
         }
     }
 }
@@ -530,13 +530,12 @@ mod tests {
             "view-transition-name: item-64; view-transition-class: reflow;"
         );
 
-        // Iteration 3: User selects choice! It morphs into a paragraph sharing choice_key with content hash
+        // Iteration 3: User selects choice! It morphs into a paragraph sharing choice_key
         tm.on_view_change(&page, false);
-        let paragraph_hash = 99999u64;
-        let is_changed_on_selection = tm.is_paragraph_changed(Some(choice_key), paragraph_hash);
+        let is_changed_on_selection = tm.is_revealed(Some(choice_key));
         assert!(
             is_changed_on_selection,
-            "morphing from choice (hash 0) to paragraph (hash != 0) should be marked changed (fade)"
+            "morphing from choice (hash 0) to paragraph should be marked changed (fade)"
         );
         assert_eq!(
             generate_view_transition_style(Some(choice_key), is_changed_on_selection),
@@ -545,7 +544,7 @@ mod tests {
 
         // Iteration 4: Another same-page interaction after paragraph is already chosen
         tm.on_view_change(&page, false);
-        let is_changed_later = tm.is_paragraph_changed(Some(choice_key), paragraph_hash);
+        let is_changed_later = tm.is_revealed(Some(choice_key));
         assert!(
             !is_changed_later,
             "paragraph with same content should now reflow"
@@ -555,10 +554,9 @@ mod tests {
             "view-transition-name: item-64; view-transition-class: reflow;"
         );
 
-        // Iteration 5: Inline click expands the paragraph! Content hash changes from 99999 to 88888
+        // Iteration 5: Inline click expands the paragraph
         tm.on_view_change(&page, false);
-        let new_paragraph_hash = 88888u64;
-        let is_changed_inline = tm.is_paragraph_changed(Some(choice_key), new_paragraph_hash);
+        let is_changed_inline = tm.is_revealed(Some(choice_key));
         assert!(
             !is_changed_inline,
             "already-visible paragraph with changed content must remain reflow, not fade"

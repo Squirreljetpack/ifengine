@@ -23,9 +23,9 @@ fn test_element_macros_and_keys() {
     if let Object::Paragraph(line, _) = &view.inner[0].object {
         assert_eq!(line.classes, vec!["my-line"]);
 
-        assert_eq!(line.spans.len(), 2);
-        let s0 = &line.spans[0];
-        let s1 = &line.spans[1];
+        assert_eq!(line.spans.len(), 4);
+        let s0 = &line.spans[1];
+        let s1 = &line.spans[2];
 
         let id0 = s0.id.expect("s0 must have an element id");
         let id1 = s1.id.expect("s1 must have an element id");
@@ -390,7 +390,7 @@ fn test_variable_interpolation_macros() {
     if let Object::Paragraph(line, _) = &view.inner[7].object {
         assert!(line.content().contains("Sen"));
         assert!(line.content().contains("42"));
-        assert_eq!(line.spans.len(), 4);
+        assert_eq!(line.spans.len(), 6);
     } else {
         panic!("expected Paragraph for index 7");
     }
@@ -501,8 +501,15 @@ fn test_click_macro_repeatable_and_max_clicks() {
 
     // Click bounded 2nd time (max 2)
     game.handle_action(bounded_action.clone()).unwrap();
-    let _ = game.view().unwrap();
+    let view_after_2 = game.view().unwrap();
     assert_eq!(game.context.bounded_count, 2);
+    let Object::Paragraph(line, _) = &view_after_2.inner[0].object else {
+        panic!("expected paragraph");
+    };
+    assert!(
+        line.spans[1].action.is_none(),
+        "when count >= max_clicks, no action should be attached"
+    );
 
     // Click bounded 3rd time: exceeds max_clicks (2), should NOT run
     game.handle_action(bounded_action).unwrap();
@@ -1287,22 +1294,22 @@ fn test_nested_line_concatenation() {
 
     // Check first paragraph
     if let Object::Paragraph(line, _) = &view.inner[0].object {
-        assert_eq!(line.spans.len(), 3);
-        assert_eq!(line.spans[0].classes, vec!["bold"]);
-        assert!(matches!(line.spans[1].variant, ifengine::view::SpanVariant::Link));
-        assert!(line.spans[1].action.is_some());
-        assert_eq!(line.spans[2].content, " - postfix text.");
+        assert_eq!(line.spans.len(), 5);
+        assert_eq!(line.spans[1].classes, vec!["bold"]);
+        assert!(matches!(line.spans[2].variant, ifengine::view::SpanVariant::Link));
+        assert!(line.spans[2].action.is_some());
+        assert_eq!(line.spans[4].content, " - postfix text.");
     } else {
         panic!("expected Paragraph for index 0");
     }
 
     // Check extended paragraph
     if let Object::Paragraph(line, _) = &view.inner[1].object {
-        assert_eq!(line.spans.len(), 3);
+        assert_eq!(line.spans.len(), 5);
         assert_eq!(line.spans[0].content, "Start: ");
-        assert_eq!(line.spans[1].content, "Extended ");
-        assert!(matches!(line.spans[2].variant, ifengine::view::SpanVariant::Link));
-        assert!(line.spans[2].action.is_some());
+        assert_eq!(line.spans[2].content, "Extended ");
+        assert!(matches!(line.spans[3].variant, ifengine::view::SpanVariant::Link));
+        assert!(line.spans[3].action.is_some());
     } else {
         panic!("expected Paragraph for index 1");
     }

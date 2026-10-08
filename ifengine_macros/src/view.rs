@@ -113,7 +113,12 @@ pub fn clear(_input: TokenStream) -> TokenStream {
 }
 
 pub fn paragraph(input: TokenStream) -> TokenStream {
-    let LineArgs { maybe_key, exprs, trailer } = syn::parse_macro_input!(input as LineArgs);
+    let LineArgs {
+        maybe_key,
+        exprs,
+        classes,
+        trailer,
+    } = syn::parse_macro_input!(input as LineArgs);
 
     let key = maybe_key.into_tokens();
     let string_expr = match trailer {
@@ -130,7 +135,7 @@ pub fn paragraph(input: TokenStream) -> TokenStream {
                 object: ifengine::view::Object::Paragraph(
                     ifengine::view::Line::from_iter(
                         vec![#(#lines),*]
-                    ),
+                    )#(.cls(#classes))*,
                     #string_expr
                 ),
             }
@@ -141,7 +146,12 @@ pub fn paragraph(input: TokenStream) -> TokenStream {
 }
 
 pub fn paragraphs(input: TokenStream) -> TokenStream {
-    let LineArgs { exprs, trailer, .. } = syn::parse_macro_input!(input as LineArgs);
+    let LineArgs {
+        exprs,
+        classes,
+        trailer,
+        ..
+    } = syn::parse_macro_input!(input as LineArgs);
 
     let string_expr = match trailer {
         Some(s) => quote!(#s),
@@ -155,7 +165,7 @@ pub fn paragraphs(input: TokenStream) -> TokenStream {
                 ifengine::view::StampedObject {
                     id: Some(__ifengine_page_state.auto_key()),
                     object: ifengine::view::Object::Paragraph(
-                        #line,
+                        (#line)#(.cls(#classes))*,
                         #string_expr
                     ),
                 }

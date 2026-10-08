@@ -6,6 +6,8 @@ mod line;
 pub use image::*;
 pub use line::*;
 
+use std::hash::Hash;
+
 use crate::{PageKey, core::PageId};
 
 /// Optional styling or layout metadata attached to an [`Object`] for consumption by custom frontends.
@@ -41,70 +43,61 @@ pub enum Object {
     Embed(View, RenderData),
 }
 
+impl std::hash::Hash for Object {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        std::mem::discriminant(self).hash(state);
+        match self {
+            Object::Paragraph(line, render_data) => {
+                line.hash(state);
+                render_data.hash(state);
+            }
+            Object::Choice(_) => {}
+            Object::Image(img) => {
+                match &img.variant {
+                    ImageVariant::Url(url) => url.hash(state),
+                    ImageVariant::Local(uri, _bytes) => uri.hash(state),
+                }
+                img.alt.hash(state);
+            }
+            Object::Heading(span, level) => {
+                span.hash(state);
+                level.hash(state);
+            }
+            Object::Break => {}
+            Object::Empty(n) => {
+                n.hash(state);
+            }
+            Object::Note(line, indices) => {
+                line.hash(state);
+                indices.hash(state);
+            }
+            Object::Embed(embedded_view, render_data) => {
+                embedded_view.pageid.0.hash(state);
+                embedded_view.inner.len().hash(state);
+                render_data.hash(state);
+            }
+        }
+    }
+}
+
 impl Object {
     /// Computes a 64-bit hash representing the content of this object,
     /// used by frontend transition managers to detect content changes across renders.
     pub fn content_hash(&self) -> u64 {
-        use std::hash::{DefaultHasher, Hash, Hasher};
         match self {
-            Object::Paragraph(line, render_data) => {
-                let mut hasher = DefaultHasher::new();
-                line.content_hash().hash(&mut hasher);
-                render_data.hash(&mut hasher);
-                match hasher.finish() {
-                    0 => 1,
-                    h => h,
-                }
-            }
             Object::Choice(_) => 0,
-            Object::Image(img) => {
-                let mut hasher = DefaultHasher::new();
-                match &img.variant {
-                    ImageVariant::Url(url) => url.hash(&mut hasher),
-                    ImageVariant::Local(uri, _bytes) => uri.hash(&mut hasher),
-                }
-                img.alt.hash(&mut hasher);
-                match hasher.finish() {
-                    0 => 1,
-                    h => h,
-                }
-            }
-            Object::Heading(span, level) => {
-                let mut hasher = DefaultHasher::new();
-                span.content_hash().hash(&mut hasher);
-                level.hash(&mut hasher);
-                match hasher.finish() {
-                    0 => 1,
-                    h => h,
-                }
-            }
             Object::Break => 1,
-            Object::Empty(n) => *n as u64 + 1,
-            Object::Note(line, indices) => {
+            Object::Empty(n) => *n as u64 + 2,
+            _ => {
+                use std::hash::{DefaultHasher, Hasher};
                 let mut hasher = DefaultHasher::new();
-                line.content_hash().hash(&mut hasher);
-                indices.hash(&mut hasher);
-                match hasher.finish() {
-                    0 => 1,
-                    h => h,
-                }
-            }
-            Object::Embed(embedded_view, render_data) => {
-                let mut hasher = DefaultHasher::new();
-                embedded_view.pageid.0.hash(&mut hasher);
-                embedded_view.inner.len().hash(&mut hasher);
-                render_data.hash(&mut hasher);
+                self.hash(&mut hasher);
                 match hasher.finish() {
                     0 => 1,
                     h => h,
                 }
             }
         }
-    }
-
-    /// Alias for [`content_hash`](Self::content_hash).
-    pub fn hash_content(&self) -> u64 {
-        self.content_hash()
     }
 }
 
@@ -115,6 +108,13 @@ pub struct StampedObject {
     pub object: Object,
 }
 
+impl std::hash::Hash for StampedObject {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.id.hash(state);
+        self.object.hash(state);
+    }
+}
+
 impl StampedObject {
     pub fn new(object: Object) -> Self {
         Self { id: None, object }
@@ -123,16 +123,6 @@ impl StampedObject {
     pub fn with_id(mut self, id: PageKey) -> Self {
         self.id = Some(id);
         self
-    }
-
-    /// Computes a 64-bit hash representing the content of this object.
-    pub fn content_hash(&self) -> u64 {
-        self.object.content_hash()
-    }
-
-    /// Alias for [`content_hash`](Self::content_hash).
-    pub fn hash_content(&self) -> u64 {
-        self.object.hash_content()
     }
 }
 

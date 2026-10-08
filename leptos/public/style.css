@@ -418,7 +418,7 @@ h6.passage-heading { font-size: 0.95rem; text-transform: uppercase; color: var(-
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-top: 0;
+    margin-top: 1.5rem;
     padding-top: 0.5rem;
     padding-bottom: 0.25rem;
     border-top: 1px solid rgba(255, 255, 255, 0.06);

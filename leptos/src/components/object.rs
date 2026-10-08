@@ -16,7 +16,7 @@ pub fn ObjectView(stamped: StampedObject) -> impl IntoView {
         Object::Paragraph(..) => ctx
             .transitions
             .write_untracked()
-            .is_paragraph_changed(id, stamped.content_hash()),
+            .is_revealed(id),
         _ => ctx
             .transitions
             .write_untracked()

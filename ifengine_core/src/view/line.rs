@@ -1,6 +1,6 @@
 use bitflags::bitflags;
 use std::collections::HashMap;
-use std::ops::{Add, AddAssign};
+use std::ops::{Add, AddAssign, Sub, SubAssign};
 
 use crate::{Action, PageKey, utils::prose};
 
@@ -140,17 +140,15 @@ impl Span {
         self
     }
 
-    /// Computes a non-zero 64-bit hash of the span's text content.
-    ///
-    /// Always returns a non-zero value.
+    /// Computes a 64-bit FNV-1a hash of the span's text content.
     pub fn content_hash(&self) -> u64 {
-        use std::hash::{DefaultHasher, Hash, Hasher};
-        let mut hasher = DefaultHasher::new();
-        self.content.hash(&mut hasher);
-        match hasher.finish() {
-            0 => 1,
-            h => h,
-        }
+        const_fnv1a_hash::fnv1a_hash_str_64(&self.content)
+    }
+}
+
+impl std::hash::Hash for Span {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.content.hash(state);
     }
 }
 
@@ -192,12 +190,14 @@ impl Line {
         self.spans.push(span.into());
     }
 
-    /// Assigns `id` to all child spans that do not already have an ID.
-    pub fn fill_ids(mut self, id: PageKey) -> Self {
-        for span in &mut self.spans {
-            if span.id.is_none() {
-                span.id = Some(id);
-            }
+    /// Ensures the line begins and ends with spans containing `id` by inserting
+    /// empty delimiter spans if needed, framing the group boundary.
+    pub fn delimit_group(mut self, id: PageKey) -> Self {
+        if self.spans.first().and_then(|s| s.id) != Some(id) {
+            self.spans.insert(0, Span::new("").with_id(id));
+        }
+        if self.spans.last().and_then(|s| s.id) != Some(id) {
+            self.spans.push(Span::new("").with_id(id));
         }
         self
     }
@@ -210,34 +210,29 @@ impl Line {
         s
     }
 
-    /// Computes a non-zero 64-bit hash of the line's content.
-    ///
-    /// For spans with an explicit [`id`](Span::id) (e.g. `count!`, `alts!`), only the span's ID
-    /// is hashed rather than its dynamic content. This allows child spans to manage their own
-    /// transitions independently without causing the enclosing line or paragraph to fade.
-    /// Spans without an ID have their text content hashed directly.
-    ///
-    /// Always returns a non-zero value.
-    pub fn content_hash(&self) -> u64 {
-        use std::hash::{DefaultHasher, Hash, Hasher};
-        let mut hasher = DefaultHasher::new();
-        for span in &self.spans {
-            match span.id {
-                Some(id) => {
-                    true.hash(&mut hasher);
-                    id.hash(&mut hasher);
-                }
-                None => {
-                    false.hash(&mut hasher);
-                    span.content.hash(&mut hasher);
-                }
+    /// Subtracts a string suffix from the line, truncating or popping trailing spans.
+    pub fn sub_str(&mut self, rhs: &str) {
+        if rhs.is_empty() {
+            return;
+        }
+        let total_raw: String = self.spans.iter().map(|s| s.content.as_str()).collect();
+        if !total_raw.ends_with(rhs) {
+            return;
+        }
+        let mut remaining = rhs.len();
+        while remaining > 0 && !self.spans.is_empty() {
+            let last_len = self.spans.last().unwrap().content.len();
+            if last_len <= remaining {
+                remaining -= last_len;
+                self.spans.pop();
+            } else {
+                let new_len = last_len - remaining;
+                self.spans.last_mut().unwrap().content.truncate(new_len);
+                remaining = 0;
             }
         }
-        match hasher.finish() {
-            0 => 1,
-            h => h,
-        }
     }
+
 
     /// Scans spans without actions, splits bracketed `[[target]]` links, and attaches actions via `action_fn`.
     ///
@@ -292,6 +287,23 @@ impl Line {
             }
         }
         self
+    }
+}
+
+impl std::hash::Hash for Line {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        for span in &self.spans {
+            match span.id {
+                Some(id) => {
+                    true.hash(state);
+                    id.hash(state);
+                }
+                None => {
+                    false.hash(state);
+                    span.hash(state);
+                }
+            }
+        }
     }
 }
 
@@ -477,6 +489,166 @@ impl<T: Into<Line>> Extend<T> for Line {
     }
 }
 
+impl Sub<&str> for Line {
+    type Output = Self;
+    fn sub(mut self, rhs: &str) -> Self {
+        self.sub_str(rhs);
+        self
+    }
+}
+
+impl Sub<String> for Line {
+    type Output = Self;
+    fn sub(mut self, rhs: String) -> Self {
+        self.sub_str(&rhs);
+        self
+    }
+}
+
+impl Sub<&String> for Line {
+    type Output = Self;
+    fn sub(mut self, rhs: &String) -> Self {
+        self.sub_str(rhs.as_str());
+        self
+    }
+}
+
+impl Sub<char> for Line {
+    type Output = Self;
+    fn sub(mut self, rhs: char) -> Self {
+        let mut buf = [0u8; 4];
+        self.sub_str(rhs.encode_utf8(&mut buf));
+        self
+    }
+}
+
+impl Sub<Line> for Line {
+    type Output = Self;
+    fn sub(mut self, rhs: Line) -> Self {
+        let rhs_raw: String = rhs.spans.iter().map(|s| s.content.as_str()).collect();
+        self.sub_str(&rhs_raw);
+        self
+    }
+}
+
+impl Sub<&Line> for Line {
+    type Output = Self;
+    fn sub(mut self, rhs: &Line) -> Self {
+        let rhs_raw: String = rhs.spans.iter().map(|s| s.content.as_str()).collect();
+        self.sub_str(&rhs_raw);
+        self
+    }
+}
+
+impl Sub<Span> for Line {
+    type Output = Self;
+    fn sub(mut self, rhs: Span) -> Self {
+        self.sub_str(&rhs.content);
+        self
+    }
+}
+
+impl Sub<&Span> for Line {
+    type Output = Self;
+    fn sub(mut self, rhs: &Span) -> Self {
+        self.sub_str(&rhs.content);
+        self
+    }
+}
+
+impl SubAssign<&str> for Line {
+    fn sub_assign(&mut self, rhs: &str) {
+        self.sub_str(rhs);
+    }
+}
+
+impl SubAssign<String> for Line {
+    fn sub_assign(&mut self, rhs: String) {
+        self.sub_str(&rhs);
+    }
+}
+
+impl SubAssign<&String> for Line {
+    fn sub_assign(&mut self, rhs: &String) {
+        self.sub_str(rhs.as_str());
+    }
+}
+
+impl SubAssign<char> for Line {
+    fn sub_assign(&mut self, rhs: char) {
+        let mut buf = [0u8; 4];
+        self.sub_str(rhs.encode_utf8(&mut buf));
+    }
+}
+
+impl SubAssign<Line> for Line {
+    fn sub_assign(&mut self, rhs: Line) {
+        let rhs_raw: String = rhs.spans.iter().map(|s| s.content.as_str()).collect();
+        self.sub_str(&rhs_raw);
+    }
+}
+
+impl SubAssign<&Line> for Line {
+    fn sub_assign(&mut self, rhs: &Line) {
+        let rhs_raw: String = rhs.spans.iter().map(|s| s.content.as_str()).collect();
+        self.sub_str(&rhs_raw);
+    }
+}
+
+impl SubAssign<Span> for Line {
+    fn sub_assign(&mut self, rhs: Span) {
+        self.sub_str(&rhs.content);
+    }
+}
+
+impl SubAssign<&Span> for Line {
+    fn sub_assign(&mut self, rhs: &Span) {
+        self.sub_str(&rhs.content);
+    }
+}
+
+impl Sub<&str> for Span {
+    type Output = Line;
+    fn sub(self, rhs: &str) -> Line {
+        Line::from(self) - rhs
+    }
+}
+
+impl Sub<String> for Span {
+    type Output = Line;
+    fn sub(self, rhs: String) -> Line {
+        Line::from(self) - rhs
+    }
+}
+
+impl Sub<&String> for Span {
+    type Output = Line;
+    fn sub(self, rhs: &String) -> Line {
+        Line::from(self) - rhs
+    }
+}
+
+impl Sub<char> for Span {
+    type Output = Line;
+    fn sub(self, rhs: char) -> Line {
+        Line::from(self) - rhs
+    }
+}
+
+impl Sub<&str> for &Span {
+    type Output = Line;
+    fn sub(self, rhs: &str) -> Line {
+        Line::from(self.clone()) - rhs
+    }
+}
+
+impl Sub<&str> for &Line {
+    type Output = Line;
+    fn sub(self, rhs: &str) -> Line {
+        self.clone() - rhs
+    }
+}
+
 // ----------------
 
 /// Trait to normalize varied input formats into `(Option<u8>, Line)`.
@@ -544,15 +716,22 @@ mod tests {
         assert_eq!(s1.content_hash(), s2.content_hash());
         assert_ne!(s1.content_hash(), s3.content_hash());
 
+        let hash_line = |l: &Line| -> u64 {
+            use std::hash::{DefaultHasher, Hash, Hasher};
+            let mut hasher = DefaultHasher::new();
+            l.hash(&mut hasher);
+            hasher.finish()
+        };
+
         let l1 = Line::from_iter(["hello", " ", "world"]);
         let l2 = Line::from_iter(["hello", " ", "world"]);
         let l3 = Line::from_iter(["different"]);
 
-        assert_ne!(l1.content_hash(), 0);
-        assert_eq!(l1.content_hash(), l2.content_hash());
-        assert_ne!(l1.content_hash(), l3.content_hash());
+        assert_ne!(hash_line(&l1), 0);
+        assert_eq!(hash_line(&l1), hash_line(&l2));
+        assert_ne!(hash_line(&l1), hash_line(&l3));
 
-        // Keyed spans: content changes within a keyed span do NOT change Line::content_hash()
+        // Keyed spans: content changes within a keyed span do NOT change Line hash
         let mut l_keyed1 = Line::new();
         l_keyed1.push(Span::new("prefix: "));
         l_keyed1.push(Span::new("clicks: 0").with_id(42));
@@ -562,30 +741,30 @@ mod tests {
         l_keyed2.push(Span::new("clicks: 1").with_id(42));
 
         assert_eq!(
-            l_keyed1.content_hash(),
-            l_keyed2.content_hash(),
+            hash_line(&l_keyed1),
+            hash_line(&l_keyed2),
             "changing dynamic content of a keyed span must not change line content hash"
         );
 
-        // But changing the keyed span's ID DOES change Line::content_hash()
+        // But changing the keyed span's ID DOES change Line hash
         let mut l_keyed3 = Line::new();
         l_keyed3.push(Span::new("prefix: "));
         l_keyed3.push(Span::new("clicks: 0").with_id(99));
 
         assert_ne!(
-            l_keyed1.content_hash(),
-            l_keyed3.content_hash(),
+            hash_line(&l_keyed1),
+            hash_line(&l_keyed3),
             "changing span id must change line content hash"
         );
 
-        // And changing the unkeyed span's content DOES change Line::content_hash()
+        // And changing the unkeyed span's content DOES change Line hash
         let mut l_keyed4 = Line::new();
         l_keyed4.push(Span::new("different prefix: "));
         l_keyed4.push(Span::new("clicks: 0").with_id(42));
 
         assert_ne!(
-            l_keyed1.content_hash(),
-            l_keyed4.content_hash(),
+            hash_line(&l_keyed1),
+            hash_line(&l_keyed4),
             "changing unkeyed span content must change line content hash"
         );
     }
@@ -704,5 +883,46 @@ mod tests {
         assert_eq!(base.content(), "Base: Span1Span2Line1 Line2");
         base.extend([" - extra", " items"]);
         assert_eq!(base.content(), "Base: Span1Span2Line1 Line2 - extra items");
+    }
+
+    #[test]
+    fn test_line_sub_and_sub_assign() {
+        let mut line = Line::from(Span::new("Hello ")) + Span::new("world!");
+        assert_eq!(line.spans.len(), 2);
+
+        // Sub string truncating within last span
+        let l2 = line.clone() - "!";
+        assert_eq!(l2.spans.len(), 2);
+        assert_eq!(l2.spans[1].content, "world");
+
+        // Sub string popping entire last span
+        let l3 = line.clone() - "world!";
+        assert_eq!(l3.spans.len(), 1);
+        assert_eq!(l3.spans[0].content, "Hello ");
+
+        // Sub string spanning multiple spans
+        let l4 = line.clone() - "o world!";
+        assert_eq!(l4.spans.len(), 1);
+        assert_eq!(l4.spans[0].content, "Hell");
+
+        // Sub full line content
+        let l5 = line.clone() - "Hello world!";
+        assert_eq!(l5.spans.len(), 0);
+
+        // Non-matching suffix does nothing
+        let l6 = line.clone() - "foo";
+        assert_eq!(l6.spans.len(), 2);
+        assert_eq!(l6.content(), "Hello world!");
+
+        // SubAssign
+        line -= "!";
+        assert_eq!(line.content(), "Hello world");
+        line -= " world";
+        assert_eq!(line.content(), "Hello");
+        assert_eq!(line.spans.len(), 1);
+
+        // Span - &str
+        let span_sub = Span::new("testing") - "ing";
+        assert_eq!(span_sub.content(), "test");
     }
 }

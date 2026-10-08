@@ -218,26 +218,26 @@ fn run_repl(config: &CliConfig) -> ExitCode {
         let cmd = parts[0].to_lowercase();
 
         match cmd.as_str() {
-            "quit" | "exit" | "q" => {
+            "quit" => {
                 println!("Saving state to '{}' and exiting.", config.state_file.display());
                 let _ = save_state(&config.state_file, &game);
                 break;
             }
-            "help" | "h" | "?" => {
+            "help" | "h" => {
                 println!("Interactive Commands:");
-                println!("  <index>            Make a choice or follow link");
-                println!("  view / look / l    Reprint current page and choices");
-                println!("  inv [open|close]   Toggle or view inventory");
-                println!("  action <name> ...  Run cheat or state action (lives, money, give, take)");
-                println!("  new [story]        Restart game");
-                println!("  save [path]        Save progress");
-                println!("  load [path]        Load progress");
-                println!("  quit / exit / q    Save progress and exit\n");
+                println!("  <index>             Make a choice or follow link");
+                println!("  view                Reprint current page and choices");
+                println!("  inventory / i [...] Toggle or view inventory");
+                println!("  action / a <name>   Run cheat or state action (lives, money, give, take)");
+                println!("  new [story]         Restart game");
+                println!("  save [path]         Save progress");
+                println!("  load [path]         Load progress");
+                println!("  quit                Save progress and exit\n");
             }
-            "view" | "look" | "l" => {
+            "view" => {
                 let _ = output_game_view(&mut game, config.json, None);
             }
-            "inv" | "inventory" => {
+            "inventory" | "i" => {
                 let mode = parts.get(1).copied().unwrap_or("toggle");
                 match game.apply_action("inventory", &[mode.to_string()]) {
                     Ok(msg) => {
@@ -277,7 +277,7 @@ fn run_repl(config: &CliConfig) -> ExitCode {
                     Err(e) => println!("Error loading: {e}"),
                 }
             }
-            "action" | "act" | "do" => {
+            "action" | "a" => {
                 if parts.len() < 2 {
                     println!("Usage: action <name> [args...]");
                 } else {
@@ -304,7 +304,7 @@ fn run_repl(config: &CliConfig) -> ExitCode {
                         }
                     }
                 } else {
-                    println!("Invalid input: enter an integer choice index [0, 1...] or a command like 'view', 'inv', 'action', 'quit'.");
+                    println!("Invalid input: enter an integer choice index [0, 1...] or a command like 'view', 'inventory', 'action', 'quit'.");
                 }
             }
         }

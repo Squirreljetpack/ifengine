@@ -86,7 +86,7 @@ impl syn::parse::Parse for ExprAndOptional {
 pub(crate) fn is_trailer_next(input: ParseStream) -> bool {
     let ahead = input.fork();
     if ahead.parse::<Token![::]>().is_ok() {
-        if ahead.parse::<syn::LitStr>().is_ok() && ahead.is_empty() {
+        if ahead.parse::<syn::LitStr>().is_ok() {
             return true;
         }
     }
@@ -102,9 +102,19 @@ pub(crate) fn parse_until_delimiter(input: ParseStream) -> Result<proc_macro2::T
     Ok(tokens)
 }
 
+fn unwrap_bracket_expr(expr: Expr) -> Expr {
+    if let Expr::Array(ref arr) = expr {
+        if arr.elems.len() == 1 {
+            return arr.elems.first().unwrap().clone();
+        }
+    }
+    expr
+}
+
 pub struct LineArgs {
     pub maybe_key: MaybeKey,
     pub exprs: Vec<Expr>,
+    pub classes: Vec<Expr>,
     pub trailer: Option<syn::LitStr>,
 }
 
@@ -112,13 +122,11 @@ impl Parse for LineArgs {
     fn parse(input: ParseStream) -> Result<Self> {
         let maybe_key = input.parse()?;
         let mut exprs = Vec::new();
+        let mut classes = Vec::new();
         let mut trailer = None;
 
         while !input.is_empty() {
             if is_trailer_next(input) {
-                let _coloncolon: Token![::] = input.parse()?;
-                let lit: syn::LitStr = input.parse()?;
-                trailer = Some(lit);
                 break;
             }
 
@@ -130,18 +138,31 @@ impl Parse for LineArgs {
             if input.peek(Token![,]) {
                 let _ = input.parse::<Token![,]>()?;
             } else if is_trailer_next(input) {
-                let _coloncolon: Token![::] = input.parse()?;
-                let lit: syn::LitStr = input.parse()?;
-                trailer = Some(lit);
                 break;
             } else {
                 break;
             }
         }
 
+        if is_trailer_next(input) {
+            let _coloncolon: Token![::] = input.parse()?;
+            let lit: syn::LitStr = input.parse()?;
+            trailer = Some(lit);
+
+            while input.peek(Token![,]) {
+                let _comma: Token![,] = input.parse()?;
+                if input.is_empty() {
+                    break;
+                }
+                let class_expr: Expr = input.parse()?;
+                classes.push(unwrap_bracket_expr(class_expr));
+            }
+        }
+
         Ok(LineArgs {
             maybe_key,
             exprs,
+            classes,
             trailer,
         })
     }

@@ -131,8 +131,6 @@ where
                 }
             };
 
-            crate::storage::save_autosave(game);
-
             let slots = header_extractor.map_or_else(
                 || [vec![], vec![], vec![]],
                 |f| resolve_slots(f(game), dispatch_action_cb),
@@ -167,6 +165,7 @@ where
     let dispatch_interaction = Callback::new(
         move |(choice, action): (Option<(PageKey, u8)>, Option<Action>)| {
             let mut game = game_for_interaction.write().unwrap();
+            crate::storage::save_autosave(&game);
             if let Some((choice_key, index)) = choice {
                 game.handle_choice(choice_key, index);
             }
@@ -214,6 +213,8 @@ where
     let dispatch_header_action: Callback<fn(&mut ifengine::Game<C>)> =
         Callback::new(move |handler: fn(&mut ifengine::Game<C>)| {
             let mut game = game_for_header.write().unwrap();
+            // these actions don't really need saving
+            // crate::storage::save_autosave(&game);
             handler(&mut game);
             on_refresh_header(&mut game);
         });
