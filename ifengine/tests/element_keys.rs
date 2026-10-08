@@ -522,7 +522,7 @@ struct DparagraphState {
 fn test_dparagraph_page(state: &mut DparagraphState) {
     use ifengine::elements::dparagraph;
 
-    match dparagraph!("Go to the [[forest]] or [[]]the [[inn]].") {
+    match dparagraph!("Go to the [[forest]] or [[]]the [[inn]].").as_str() {
         "forest" => state.last_target = "forest".to_string(),
         "inn" => state.last_target = "inn".to_string(),
         "" => {}
@@ -586,7 +586,7 @@ fn test_dparagraph_seq_page(state: &mut DparagraphSequenceState) {
         "a [[sword]]",
         link!(" (examine)", test_dparagraph_seq_dest_page),
         " and a [[shield]]."
-    ) {
+    ).as_str() {
         "sword" => state.last_target = "sword".to_string(),
         "shield" => state.last_target = "shield".to_string(),
         _ => {}
@@ -1306,4 +1306,131 @@ fn test_nested_line_concatenation() {
     } else {
         panic!("expected Paragraph for index 1");
     }
+}
+
+#[derive(Debug, Default, Clone)]
+struct DparagraphLimitState {
+    last_clicked: String,
+}
+
+#[ifengine::ifview]
+fn test_dparagraph_limit_1_page(state: &mut DparagraphLimitState) {
+    use ifengine::elements::dp;
+    state.last_clicked = dp!("Choose [[apple]] or [[banana]]" ; 1).to_string();
+}
+
+#[test]
+fn test_dparagraph_max_clicks_1() {
+    let mut game = ifengine::Game::new_with_page(
+        "test_dparagraph_limit_1_page",
+        test_dparagraph_limit_1_page,
+    );
+
+    // Initial render: both apple and banana have actions
+    let view = game.view().unwrap();
+    let Object::Paragraph(line, _) = &view.inner[0].object else {
+        panic!("expected Paragraph");
+    };
+    let apple_span = line.spans.iter().find(|s| s.content == "apple").unwrap();
+    let banana_span = line.spans.iter().find(|s| s.content == "banana").unwrap();
+    assert!(apple_span.action.is_some());
+    assert!(banana_span.action.is_some());
+    assert_eq!(game.context.last_clicked, "");
+
+    let apple_action = apple_span.action.clone().unwrap();
+
+    // Click apple -> apple polled, and since 1 >= 1, ALL links are disabled!
+    game.handle_action(apple_action).unwrap();
+    let view2 = game.view().unwrap();
+    assert_eq!(game.context.last_clicked, "apple");
+
+    let Object::Paragraph(line2, _) = &view2.inner[0].object else {
+        panic!("expected Paragraph");
+    };
+    let apple_span2 = line2.spans.iter().find(|s| s.content == "apple").unwrap();
+    let banana_span2 = line2.spans.iter().find(|s| s.content == "banana").unwrap();
+    assert!(apple_span2.action.is_none(), "apple should be disabled");
+    assert!(banana_span2.action.is_none(), "banana should also be disabled after limit reached");
+
+    // Subsequent render: links remain disabled, last_clicked is ""
+    let view3 = game.view().unwrap();
+    assert_eq!(game.context.last_clicked, "");
+    let Object::Paragraph(line3, _) = &view3.inner[0].object else {
+        panic!("expected Paragraph");
+    };
+    assert!(line3.spans.iter().all(|s| s.action.is_none()));
+}
+
+#[ifengine::ifview]
+fn test_dparagraph_limit_2_page(state: &mut DparagraphLimitState) {
+    use ifengine::elements::dp;
+    state.last_clicked = dp!("Take [[sword]], [[shield]], or [[potion]]" ; 2 :: "loot-trailer").to_string();
+}
+
+#[test]
+fn test_dparagraph_max_clicks_2_with_trailer() {
+    let mut game = ifengine::Game::new_with_page(
+        "test_dparagraph_limit_2_page",
+        test_dparagraph_limit_2_page,
+    );
+
+    let view = game.view().unwrap();
+    let Object::Paragraph(line, trailer) = &view.inner[0].object else {
+        panic!("expected Paragraph");
+    };
+    assert_eq!(*trailer, "loot-trailer");
+
+    let sword_action = line.spans.iter().find(|s| s.content == "sword").unwrap().action.clone().unwrap();
+    let shield_span = line.spans.iter().find(|s| s.content == "shield").unwrap();
+    let potion_span = line.spans.iter().find(|s| s.content == "potion").unwrap();
+    assert!(shield_span.action.is_some());
+    assert!(potion_span.action.is_some());
+
+    // Click sword (1st click): 1 < 2, so sword is disabled, but shield and potion remain active
+    game.handle_action(sword_action).unwrap();
+    let view2 = game.view().unwrap();
+    assert_eq!(game.context.last_clicked, "sword");
+
+    let Object::Paragraph(line2, _) = &view2.inner[0].object else {
+        panic!("expected Paragraph");
+    };
+    let sword_span2 = line2.spans.iter().find(|s| s.content == "sword").unwrap();
+    let shield_span2 = line2.spans.iter().find(|s| s.content == "shield").unwrap();
+    let potion_span2 = line2.spans.iter().find(|s| s.content == "potion").unwrap();
+    assert!(sword_span2.action.is_none());
+    assert!(shield_span2.action.is_some());
+    assert!(potion_span2.action.is_some());
+
+    let shield_action2 = shield_span2.action.clone().unwrap();
+
+    // Click shield (2nd click): 2 >= 2, so ALL links are now disabled
+    game.handle_action(shield_action2).unwrap();
+    let view3 = game.view().unwrap();
+    assert_eq!(game.context.last_clicked, "shield");
+
+    let Object::Paragraph(line3, _) = &view3.inner[0].object else {
+        panic!("expected Paragraph");
+    };
+    assert!(line3.spans.iter().all(|s| s.action.is_none()), "all links disabled when >= 2 clicked");
+}
+
+#[ifengine::ifview]
+fn test_dparagraph_limit_0_page(state: &mut DparagraphLimitState) {
+    use ifengine::elements::dp;
+    state.last_clicked = dp!((777), "Click [[nothing]]" ; 0).to_string();
+}
+
+#[test]
+fn test_dparagraph_max_clicks_0() {
+    let mut game = ifengine::Game::new_with_page(
+        "test_dparagraph_limit_0_page",
+        test_dparagraph_limit_0_page,
+    );
+
+    let view = game.view().unwrap();
+    assert_eq!(view.inner[0].id, Some((1u64 << 48) | (777 & ifengine::core::key::USER_KEY_MASK)));
+    let Object::Paragraph(line, _) = &view.inner[0].object else {
+        panic!("expected Paragraph");
+    };
+    assert!(line.spans.iter().all(|s| s.action.is_none()), "limit 0 disables all links immediately");
 }

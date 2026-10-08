@@ -180,6 +180,8 @@ pub fn r#YIELD(input: TokenStream) -> TokenStream {
 /// into the current page and returned as the expression value.
 /// If the target page returns any other `Response` variant (`Switch`, `Back`, `Tunnel`, `Exit`, `End`),
 /// it is returned immediately from the enclosing page function.
+/// The context argument is optional inside `#[ifview]` functions; when omitted,
+/// the generated local `__ifengine_ctx!()` accessor is used.
 #[proc_macro]
 #[allow(non_snake_case)]
 pub fn EMBED(input: TokenStream) -> TokenStream {
@@ -502,9 +504,12 @@ pub fn dchoice(input: TokenStream) -> TokenStream {
 /// Returns the clicked link's target `&str` (once per click), or `""` if no link
 /// has been clicked yet. Empty bracket pairs `[[]]` are skipped, joining surrounding text.
 ///
+/// An optional numeric parameter after `;` specifies the click limit: when `>=` that number
+/// of dynamic links within it have been clicked, all links in the paragraph are disabled.
+///
 /// # Syntax
 /// ```text
-/// dparagraph!((maybe_key), expr1, expr2, ..., exprN)
+/// dparagraph!((maybe_key), expr1, expr2, ..., exprN [; max_clicks] [:: "renderdata"])
 /// ```
 ///
 /// # Example

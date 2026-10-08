@@ -147,3 +147,73 @@ impl Parse for LineArgs {
     }
 }
 
+pub(crate) fn parse_until_semi_or_delimiter(input: ParseStream) -> Result<proc_macro2::TokenStream> {
+    let mut tokens = proc_macro2::TokenStream::new();
+    while !input.is_empty()
+        && !input.peek(Token![,])
+        && !input.peek(Token![;])
+        && !is_trailer_next(input)
+    {
+        let tt: proc_macro2::TokenTree = input.parse()?;
+        tokens.extend(std::iter::once(tt));
+    }
+    Ok(tokens)
+}
+
+pub struct DparagraphArgs {
+    pub maybe_key: MaybeKey,
+    pub exprs: Vec<Expr>,
+    pub max_clicks: Option<Expr>,
+    pub trailer: Option<syn::LitStr>,
+}
+
+impl Parse for DparagraphArgs {
+    fn parse(input: ParseStream) -> Result<Self> {
+        let maybe_key = input.parse()?;
+        let mut exprs = Vec::new();
+        let mut max_clicks = None;
+        let mut trailer = None;
+
+        while !input.is_empty() && !input.peek(Token![;]) && !is_trailer_next(input) {
+            let expr_tokens = parse_until_semi_or_delimiter(input)?;
+            if !expr_tokens.is_empty() {
+                exprs.push(syn::parse2(expr_tokens)?);
+            }
+
+            if input.peek(Token![,]) {
+                let _ = input.parse::<Token![,]>()?;
+            } else if is_trailer_next(input) || input.peek(Token![;]) {
+                break;
+            } else {
+                break;
+            }
+        }
+
+        if input.peek(Token![;]) {
+            let _semi: Token![;] = input.parse()?;
+            let tokens = parse_until_delimiter(input)?;
+            if tokens.is_empty() {
+                return Err(input.error("expected expression after ';'"));
+            }
+            max_clicks = Some(syn::parse2(tokens)?);
+
+            if input.peek(Token![,]) {
+                let _ = input.parse::<Token![,]>()?;
+            }
+        }
+
+        if is_trailer_next(input) {
+            let _coloncolon: Token![::] = input.parse()?;
+            let lit: syn::LitStr = input.parse()?;
+            trailer = Some(lit);
+        }
+
+        Ok(DparagraphArgs {
+            maybe_key,
+            exprs,
+            max_clicks,
+            trailer,
+        })
+    }
+}
+

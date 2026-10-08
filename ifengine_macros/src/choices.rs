@@ -4,7 +4,7 @@ use syn::parse::{Parse, ParseStream};
 use syn::{Arm, Expr, Result, Token, parse_macro_input};
 
 use crate::helpers::{expand_line_expr, expand_lines, expand_string_expr, unwrap_paren};
-use crate::nodes::{KeyExpr, LineArgs, MaybeKey};
+use crate::nodes::{DparagraphArgs, KeyExpr, LineArgs, MaybeKey};
 
 pub struct LineArm {
     pub line: Expr,
@@ -345,11 +345,12 @@ pub fn dchoice(input: TokenStream) -> TokenStream {
 }
 
 pub fn dparagraph(input: TokenStream) -> TokenStream {
-    let LineArgs {
+    let DparagraphArgs {
         maybe_key,
         exprs,
+        max_clicks,
         trailer,
-    } = syn::parse_macro_input!(input as LineArgs);
+    } = syn::parse_macro_input!(input as DparagraphArgs);
 
     let key = match maybe_key {
         MaybeKey::Key(k) => {
@@ -364,22 +365,41 @@ pub fn dparagraph(input: TokenStream) -> TokenStream {
 
     let lines = expand_lines(exprs);
 
+    let max_check = match max_clicks {
+        Some(max_expr) => quote! {
+            let __max_clicks: usize = (#max_expr) as usize;
+            if __clicked_count >= __max_clicks {
+                for span in &mut __out_line.spans {
+                    span.action = None;
+                }
+            }
+        },
+        None => quote! {},
+    };
+
     let expanded = quote! {{
         let __ifengine_key = #key;
         let __ifengine_loc = __ifengine_key & ifengine::core::key::USER_KEY_MASK;
         let mut __clicked_target = String::new();
+        let mut __clicked_count = 0usize;
+        let mut __seen_clicked = Vec::new();
 
-        let __out_line = ifengine::view::Line::from_iter(vec![#(#lines),*])
+        #[allow(unused_mut)]
+        let mut __out_line = ifengine::view::Line::from_iter(vec![#(#lines),*])
             .interleave_actions::<false>(|_i, link_span| {
                 let hk = ifengine::core::key::hash_key(&link_span.content);
                 let should_attach = match __ifengine_page_state.get(hk) {
                     None | Some(0) => true,
                     Some(val) => {
-                        if (val & ifengine::core::key::USER_KEY_MASK == __ifengine_loc)
-                            && ((val & (1u64 << 63)) != 0)
-                        {
-                            __clicked_target = link_span.content.clone();
-                            __ifengine_page_state.insert(hk, val & !(1u64 << 63));
+                        if (val & ifengine::core::key::USER_KEY_MASK == __ifengine_loc) {
+                            if (val & (1u64 << 63)) != 0 {
+                                __clicked_target = link_span.content.clone();
+                                __ifengine_page_state.insert(hk, val & !(1u64 << 63));
+                            }
+                            if !__seen_clicked.contains(&hk) {
+                                __seen_clicked.push(hk);
+                                __clicked_count += 1;
+                            }
                         }
                         false
                     }
@@ -390,6 +410,8 @@ pub fn dparagraph(input: TokenStream) -> TokenStream {
                     None
                 }
             });
+
+        #max_check
 
         __ifengine_page_state.push(
             ifengine::view::StampedObject {
