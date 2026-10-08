@@ -71,6 +71,8 @@ pub fn SpanView(
         span_classes(&span_for_class, &extra)
     };
 
+    let content = span.content().to_string();
+
     if let Some(action) = span.action {
         let base_class = if matches!(span.variant, SpanVariant::Link) {
             "passage-link"
@@ -92,21 +94,21 @@ pub fn SpanView(
                     }
                 }
             >
-                {span.content}
+                {content}
             </a>
         }
         .into_any()
     } else if matches!(span.variant, SpanVariant::Link) {
         view! {
             <span class=move || format!("passage-link-static {}", class_str()) style=span_style>
-                {span.content}
+                {content}
             </span>
         }
         .into_any()
     } else {
         view! {
             <span class=class_str style=span_style>
-                {span.content}
+                {content}
             </span>
         }
         .into_any()

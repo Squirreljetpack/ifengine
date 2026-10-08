@@ -22,7 +22,9 @@ cfg_if::cfg_if! {
         pub use forest as story;
     } else if #[cfg(feature = "saltwrack")] {
         pub use saltwrack as story;
+    } else if #[cfg(feature = "chant")] {
+        pub use chant as story;
     } else {
-        compile_error!("At least one story feature must be enabled: `saltwrack`, `forest`, or `test`");
+        compile_error!("At least one story feature must be enabled: `saltwrack`, `forest`, `test`, or `chant`");
     }
 }

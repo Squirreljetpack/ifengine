@@ -727,6 +727,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "chant"
+version = "0.0.1"
+dependencies = [
+ "ifengine",
+ "serde",
+]
+
+[[package]]
 name = "clipboard-win"
 version = "5.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2133,6 +2141,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "ifengine_cli"
+version = "0.1.0"
+dependencies = [
+ "chant",
+ "forest",
+ "ifengine",
+ "ifengine_core",
+ "saltwrack",
+ "serde",
+ "serde_json",
+ "test_story",
+]
+
+[[package]]
 name = "ifengine_core"
 version = "0.1.2"
 dependencies = [
@@ -2180,6 +2202,7 @@ version = "0.0.5"
 dependencies = [
  "base64",
  "cfg-if",
+ "chant",
  "console_error_panic_hook",
  "forest",
  "getrandom 0.3.4",

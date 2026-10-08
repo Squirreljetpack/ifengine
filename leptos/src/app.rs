@@ -20,6 +20,14 @@ cfg_if::cfg_if! {
         pub fn extract_header(_game: &story::Game) -> Vec<String> {
             vec![]
         }
+    } else if #[cfg(feature = "chant")] {
+        pub fn extract_header(game: &story::Game) -> Vec<String> {
+            vec![
+                format!("Lives: {}/9", game.context.lives),
+                format!("Guineas: {}", game.context.guineas),
+                game.context.current_realm.display_name().to_string(),
+            ]
+        }
     } else {
         pub fn extract_header(game: &story::Game) -> Vec<String> {
             if game.context.miles != 0 {

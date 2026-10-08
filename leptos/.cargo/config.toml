@@ -9,3 +9,4 @@ rustflags = ["--cfg", "getrandom_backend=\"wasm_js\""]
 "@deploy" = ["exec", "-s", "trunk build --release --filehash true && npx wrangler pages deploy dist --project-name ifengine --branch main"]
 "@deploy-test" = ["exec", "-s", "trunk build --release --filehash true --no-default-features --features test && npx wrangler pages deploy dist --project-name ifengine --branch=test --commit-dirty=true"]
 "@deploy-only" = "exec npx wrangler pages deploy dist --project-name ifengine --branch main"
+"@chant" = ["exec", "-s", "trunk build --release --filehash true --no-default-features --features chant && npx wrangler pages deploy dist --project-name ifengine --branch=chant --commit-dirty=true"]

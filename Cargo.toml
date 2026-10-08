@@ -8,6 +8,8 @@ members = [
     "story/forest",
     "story/saltwrack",
     "story/test_story",
+    "story/chant",
+    "cli",
 ]
 resolver = "3"
 

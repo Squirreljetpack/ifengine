@@ -1,0 +1,23 @@
+[package]
+name = "ifengine_cli"
+version = "0.1.0"
+authors = ["Squirreljetpack"]
+edition = "2024"
+publish = false
+
+[[bin]]
+name = "ifengine-cli"
+path = "src/main.rs"
+
+[dependencies]
+ifengine = { path = "../ifengine", features = ["macros", "serde"] }
+ifengine_core = { path = "../ifengine_core", features = ["serde"] }
+chant = { path = "../story/chant", features = ["serde"] }
+forest = { path = "../story/forest", features = ["serde"] }
+saltwrack = { path = "../story/saltwrack", features = ["serde"] }
+test_story = { path = "../story/test_story", features = ["serde"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+[lints]
+workspace = true

@@ -15,7 +15,7 @@ impl Span {
     }
 
     pub fn as_rich_text_with_link(&self, is_link: bool) -> RichText {
-        let mut txt = RichText::new(&self.content);
+        let mut txt = RichText::new(self.content());
         let m = self.modifiers;
 
         // ---- font variants (True Italic/Bold) ----

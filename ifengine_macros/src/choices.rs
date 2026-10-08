@@ -364,47 +364,45 @@ pub fn dparagraph(input: TokenStream) -> TokenStream {
 
     let lines = expand_lines(exprs);
 
-    let expanded = quote! {
-        ifengine::utils::as_str(&{
-            let __ifengine_key = #key;
-            let __ifengine_loc = __ifengine_key & ifengine::core::key::USER_KEY_MASK;
-            let mut __clicked_target = String::new();
+    let expanded = quote! {{
+        let __ifengine_key = #key;
+        let __ifengine_loc = __ifengine_key & ifengine::core::key::USER_KEY_MASK;
+        let mut __clicked_target = String::new();
 
-            let __out_line = ifengine::view::Line::from_iter(vec![#(#lines),*])
-                .interleave_actions::<false>(|_i, link_span| {
-                    let hk = ifengine::core::key::hash_key(&link_span.content);
-                    let should_attach = match __ifengine_page_state.get(hk) {
-                        None | Some(0) => true,
-                        Some(val) => {
-                            if (val & ifengine::core::key::USER_KEY_MASK == __ifengine_loc)
-                                && ((val & (1u64 << 63)) != 0)
-                            {
-                                __clicked_target = link_span.content.clone();
-                                __ifengine_page_state.insert(hk, val & !(1u64 << 63));
-                            }
-                            false
+        let __out_line = ifengine::view::Line::from_iter(vec![#(#lines),*])
+            .interleave_actions::<false>(|_i, link_span| {
+                let hk = ifengine::core::key::hash_key(&link_span.content);
+                let should_attach = match __ifengine_page_state.get(hk) {
+                    None | Some(0) => true,
+                    Some(val) => {
+                        if (val & ifengine::core::key::USER_KEY_MASK == __ifengine_loc)
+                            && ((val & (1u64 << 63)) != 0)
+                        {
+                            __clicked_target = link_span.content.clone();
+                            __ifengine_page_state.insert(hk, val & !(1u64 << 63));
                         }
-                    };
-                    if should_attach {
-                        Some(ifengine::core::Action::SetDirty(hk, __ifengine_key))
-                    } else {
-                        None
+                        false
                     }
-                });
-
-            __ifengine_page_state.push(
-                ifengine::view::StampedObject {
-                    id: Some(__ifengine_key),
-                    object: ifengine::view::Object::Paragraph(
-                        __out_line,
-                        #string_expr,
-                    ),
+                };
+                if should_attach {
+                    Some(ifengine::core::Action::SetDirty(hk, __ifengine_key))
+                } else {
+                    None
                 }
-            );
+            });
 
-            __clicked_target
-        })
-    };
+        __ifengine_page_state.push(
+            ifengine::view::StampedObject {
+                id: Some(__ifengine_key),
+                object: ifengine::view::Object::Paragraph(
+                    __out_line,
+                    #string_expr,
+                ),
+            }
+        );
+
+        __clicked_target
+    }};
 
     expanded.into()
 }

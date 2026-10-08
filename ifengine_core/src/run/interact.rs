@@ -25,7 +25,7 @@ impl<'a> Interactable<'a> {
                 .unwrap()
                 .content()
                 .into(),
-            Interactable::Span(_, s) => Cow::Borrowed(&s.content),
+            Interactable::Span(_, s) => s.content(),
         }
     }
 }

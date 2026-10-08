@@ -19,3 +19,6 @@ Cargo.lock
 
 # Local Netlify folder
 .netlify
+
+# CLI game state files
+.ifengine_state*.json

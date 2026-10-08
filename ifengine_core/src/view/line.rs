@@ -10,6 +10,7 @@ pub struct Span {
     pub id: Option<PageKey>,
     pub action: Option<Action>,
     pub content: String,
+    pub prose: bool,
 
     /// Applies a style preset, because links should be a logical concept
     pub variant: SpanVariant,
@@ -40,12 +41,28 @@ impl Span {
         Self {
             id: None,
             action: None,
-            content: prose(&s.into()),
+            content: s.into(),
+            prose: true,
             variant: SpanVariant::None,
             modifiers: Modifier::empty(),
             style: HashMap::new(),
             classes: Vec::new(),
             no_sim: false,
+        }
+    }
+
+    /// Disables prose processing on this span.
+    pub fn without_prose(mut self) -> Self {
+        self.prose = false;
+        self
+    }
+
+    /// Returns the text content, applying prose typesetting if enabled.
+    pub fn content(&self) -> std::borrow::Cow<'_, str> {
+        if self.prose {
+            std::borrow::Cow::Owned(prose(&self.content))
+        } else {
+            std::borrow::Cow::Borrowed(&self.content)
         }
     }
 
@@ -178,7 +195,7 @@ impl Line {
     pub fn content(&self) -> String {
         let mut s = String::new();
         for span in &self.spans {
-            s.push_str(&span.content)
+            s.push_str(&span.content())
         }
         s
     }
@@ -616,7 +633,9 @@ mod tests {
     #[test]
     fn test_span_and_line_prose_and_raw() {
         let span_prose = Span::from("''Hello... world--test''");
-        assert_eq!(span_prose.content, "“Hello… world—test”");
+        assert_eq!(span_prose.content(), "“Hello… world—test”");
+        assert_eq!(span_prose.content, "''Hello... world--test''");
+        assert_eq!(span_prose.without_prose().content(), "''Hello... world--test''");
 
         let line_prose = Line::from("''Hello... world--test''");
         assert_eq!(line_prose.content(), "“Hello… world—test”");
