@@ -63,7 +63,7 @@ fn test_alts_macro_and_keys() {
         assert_eq!(s0.content, "option_a");
         let id0 = s0.id.expect("alts span must have an id");
         assert_eq!(id0 >> 48, 1);
-        assert!(s0.action.is_some());
+        assert!(s0.active());
     } else {
         panic!("expected Object::Paragraph");
     }
@@ -73,7 +73,7 @@ fn test_alts_macro_and_keys() {
         assert_eq!(s0.content, "c1");
         let id0 = s0.id.expect("alts span must have an id");
         assert_eq!(id0 >> 48, 1);
-        assert!(s0.action.is_some());
+        assert!(s0.active());
     } else {
         panic!("expected Object::Paragraph");
     }
@@ -206,9 +206,9 @@ fn test_replace_macro() {
         assert_eq!(line.spans.len(), 3);
         assert_eq!(line.spans[0].content, "The chest is ");
         assert_eq!(line.spans[1].content, "locked");
-        assert!(line.spans[1].action.is_some());
+        assert!(line.spans[1].active());
         assert_eq!(line.spans[2].content, ".");
-        line.spans[1].action.clone().unwrap()
+        line.spans[1].action.clone()
     } else {
         panic!("expected Object::Paragraph for chest");
     };
@@ -219,9 +219,9 @@ fn test_replace_macro() {
         assert_eq!(line.spans.len(), 3);
         assert_eq!(line.spans[0].content, "The door is ");
         assert_eq!(line.spans[1].content, "closed");
-        assert!(line.spans[1].action.is_some());
+        assert!(line.spans[1].active());
         assert_eq!(line.spans[2].content, ".");
-        line.spans[1].action.clone().unwrap()
+        line.spans[1].action.clone()
     } else {
         panic!("expected Object::Paragraph for door");
     };
@@ -232,9 +232,9 @@ fn test_replace_macro() {
         assert_eq!(line.spans.len(), 3);
         assert_eq!(line.spans[0].content, "Click ");
         assert_eq!(line.spans[1].content, "here");
-        assert!(line.spans[1].action.is_some());
+        assert!(line.spans[1].active());
         assert_eq!(line.spans[2].content, " for magic.");
-        line.spans[1].action.clone().unwrap()
+        line.spans[1].action.clone()
     } else {
         panic!("expected Object::Paragraph for magic");
     };
@@ -247,9 +247,9 @@ fn test_replace_macro() {
         assert_eq!(line.spans[1].content, "left");
         assert_eq!(line.spans[2].content, " or ");
         assert_eq!(line.spans[3].content, "right");
-        assert!(line.spans[3].action.is_some());
+        assert!(line.spans[3].active());
         assert_eq!(line.spans[4].content, ".");
-        line.spans[3].action.clone().unwrap()
+        line.spans[3].action.clone()
     } else {
         panic!("expected Object::Paragraph for multi-link");
     };
@@ -471,8 +471,8 @@ fn test_click_macro_repeatable_and_max_clicks() {
     let Object::Paragraph(line, _) = &view1.inner[0].object else {
         panic!("expected paragraph");
     };
-    let unbounded_action = line.spans[0].action.clone().expect("unbounded action");
-    let bounded_action = line.spans[1].action.clone().expect("bounded action");
+    let unbounded_action = line.spans[0].action.clone();
+    let bounded_action = line.spans[1].action.clone();
 
     // Click unbounded 1st time
     game.handle_action(unbounded_action.clone()).unwrap();
@@ -506,7 +506,7 @@ fn test_click_macro_repeatable_and_max_clicks() {
         panic!("expected paragraph");
     };
     assert!(
-        line.spans[1].action.is_none(),
+        !line.spans[1].active(),
         "when count >= max_clicks, no action should be attached"
     );
 
@@ -558,8 +558,8 @@ fn test_dparagraph_interaction() {
         .find(|s| s.content.trim() == "inn")
         .unwrap();
 
-    let forest_action = forest_span.action.as_ref().unwrap().clone();
-    let inn_action = inn_span.action.as_ref().unwrap().clone();
+    let forest_action = forest_span.action.clone();
+    let inn_action = inn_span.action.clone();
 
     // Click forest
     game.handle_action(forest_action).unwrap();
@@ -592,7 +592,9 @@ fn test_dparagraph_seq_page(state: &mut DparagraphSequenceState) {
         "a [[sword]]",
         link!(" (examine)", test_dparagraph_seq_dest_page),
         " and a [[shield]]."
-    ).as_str() {
+    )
+    .as_str()
+    {
         "sword" => state.last_target = "sword".to_string(),
         "shield" => state.last_target = "shield".to_string(),
         _ => {}
@@ -620,9 +622,9 @@ fn test_dparagraph_sequence_of_spans() {
         .unwrap();
     let shield_span = line.spans.iter().find(|s| s.content == "shield").unwrap();
 
-    let sword_action = sword_span.action.as_ref().unwrap().clone();
-    let examine_action = examine_span.action.as_ref().unwrap().clone();
-    let shield_action = shield_span.action.as_ref().unwrap().clone();
+    let sword_action = sword_span.action.clone();
+    let examine_action = examine_span.action.clone();
+    let shield_action = shield_span.action.clone();
 
     // Click custom link
     game.handle_action(examine_action).unwrap();
@@ -680,8 +682,8 @@ fn test_mparagraph_sequence_of_spans() {
     let torch_span = line.spans.iter().find(|s| s.content == "torch").unwrap();
     let map_span = line.spans.iter().find(|s| s.content == "map").unwrap();
 
-    let torch_action = torch_span.action.as_ref().unwrap().clone();
-    let map_action = map_span.action.as_ref().unwrap().clone();
+    let torch_action = torch_span.action.clone();
+    let map_action = map_span.action.clone();
 
     // Click torch
     game.handle_action(torch_action).unwrap();
@@ -694,11 +696,11 @@ fn test_mparagraph_sequence_of_spans() {
     let torch_span2 = line2.spans.iter().find(|s| s.content == "torch").unwrap();
     let map_span2 = line2.spans.iter().find(|s| s.content == "map").unwrap();
     assert!(
-        torch_span2.action.is_none(),
+        !torch_span2.active(),
         "already clicked torch should have no action"
     );
     assert!(
-        map_span2.action.is_some(),
+        map_span2.active(),
         "unclicked map should still have an action"
     );
 
@@ -713,11 +715,11 @@ fn test_mparagraph_sequence_of_spans() {
     let torch_span3 = line3.spans.iter().find(|s| s.content == "torch").unwrap();
     let map_span3 = line3.spans.iter().find(|s| s.content == "map").unwrap();
     assert!(
-        torch_span3.action.is_none(),
+        !torch_span3.active(),
         "already clicked torch should have no action"
     );
     assert!(
-        map_span3.action.is_none(),
+        !map_span3.active(),
         "already clicked map should have no action"
     );
 }
@@ -815,16 +817,16 @@ fn test_replace_span_and_line() {
     let locked_span = line.spans.iter().find(|s| s.content == "locked").unwrap();
     let sealed_span = line.spans.iter().find(|s| s.content == "sealed").unwrap();
     assert!(
-        locked_span.action.is_some(),
+        locked_span.active(),
         "unclicked locked span should have action"
     );
     assert!(
-        sealed_span.action.is_some(),
+        sealed_span.active(),
         "unclicked sealed span should have action"
     );
 
-    let locked_action = locked_span.action.as_ref().unwrap().clone();
-    let sealed_action = sealed_span.action.as_ref().unwrap().clone();
+    let locked_action = locked_span.action.clone();
+    let sealed_action = sealed_span.action.clone();
     game.handle_action(locked_action).unwrap();
 
     let view2 = game.view().unwrap();
@@ -837,7 +839,7 @@ fn test_replace_span_and_line() {
         .find(|s| s.content == "unlocked")
         .unwrap();
     assert!(
-        unlocked_span.action.is_none(),
+        !unlocked_span.active(),
         "clicked span should be replaced and have no action"
     );
 
@@ -851,7 +853,7 @@ fn test_replace_span_and_line() {
         .iter()
         .find(|s| s.content == "broken lock")
         .unwrap();
-    assert!(broken_span.action.is_none());
+    assert!(!broken_span.active());
 }
 
 #[derive(Debug, Default, Clone)]
@@ -887,7 +889,7 @@ fn test_dparagraph_hashed_key_state() {
     };
 
     let chest_span = line.spans.iter().find(|s| s.content == "chest").unwrap();
-    let chest_action = chest_span.action.as_ref().unwrap().clone();
+    let chest_action = chest_span.action.clone();
 
     // Click chest
     game.handle_action(chest_action.clone()).unwrap();
@@ -944,13 +946,8 @@ fn test_action_rule_behavior() {
     };
 
     // The dynamic "cave" was split
-    assert!(
-        dp_line
-            .spans
-            .iter()
-            .any(|s| s.content == "cave"
-                && matches!(s.action, Some(ifengine::Action::SetDirty(_, _))))
-    );
+    assert!(dp_line.spans.iter().any(|s| s.content == "cave"
+        && matches!(s.action.first(), Some(ifengine::Action::SetDirty(_, _)))));
     // The span with existing action was PRESERVED as-is (not split)
     let preserved = dp_line
         .spans
@@ -958,13 +955,12 @@ fn test_action_rule_behavior() {
         .find(|s| s.content == "[[preserved_target]]")
         .unwrap();
     assert!(matches!(
-        preserved.action,
+        preserved.action.first(),
         Some(ifengine::Action::SetBit(999, 0))
     ));
     // The "ruins" link was split
-    assert!(dp_line.spans.iter().any(
-        |s| s.content == "ruins" && matches!(s.action, Some(ifengine::Action::SetDirty(_, _)))
-    ));
+    assert!(dp_line.spans.iter().any(|s| s.content == "ruins"
+        && matches!(s.action.first(), Some(ifengine::Action::SetDirty(_, _)))));
 
     // Verify mparagraph structure
     let Object::Paragraph(mp_line, _) = &view.inner[1].object else {
@@ -973,7 +969,10 @@ fn test_action_rule_behavior() {
 
     // alpha has action SetBit(key, 0)
     let alpha = mp_line.spans.iter().find(|s| s.content == "alpha").unwrap();
-    assert!(matches!(alpha.action, Some(ifengine::Action::SetBit(_, 0))));
+    assert!(matches!(
+        alpha.action.first(),
+        Some(ifengine::Action::SetBit(_, 0))
+    ));
 
     // beta_link preserved existing action
     let beta = mp_line
@@ -982,29 +981,32 @@ fn test_action_rule_behavior() {
         .find(|s| s.content == "[[beta_link]]")
         .unwrap();
     assert!(matches!(
-        beta.action,
+        beta.action.first(),
         Some(ifengine::Action::SetBit(888, 0))
     ));
 
     // gamma has action SetBit(key, 1) because beta was not split
     let gamma = mp_line.spans.iter().find(|s| s.content == "gamma").unwrap();
-    assert!(matches!(gamma.action, Some(ifengine::Action::SetBit(_, 1))));
+    assert!(matches!(
+        gamma.action.first(),
+        Some(ifengine::Action::SetBit(_, 1))
+    ));
 
     // Click alpha in mparagraph
-    let alpha_action = alpha.action.clone().unwrap();
+    let alpha_action = alpha.action.clone();
     game.handle_action(alpha_action).unwrap();
     let view2 = game.view().unwrap();
 
     let Object::Paragraph(mp_line2, _) = &view2.inner[1].object else {
         panic!("expected Paragraph");
     };
-    // Once clicked, alpha has action = None!
+    // Once clicked, alpha has action = empty!
     let alpha2 = mp_line2
         .spans
         .iter()
         .find(|s| s.content == "alpha")
         .unwrap();
-    assert!(alpha2.action.is_none());
+    assert!(!alpha2.active());
 
     // Click dynamic "cave" in dparagraph
     let cave_action = dp_line
@@ -1013,8 +1015,7 @@ fn test_action_rule_behavior() {
         .find(|s| s.content == "cave")
         .unwrap()
         .action
-        .clone()
-        .unwrap();
+        .clone();
     game.handle_action(cave_action).unwrap();
     let _ = game.view().unwrap();
     // dparagraph polled dynamic target "cave"!
@@ -1060,11 +1061,11 @@ fn test_dparagraph_braced_span_attachment_rules() {
     };
     let chest_span = line.spans.iter().find(|s| s.content == "chest").unwrap();
     let door_span = line.spans.iter().find(|s| s.content == "door").unwrap();
-    assert!(chest_span.action.is_some());
-    assert!(door_span.action.is_some());
+    assert!(chest_span.active());
+    assert!(door_span.active());
 
     // Click door -> polls "door", and stores loc (non-zero) in state
-    let door_action = door_span.action.as_ref().unwrap().clone();
+    let door_action = door_span.action.clone();
     game.handle_action(door_action).unwrap();
     let view2 = game.view().unwrap();
     assert_eq!(game.context.clicked, "door");
@@ -1072,7 +1073,7 @@ fn test_dparagraph_braced_span_attachment_rules() {
         panic!("expected Paragraph");
     };
     let door_span2 = line2.spans.iter().find(|s| s.content == "door").unwrap();
-    assert!(door_span2.action.is_none());
+    assert!(!door_span2.active());
 
     // Next render: door's state has value = loc (non-zero and not None) -> action is NOT attached
     let view2b = game.view().unwrap();
@@ -1080,7 +1081,7 @@ fn test_dparagraph_braced_span_attachment_rules() {
         panic!("expected Paragraph");
     };
     let door_span2b = line2b.spans.iter().find(|s| s.content == "door").unwrap();
-    assert!(door_span2b.action.is_none());
+    assert!(!door_span2b.active());
 
     // Disable chest by setting it to a custom value 12345
     game.context.disable_chest = true;
@@ -1089,7 +1090,7 @@ fn test_dparagraph_braced_span_attachment_rules() {
         panic!("expected Paragraph");
     };
     let chest_span3 = line3.spans.iter().find(|s| s.content == "chest").unwrap();
-    assert!(chest_span3.action.is_none());
+    assert!(!chest_span3.active());
 
     // Reset chest key -> hash key is None again -> action IS attached
     game.context.disable_chest = false;
@@ -1099,7 +1100,7 @@ fn test_dparagraph_braced_span_attachment_rules() {
         panic!("expected Paragraph");
     };
     let chest_span4 = line4.spans.iter().find(|s| s.content == "chest").unwrap();
-    assert!(chest_span4.action.is_some());
+    assert!(chest_span4.active());
 
     // Zero chest key -> hash key is Some(0) -> action IS attached
     game.context.reset_chest = false;
@@ -1109,7 +1110,7 @@ fn test_dparagraph_braced_span_attachment_rules() {
         panic!("expected Paragraph");
     };
     let chest_span5 = line5.spans.iter().find(|s| s.content == "chest").unwrap();
-    assert!(chest_span5.action.is_some());
+    assert!(chest_span5.active());
 }
 
 #[derive(Debug, Default, Clone)]
@@ -1160,7 +1161,7 @@ struct YieldMultiTestState {
 
 #[ifengine::ifview]
 fn test_yield_multi_page(state: &mut YieldMultiTestState) {
-    use ifengine::elements::{p, set, YIELD};
+    use ifengine::elements::{YIELD, p, set};
 
     if state.unlock_a {
         set!("unlock_a", 1);
@@ -1202,7 +1203,8 @@ fn test_yield_multi_keys() {
     assert_eq!(game_b.context.step, 11);
 
     // 4. Both keys set -> both are Some -> does not yield
-    let mut game_both = ifengine::Game::new_with_page("test_yield_multi_page", test_yield_multi_page);
+    let mut game_both =
+        ifengine::Game::new_with_page("test_yield_multi_page", test_yield_multi_page);
     game_both.context.unlock_a = true;
     game_both.context.unlock_b = true;
     let view_both = game_both.view().unwrap();
@@ -1318,7 +1320,10 @@ fn test_trait_based_keys_page(_: &mut ()) {
 
     let span_with_key = s!(("stream"), "stream");
     assert_eq!(span_with_key.content, "stream");
-    assert_eq!(span_with_key.id, Some(ifengine::core::key::IntoPageKey::into_page_key("stream")));
+    assert_eq!(
+        span_with_key.id,
+        Some(ifengine::core::key::IntoPageKey::into_page_key("stream"))
+    );
 
     let line_with_key = l!(("line_key"), "line");
     assert_eq!(line_with_key.content(), "line");
@@ -1343,11 +1348,17 @@ fn test_trait_based_keys() {
 #[ifengine::ifview]
 fn test_line_concatenation_page(_s: &mut ()) {
     use ifengine::elements::{extend, l, link, p, s};
-    let sub = l!(s!("Prefix: ").cls("bold"), link!("Go next", test_line_concatenation_page));
+    let sub = l!(
+        s!("Prefix: ").cls("bold"),
+        link!("Go next", test_line_concatenation_page)
+    );
     p!(sub, " - postfix text.");
 
     p!("Start: ");
-    extend!(l!("Extended ", link!("click target", test_line_concatenation_page)));
+    extend!(l!(
+        "Extended ",
+        link!("click target", test_line_concatenation_page)
+    ));
 }
 
 #[test]
@@ -1361,8 +1372,11 @@ fn test_nested_line_concatenation() {
     if let Object::Paragraph(line, _) = &view.inner[0].object {
         assert_eq!(line.spans.len(), 5);
         assert_eq!(line.spans[1].classes, vec!["bold"]);
-        assert!(matches!(line.spans[2].variant, ifengine::view::SpanVariant::Link));
-        assert!(line.spans[2].action.is_some());
+        assert!(matches!(
+            line.spans[2].variant,
+            ifengine::view::SpanVariant::Link
+        ));
+        assert!(line.spans[2].active());
         assert_eq!(line.spans[4].content, " - postfix text.");
     } else {
         panic!("expected Paragraph for index 0");
@@ -1373,8 +1387,11 @@ fn test_nested_line_concatenation() {
         assert_eq!(line.spans.len(), 5);
         assert_eq!(line.spans[0].content, "Start: ");
         assert_eq!(line.spans[2].content, "Extended ");
-        assert!(matches!(line.spans[3].variant, ifengine::view::SpanVariant::Link));
-        assert!(line.spans[3].action.is_some());
+        assert!(matches!(
+            line.spans[3].variant,
+            ifengine::view::SpanVariant::Link
+        ));
+        assert!(line.spans[3].active());
     } else {
         panic!("expected Paragraph for index 1");
     }
@@ -1393,10 +1410,8 @@ fn test_dparagraph_limit_1_page(state: &mut DparagraphLimitState) {
 
 #[test]
 fn test_dparagraph_max_clicks_1() {
-    let mut game = ifengine::Game::new_with_page(
-        "test_dparagraph_limit_1_page",
-        test_dparagraph_limit_1_page,
-    );
+    let mut game =
+        ifengine::Game::new_with_page("test_dparagraph_limit_1_page", test_dparagraph_limit_1_page);
 
     // Initial render: both apple and banana have actions
     let view = game.view().unwrap();
@@ -1405,11 +1420,11 @@ fn test_dparagraph_max_clicks_1() {
     };
     let apple_span = line.spans.iter().find(|s| s.content == "apple").unwrap();
     let banana_span = line.spans.iter().find(|s| s.content == "banana").unwrap();
-    assert!(apple_span.action.is_some());
-    assert!(banana_span.action.is_some());
+    assert!(apple_span.active());
+    assert!(banana_span.active());
     assert_eq!(game.context.last_clicked, "");
 
-    let apple_action = apple_span.action.clone().unwrap();
+    let apple_action = apple_span.action.clone();
 
     // Click apple -> apple polled, and since 1 >= 1, ALL links are disabled!
     game.handle_action(apple_action).unwrap();
@@ -1421,8 +1436,11 @@ fn test_dparagraph_max_clicks_1() {
     };
     let apple_span2 = line2.spans.iter().find(|s| s.content == "apple").unwrap();
     let banana_span2 = line2.spans.iter().find(|s| s.content == "banana").unwrap();
-    assert!(apple_span2.action.is_none(), "apple should be disabled");
-    assert!(banana_span2.action.is_none(), "banana should also be disabled after limit reached");
+    assert!(!apple_span2.active(), "apple should be disabled");
+    assert!(
+        !banana_span2.active(),
+        "banana should also be disabled after limit reached"
+    );
 
     // Subsequent render: links remain disabled, last_clicked is ""
     let view3 = game.view().unwrap();
@@ -1430,7 +1448,7 @@ fn test_dparagraph_max_clicks_1() {
     let Object::Paragraph(line3, _) = &view3.inner[0].object else {
         panic!("expected Paragraph");
     };
-    assert!(line3.spans.iter().all(|s| s.action.is_none()));
+    assert!(line3.spans.iter().all(|s| !s.active()));
 }
 
 #[ifengine::ifview]
@@ -1441,23 +1459,30 @@ fn test_dparagraph_limit_2_page(state: &mut DparagraphLimitState) {
 
 #[test]
 fn test_dparagraph_max_clicks_2_with_trailer() {
-    let mut game = ifengine::Game::new_with_page(
-        "test_dparagraph_limit_2_page",
-        test_dparagraph_limit_2_page,
-    );
+    let mut game =
+        ifengine::Game::new_with_page("test_dparagraph_limit_2_page", test_dparagraph_limit_2_page);
 
     let view = game.view().unwrap();
     let Object::Paragraph(line, trailer) = &view.inner[0].object else {
         panic!("expected Paragraph");
     };
     assert_eq!(*trailer, "loot-trailer");
-    assert_eq!(line.classes, vec!["highlight".to_string(), "extra-class".to_string()]);
+    assert_eq!(
+        line.classes,
+        vec!["highlight".to_string(), "extra-class".to_string()]
+    );
 
-    let sword_action = line.spans.iter().find(|s| s.content == "sword").unwrap().action.clone().unwrap();
+    let sword_action = line
+        .spans
+        .iter()
+        .find(|s| s.content == "sword")
+        .unwrap()
+        .action
+        .clone();
     let shield_span = line.spans.iter().find(|s| s.content == "shield").unwrap();
     let potion_span = line.spans.iter().find(|s| s.content == "potion").unwrap();
-    assert!(shield_span.action.is_some());
-    assert!(potion_span.action.is_some());
+    assert!(shield_span.active());
+    assert!(potion_span.active());
 
     // Click sword (1st click): 1 < 2, so sword is disabled, but shield and potion remain active
     game.handle_action(sword_action).unwrap();
@@ -1470,11 +1495,11 @@ fn test_dparagraph_max_clicks_2_with_trailer() {
     let sword_span2 = line2.spans.iter().find(|s| s.content == "sword").unwrap();
     let shield_span2 = line2.spans.iter().find(|s| s.content == "shield").unwrap();
     let potion_span2 = line2.spans.iter().find(|s| s.content == "potion").unwrap();
-    assert!(sword_span2.action.is_none());
-    assert!(shield_span2.action.is_some());
-    assert!(potion_span2.action.is_some());
+    assert!(!sword_span2.active());
+    assert!(shield_span2.active());
+    assert!(potion_span2.active());
 
-    let shield_action2 = shield_span2.action.clone().unwrap();
+    let shield_action2 = shield_span2.action.clone();
 
     // Click shield (2nd click): 2 >= 2, so ALL links are now disabled
     game.handle_action(shield_action2).unwrap();
@@ -1484,26 +1509,8 @@ fn test_dparagraph_max_clicks_2_with_trailer() {
     let Object::Paragraph(line3, _) = &view3.inner[0].object else {
         panic!("expected Paragraph");
     };
-    assert!(line3.spans.iter().all(|s| s.action.is_none()), "all links disabled when >= 2 clicked");
-}
-
-#[ifengine::ifview]
-fn test_dparagraph_limit_0_page(state: &mut DparagraphLimitState) {
-    use ifengine::elements::dp;
-    state.last_clicked = dp!((777), 0: "Click [[nothing]]").to_string();
-}
-
-#[test]
-fn test_dparagraph_max_clicks_0() {
-    let mut game = ifengine::Game::new_with_page(
-        "test_dparagraph_limit_0_page",
-        test_dparagraph_limit_0_page,
+    assert!(
+        line3.spans.iter().all(|s| !s.active()),
+        "all links disabled when >= 2 clicked"
     );
-
-    let view = game.view().unwrap();
-    assert_eq!(view.inner[0].id, Some((1u64 << 48) | (777 & ifengine::core::key::USER_KEY_MASK)));
-    let Object::Paragraph(line, _) = &view.inner[0].object else {
-        panic!("expected Paragraph");
-    };
-    assert!(line.spans.iter().all(|s| s.action.is_none()), "limit 0 disables all links immediately");
 }

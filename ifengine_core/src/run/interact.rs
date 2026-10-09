@@ -50,14 +50,14 @@ impl View {
                 Object::Paragraph(line, _)
                 | Object::Note(line, _) => {
                     for span in &line.spans {
-                        if span.action.is_some() {
+                        if span.active() {
                             bucket.push(Interactable::Span(obj, span));
                         }
                     }
                 }
 
                 Object::Heading(span, _level) => {
-                    if span.action.is_some() {
+                    if span.active() {
                         bucket.push(Interactable::Span(obj, span));
                     }
                 }
@@ -68,14 +68,14 @@ impl View {
                         .as_ref()
                         .expect("Object::Choice must have an id on StampedObject");
                     for (i, line) in choices {
-                        let ignore = line.spans.iter().any(|span| span.action.is_some());
+                        let ignore = line.spans.iter().any(|span| span.active());
 
                         if !ignore {
                             bucket.push(Interactable::Choice(key, choices, *i));
                         }
 
                         for span in &line.spans {
-                            if span.action.is_some() {
+                            if span.active() {
                                 bucket.push(Interactable::Span(obj, span));
                             }
                         }
@@ -108,7 +108,7 @@ impl View {
             .flat_map(|v| {
                 v.into_iter().filter(|e| {
                     if let Interactable::Span(_, span) = e
-                        && ((SIM && span.no_sim) || matches!(span.action, Some(Action::None)))
+                        && ((SIM && span.no_sim) || !span.active() || span.action.iter().all(|a| matches!(a, Action::None)))
                     {
                         false
                     } else {
@@ -129,8 +129,7 @@ impl<C: GameContext> Game<C> {
                 Ok(())
             }
             Interactable::Span(_, s) => {
-                let action = s.action.as_ref().unwrap();
-                self.handle_action(action.clone()).map(|_| {})
+                self.handle_action(s.action.clone()).map(|_| {})
             }
         }
     }

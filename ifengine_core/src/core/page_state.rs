@@ -441,11 +441,13 @@ impl<'a> PageState<'a> {
         if let Some(stamped) = self.view.last() {
             if let Object::Paragraph(line, _) = &stamped.object {
                 for span in &line.spans {
-                    if let Some(crate::core::Action::SetDirty(hk, _)) = span.action {
-                        if let Some(val) = self.get(hk) {
-                            if (val & USER_KEY_MASK) == loc && (val & DIRTY_BIT) != 0 {
-                                self.insert(hk, val & !DIRTY_BIT);
-                                return Some(&span.content);
+                    for action in &span.action {
+                        if let crate::core::Action::SetDirty(hk, _) = *action {
+                            if let Some(val) = self.get(hk) {
+                                if (val & USER_KEY_MASK) == loc && (val & DIRTY_BIT) != 0 {
+                                    self.insert(hk, val & !DIRTY_BIT);
+                                    return Some(&span.content);
+                                }
                             }
                         }
                     }

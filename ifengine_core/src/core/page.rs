@@ -73,6 +73,14 @@ pub struct PageHandle {
     pub id: PageId,
 }
 
+impl PartialEq for PageHandle {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
+
+impl Eq for PageHandle {}
+
 impl iddqd::IdHashItem for PageHandle {
     type Key<'a> = &'a PageId;
 

@@ -89,7 +89,7 @@ fn render_image(img: Image, ui: &mut Ui, mut game: Option<&mut GameInner>) {
         resp
     };
 
-    if let Some(action) = action
+    if !action.is_empty()
         && let Some(game) = game.as_mut()
     {
         if resp.clicked() {

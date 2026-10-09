@@ -201,7 +201,7 @@ fn test_replace_closure_and_non_closure() {
     // 1. Initial render for chest (key 100)
     let action_100 = if let Object::Paragraph(line, _) = &view.inner[0].object {
         assert_eq!(line.content(), "The iron chest is locked tight.");
-        line.spans[1].action.clone().unwrap()
+        line.spans[1].action.clone()
     } else {
         panic!("expected Object::Paragraph for chest");
     };
@@ -221,7 +221,7 @@ fn test_replace_closure_and_non_closure() {
 
     // 3. Click door link (key 200) - non-closure
     let action_200 = if let Object::Paragraph(line, _) = &view2.inner[1].object {
-        line.spans[1].action.clone().unwrap()
+        line.spans[1].action.clone()
     } else {
         panic!("expected Object::Paragraph for door");
     };

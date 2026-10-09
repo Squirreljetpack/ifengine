@@ -140,9 +140,9 @@ pub fn ObjectView(stamped: StampedObject) -> impl IntoView {
             let img_style = style_parts.join(" ");
 
             let alt_text = img.alt.clone();
-            let action_opt = img.action;
+            let action = img.action;
 
-            if let Some(action) = action_opt {
+            if !action.is_empty() {
                 view! {
                     <div class="passage-image-wrapper" style=vt_style>
                         <button

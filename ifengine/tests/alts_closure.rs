@@ -56,7 +56,7 @@ fn test_alts_closure_initial_and_clicks() {
     assert_eq!(p2.spans[0].content, "one");
 
     // Click s1 (Stop) -> should advance to index 1 ("beta")
-    let action_stop = p0.spans[0].action.clone().expect("action");
+    let action_stop = p0.spans[0].action.clone();
     game.inner.handle_action(action_stop).expect("action");
     let view2 = game.view().expect("view should succeed");
     assert_eq!(game.context.stop_idx, 1);
@@ -66,7 +66,7 @@ fn test_alts_closure_initial_and_clicks() {
     assert_eq!(p0_2.spans[0].content, "beta");
 
     // Click s1 (Stop) again -> should advance to index 2 ("gamma")
-    let action_stop_2 = p0_2.spans[0].action.clone().expect("action");
+    let action_stop_2 = p0_2.spans[0].action.clone();
     game.inner.handle_action(action_stop_2).expect("action");
     let view3 = game.view().expect("view should succeed");
     assert_eq!(game.context.stop_idx, 2);
@@ -74,10 +74,10 @@ fn test_alts_closure_initial_and_clicks() {
         panic!("expected Object::Paragraph");
     };
     assert_eq!(p0_3.spans[0].content, "gamma");
-    assert!(p0_3.spans[0].action.is_none());
+    assert!(!p0_3.spans[0].active());
 
     // Click s2 (Cycle) -> should advance to index 1 ("green")
-    let action_cycle = p1.spans[0].action.clone().expect("action");
+    let action_cycle = p1.spans[0].action.clone();
     game.inner.handle_action(action_cycle).expect("action");
     let view5 = game.view().expect("view should succeed");
     assert_eq!(game.context.cycle_idx, 1);
@@ -87,7 +87,7 @@ fn test_alts_closure_initial_and_clicks() {
     assert_eq!(p1_2.spans[0].content, "green");
 
     // Click s2 (Cycle) -> index 2 ("blue")
-    let action_cycle_2 = p1_2.spans[0].action.clone().expect("action");
+    let action_cycle_2 = p1_2.spans[0].action.clone();
     game.inner.handle_action(action_cycle_2).expect("action");
     let view6 = game.view().expect("view should succeed");
     assert_eq!(game.context.cycle_idx, 2);
@@ -97,7 +97,7 @@ fn test_alts_closure_initial_and_clicks() {
     assert_eq!(p1_3.spans[0].content, "blue");
 
     // Click s2 (Cycle) -> cycles back to index 0 ("red")
-    let action_cycle_3 = p1_3.spans[0].action.clone().expect("action");
+    let action_cycle_3 = p1_3.spans[0].action.clone();
     game.inner.handle_action(action_cycle_3).expect("action");
     let view7 = game.view().expect("view should succeed");
     assert_eq!(game.context.cycle_idx, 0);
@@ -107,7 +107,7 @@ fn test_alts_closure_initial_and_clicks() {
     assert_eq!(p1_4.spans[0].content, "red");
 
     // Click s3 (bracketed Stop) -> index 1 ("two")
-    let action_bracket = p2.spans[0].action.clone().expect("action");
+    let action_bracket = p2.spans[0].action.clone();
     game.inner.handle_action(action_bracket).expect("action");
     let view8 = game.view().expect("view should succeed");
     assert_eq!(game.context.bracket_idx, 1);
@@ -115,7 +115,7 @@ fn test_alts_closure_initial_and_clicks() {
         panic!("expected Object::Paragraph");
     };
     assert_eq!(p2_2.spans[0].content, "two");
-    assert!(p2_2.spans[0].action.is_none());
+    assert!(!p2_2.spans[0].active());
 }
 
 #[derive(Clone, Debug, Default)]
@@ -144,7 +144,7 @@ fn test_alts_with_variable_expression() {
     };
     assert_eq!(p.spans[0].content, "apple");
 
-    let action = p.spans[0].action.clone().expect("action");
+    let action = p.spans[0].action.clone();
     game.inner.handle_action(action).expect("click");
     let view2 = game.view().expect("view should succeed");
 
@@ -175,13 +175,13 @@ fn test_stop_drops_action_and_count_clicks() {
 
     // Initial:
     assert_eq!(line.spans[0].content, "Click once");
-    assert!(line.spans[0].action.is_some());
+    assert!(line.spans[0].active());
     assert_eq!(line.spans[1].content, " and ");
     assert_eq!(line.spans[2].content, "clicks: 0");
-    assert!(line.spans[2].action.is_some());
+    assert!(line.spans[2].active());
 
     // 1st click on count:
-    let action_c = line.spans[2].action.clone().expect("count action");
+    let action_c = line.spans[2].action.clone();
     game.inner.handle_action(action_c).expect("handle count action");
     let view2 = game.view().expect("view 2");
     let Object::Paragraph(line2, _) = &view2.inner[0].object else {
@@ -190,7 +190,7 @@ fn test_stop_drops_action_and_count_clicks() {
     assert_eq!(line2.spans[2].content, "clicks: 1");
 
     // 2nd click on count:
-    let action_c2 = line2.spans[2].action.clone().expect("count action");
+    let action_c2 = line2.spans[2].action.clone();
     game.inner.handle_action(action_c2).expect("handle count action");
     let view3 = game.view().expect("view 3");
     let Object::Paragraph(line3, _) = &view3.inner[0].object else {
@@ -199,13 +199,13 @@ fn test_stop_drops_action_and_count_clicks() {
     assert_eq!(line3.spans[2].content, "clicks: 2");
 
     // Click alts (Stop):
-    let action_a = line3.spans[0].action.clone().expect("alts action");
+    let action_a = line3.spans[0].action.clone();
     game.inner.handle_action(action_a).expect("handle alts action");
     let view4 = game.view().expect("view 4");
     let Object::Paragraph(line4, _) = &view4.inner[0].object else {
         panic!("expected Object::Paragraph");
     };
     assert_eq!(line4.spans[0].content, "Done");
-    assert!(line4.spans[0].action.is_none());
+    assert!(!line4.spans[0].active());
 }
 

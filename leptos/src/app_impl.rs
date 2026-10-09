@@ -1,6 +1,6 @@
 use std::sync::{Arc, RwLock};
 
-use ifengine::{Action, PageKey};
+use ifengine::{Actions, PageKey};
 use leptos::prelude::*;
 
 use crate::components::{Footer, Header, HeaderItem, ModalMode, ObjectView, SaveLoadModal};
@@ -168,7 +168,7 @@ where
     let game_for_interaction = Arc::clone(&game_lock);
     let on_interaction = refresh_view.clone();
     let dispatch_interaction = Callback::new(
-        move |(choice, action): (Option<(PageKey, u8)>, Option<Action>)| {
+        move |(choice, action): (Option<(PageKey, u8)>, Option<Actions>)| {
             let mut game = game_for_interaction.write().unwrap();
             crate::storage::save_autosave(&game);
             if let Some((choice_key, index)) = choice {
@@ -186,7 +186,7 @@ where
         },
     );
 
-    let dispatch_action = Callback::new(move |action: Action| {
+    let dispatch_action = Callback::new(move |action: Actions| {
         dispatch_interaction.run((None, Some(action)));
     });
 
@@ -195,7 +195,7 @@ where
     });
 
     let dispatch_choice_action = Callback::new(
-        move |((choice_key, index), action): ((PageKey, u8), Action)| {
+        move |((choice_key, index), action): ((PageKey, u8), Actions)| {
             dispatch_interaction.run((Some((choice_key, index)), Some(action)));
         },
     );

@@ -60,7 +60,7 @@ pub fn span_classes(span: &Span, extra_classes: &[&str]) -> String {
         SpanVariant::None => {}
     }
 
-    if span.action.is_some() {
+    if span.active() {
         classes.push("interactive-action".into());
     }
 

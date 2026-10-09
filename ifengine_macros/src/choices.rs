@@ -371,7 +371,7 @@ pub fn dparagraph(input: TokenStream) -> TokenStream {
             let __max_clicks: usize = (#max_expr) as usize;
             if __clicked_count >= __max_clicks {
                 __out_line.clear_actions(|span| {
-                    matches!(&span.action, Some(ifengine::core::Action::SetDirty(_, k)) if *k == __ifengine_key)
+                    span.action.iter().any(|a| matches!(a, ifengine::core::Action::SetDirty(_, k) if *k == __ifengine_key))
                 });
             }
         },

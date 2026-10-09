@@ -2,13 +2,13 @@ use bitflags::bitflags;
 use std::collections::HashMap;
 use std::ops::{Add, AddAssign, Sub, SubAssign};
 
-use crate::{Action, PageKey, utils::prose};
+use crate::{Action, Actions, PageKey, utils::prose};
 
 /// Abstract span. Similar in principle to an HTML element/egui TextFormat.
 #[derive(Debug, Clone, Default)]
 pub struct Span {
     pub id: Option<PageKey>,
-    pub action: Option<Action>,
+    pub action: Actions,
     pub content: String,
     pub prose: bool,
 
@@ -40,7 +40,7 @@ impl Span {
     pub fn new(s: impl Into<String>) -> Self {
         Self {
             id: None,
-            action: None,
+            action: Actions::new(),
             content: s.into(),
             prose: true,
             variant: SpanVariant::None,
@@ -110,8 +110,23 @@ impl Span {
     }
 
     pub fn with_action(mut self, action: impl Into<Action>) -> Self {
-        self.action = Some(action.into());
+        self.action.push(action.into());
         self
+    }
+
+    pub fn with_actions(mut self, actions: impl IntoIterator<Item = Action>) -> Self {
+        self.action.extend(actions);
+        self
+    }
+
+    pub fn reset_actions(mut self) -> Self {
+        self.action.clear();
+        self
+    }
+
+    /// Whether this span has any attached actions.
+    pub fn active(&self) -> bool {
+        !self.action.is_empty()
     }
 
     pub fn with_text(mut self, text: String) -> Self {
@@ -233,7 +248,6 @@ impl Line {
         }
     }
 
-
     /// Scans spans without actions, splits bracketed `[[target]]` links, and attaches actions via `action_fn`.
     ///
     /// - If `FALLBACK` is `true` and no bracketed targets are found across the entire line,
@@ -247,7 +261,7 @@ impl Line {
         let mut new_spans = Vec::with_capacity(self.spans.len());
 
         for span in self.spans {
-            if span.action.is_some() {
+            if span.active() {
                 new_spans.push(span);
             } else {
                 let parts = crate::utils::split_braced(&span.content);
@@ -258,7 +272,9 @@ impl Line {
                     let is_link = i % 2 == 1;
                     let mut s = span.clone().with_text(part);
                     if is_link {
-                        s.action = action_fn(link_idx, &s);
+                        if let Some(action) = action_fn(link_idx, &s) {
+                            s.action.push(action);
+                        }
                         link_idx += 1;
                     }
                     new_spans.push(s);
@@ -268,8 +284,10 @@ impl Line {
 
         if FALLBACK && link_idx == 0 {
             for span in &mut new_spans {
-                if span.action.is_none() {
-                    span.action = action_fn(link_idx, span);
+                if !span.active() {
+                    if let Some(action) = action_fn(link_idx, span) {
+                        span.action.push(action);
+                    }
                     link_idx += 1;
                 }
             }
@@ -283,7 +301,7 @@ impl Line {
     pub fn clear_actions(&mut self, mut predicate: impl FnMut(&Span) -> bool) -> &mut Self {
         for span in &mut self.spans {
             if predicate(span) {
-                span.action = None;
+                span.action.clear();
             }
         }
         self
@@ -446,7 +464,6 @@ impl<T: Into<Line>> FromIterator<T> for Line {
                 }
             }
             out.spans.append(&mut line.spans);
-            out.classes.append(&mut line.classes);
         }
         out
     }
@@ -462,7 +479,6 @@ impl<T: Into<Line>> Add<T> for Line {
             }
         }
         self.spans.append(&mut line.spans);
-        self.classes.append(&mut line.classes);
         self
     }
 }
@@ -484,8 +500,12 @@ impl<T: Into<Line>> Add<T> for &Span {
 impl<T: Into<Line>> AddAssign<T> for Line {
     fn add_assign(&mut self, rhs: T) {
         let mut line = rhs.into();
+        if !line.classes.is_empty() {
+            for span in &mut line.spans {
+                span.classes.extend(line.classes.clone());
+            }
+        }
         self.spans.append(&mut line.spans);
-        self.classes.append(&mut line.classes);
     }
 }
 
@@ -493,8 +513,12 @@ impl<T: Into<Line>> Extend<T> for Line {
     fn extend<I: IntoIterator<Item = T>>(&mut self, iter: I) {
         for item in iter {
             let mut line = item.into();
+            if !line.classes.is_empty() {
+                for span in &mut line.spans {
+                    span.classes.extend(line.classes.clone());
+                }
+            }
             self.spans.append(&mut line.spans);
-            self.classes.append(&mut line.classes);
         }
     }
 }
@@ -786,26 +810,29 @@ mod tests {
             .interleave_actions::<false>(|i, _| Some(Action::SetBit(1, i as u8)));
         assert_eq!(line.spans.len(), 4);
         assert_eq!(line.spans[0].content, "Go to ");
-        assert!(line.spans[0].action.is_none());
+        assert!(!line.spans[0].active());
         assert_eq!(line.spans[1].content, "forest");
-        assert!(matches!(line.spans[1].action, Some(Action::SetBit(1, 0))));
+        assert_eq!(line.spans[1].action.as_slice(), [Action::SetBit(1, 0)]);
         assert_eq!(line.spans[2].content, " or ");
-        assert!(line.spans[2].action.is_none());
+        assert!(!line.spans[2].active());
         assert_eq!(line.spans[3].content, "inn");
-        assert!(matches!(line.spans[3].action, Some(Action::SetBit(1, 1))));
+        assert_eq!(line.spans[3].action.as_slice(), [Action::SetBit(1, 1)]);
 
         // Without fallback and no brackets: no links
         let line_nobrackets = Line::from("No links here")
             .interleave_actions::<false>(|i, _| Some(Action::SetBit(1, i as u8)));
         assert_eq!(line_nobrackets.spans.len(), 1);
-        assert!(line_nobrackets.spans[0].action.is_none());
+        assert!(!line_nobrackets.spans[0].active());
 
         // With fallback and no brackets: entire line becomes clickable link
         let line_fallback = Line::from("The old chest is locked.")
             .interleave_actions::<true>(|i, _| Some(Action::SetBit(1, i as u8)));
         assert_eq!(line_fallback.spans.len(), 1);
         assert_eq!(line_fallback.spans[0].content, "The old chest is locked.");
-        assert!(matches!(line_fallback.spans[0].action, Some(Action::SetBit(1, 0))));
+        assert_eq!(
+            line_fallback.spans[0].action.as_slice(),
+            [Action::SetBit(1, 0)]
+        );
 
         // Preserves prototype classes and styles
         let proto_line = Line::from(Span::new("See [[item]] now").cls("highlight"))
@@ -813,8 +840,24 @@ mod tests {
         assert_eq!(proto_line.spans.len(), 3);
         assert_eq!(proto_line.spans[0].classes, vec!["highlight"]);
         assert_eq!(proto_line.spans[1].classes, vec!["highlight"]);
-        assert!(matches!(proto_line.spans[1].action, Some(Action::SetBit(1, 0))));
+        assert_eq!(
+            proto_line.spans[1].action.as_slice(),
+            [Action::SetBit(1, 0)]
+        );
         assert_eq!(proto_line.spans[2].classes, vec!["highlight"]);
+    }
+
+    #[test]
+    fn test_span_multiple_actions_and_reset() {
+        let span = Span::new("test")
+            .with_action(Action::SetBit(1, 0))
+            .with_action(Action::Exit);
+        assert_eq!(span.action.len(), 2);
+        assert_eq!(span.action.as_slice(), [Action::SetBit(1, 0), Action::Exit]);
+        assert!(span.active());
+
+        let span_cleared = span.reset_actions();
+        assert!(!span_cleared.active());
     }
 
     #[test]
@@ -858,7 +901,10 @@ mod tests {
         let span_prose = Span::from("''Hello... world--test''");
         assert_eq!(span_prose.content(), "“Hello… world—test”");
         assert_eq!(span_prose.content, "''Hello... world--test''");
-        assert_eq!(span_prose.without_prose().content(), "''Hello... world--test''");
+        assert_eq!(
+            span_prose.without_prose().content(),
+            "''Hello... world--test''"
+        );
 
         let line_prose = Line::from("''Hello... world--test''");
         assert_eq!(line_prose.content(), "“Hello… world—test”");

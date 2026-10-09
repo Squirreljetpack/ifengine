@@ -1,4 +1,4 @@
-use ifengine::{Action, PageKey};
+use ifengine::{Actions, PageKey};
 use leptos::prelude::*;
 
 use crate::transition::TransitionManager;
@@ -10,11 +10,11 @@ use crate::transition::TransitionManager;
 #[derive(Clone, Copy)]
 pub struct StoryContext {
     /// Dispatches state mutations and passage transitions.
-    pub dispatch_action: Callback<Action>,
+    pub dispatch_action: Callback<Actions>,
     /// Dispatches bitmask choice selections.
     pub dispatch_choice: Callback<(PageKey, u8)>,
     /// Dispatches a choice selection and action atomically.
-    pub dispatch_choice_action: Callback<((PageKey, u8), Action)>,
+    pub dispatch_choice_action: Callback<((PageKey, u8), Actions)>,
     /// Reactive transition manager tracking animated items across iterations.
     pub transitions: RwSignal<TransitionManager>,
     /// Opens the Save Game modal.

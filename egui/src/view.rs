@@ -10,7 +10,7 @@ use ifengine::{
 #[ext(ElementExt)]
 impl Span {
     pub fn as_rich_text(&self) -> RichText {
-        let is_link = matches!(self.variant, SpanVariant::Link) || self.action.is_some();
+        let is_link = matches!(self.variant, SpanVariant::Link) || self.active();
         self.as_rich_text_with_link(is_link)
     }
 
@@ -127,7 +127,7 @@ impl Span {
     // handle underline manually due to egui exaggerating line height offset
     // Link Variant or action-bearing span gets a cursor change
     pub fn add(&self, ui: &mut Ui, sense: bool) -> Response {
-        let is_link = matches!(self.variant, SpanVariant::Link) || self.action.is_some() || sense;
+        let is_link = matches!(self.variant, SpanVariant::Link) || self.active() || sense;
         let rich = self.as_rich_text_with_link(is_link).with_line_height(ui, 1.6);
         let needs_underline = self.modifiers.contains(Modifier::UNDERLINE);
 

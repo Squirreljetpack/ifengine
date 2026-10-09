@@ -109,7 +109,7 @@ pub fn ChoiceView(key: PageKey, choices: Vec<(u8, Line)>) -> impl IntoView {
     view! {
         <div class="passage-choices choice-container" style=choice_style>
             {choices.into_iter().map(|(idx, line)| {
-                let has_internal_actions = line.spans.iter().any(|s| s.action.is_some());
+                let has_internal_actions = line.spans.iter().any(|s| s.active());
                 view! {
                     <ChoiceItemView
                         key=key

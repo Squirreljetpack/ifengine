@@ -42,3 +42,21 @@ fn test_tunnel_deduplication_from_same_page() {
     // The destination run should only have 1 page record (visited once, not duplicated)
     assert_eq!(dest_run.len(), 1);
 }
+
+#[ifengine::ifview]
+fn tunnel_with_click(_state: &mut SimState) {
+    use ifengine::elements::click;
+    paragraph!(
+        tun!(click!("The Place Between."), tunnel_dest),
+    );
+}
+
+#[test]
+fn test_tunnel_with_click_actions() {
+    let mut game = Game::new_with_page("tunnel_with_click", tunnel_with_click);
+    let view = game.view().unwrap();
+    if let ifengine::view::Object::Paragraph(line, _) = &view.inner[0].object {
+        assert_eq!(line.spans[0].action.len(), 2);
+    }
+}
+

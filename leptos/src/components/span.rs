@@ -20,8 +20,7 @@ pub fn SpanView(
     let ctx = expect_context::<StoryContext>();
     let config = parse_transition_classes(&span.classes);
     let is_changed = if span.id.is_some() {
-        ctx
-            .transitions
+        ctx.transitions
             .write_untracked()
             .is_content_changed(span.id, span.content_hash())
     } else {
@@ -78,7 +77,8 @@ pub fn SpanView(
 
     let content = span.content().to_string();
 
-    if let Some(action) = span.action {
+    if span.active() {
+        let action = span.action.clone();
         let base_class = if matches!(span.variant, SpanVariant::Link) {
             "passage-link"
         } else {

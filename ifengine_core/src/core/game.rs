@@ -3,7 +3,7 @@ use std::collections::{HashMap, HashSet};
 use crate::core::{Page, PageHandle, PageId, Response};
 use crate::core::{PageKey, game_state::GameState};
 use crate::view::View;
-use crate::{Action, GameError};
+use crate::{Action, Actions, GameError};
 
 /// Used to manage custom state
 pub type StringMap = HashMap<String, String>;
@@ -244,38 +244,40 @@ impl GameInner {
         self.state.set_bit(&self.last_id, key, index)
     }
 
-    pub fn handle_action(&mut self, action: Action) -> Result<(), GameError> {
-        match action {
-            Action::None => {}
-            Action::SetBit(k, v) => {
-                self.state.set_bit(&self.last_id, k, v);
-            }
-            Action::Set(k, v) => {
-                self.state.insert(&self.last_id, k, v);
-            }
-            Action::SetDirty(k, expected) => {
-                self.state.set_dirty(&self.last_id, k, expected);
-            }
-            Action::Inc(k) => {
-                self.state.inc(&self.last_id, k);
-            }
-            Action::Reset(k) => {
-                self.state.remove(&self.last_id, k);
-            }
-            Action::Next(mut page) => {
-                page.id = "".into(); // Only rendered pages go into history + this is not the full name
-                self.pages.push(page)?;
-            }
-            Action::Back(n) => {
-                self.pages.pop_n(n)?;
-            }
-            Action::Tunnel(mut page) => {
-                self.pages.adv_stack();
-                page.id = "".into(); // Only rendered pages go into history + this is not the full name
-                self.pages.push(page)?;
-            }
-            Action::Exit => {
-                self.pages.pop_stack().ok_or(GameError::End)?;
+    pub fn handle_action(&mut self, actions: impl Into<Actions>) -> Result<(), GameError> {
+        for action in actions.into() {
+            match action {
+                Action::None => {}
+                Action::SetBit(k, v) => {
+                    self.state.set_bit(&self.last_id, k, v);
+                }
+                Action::Set(k, v) => {
+                    self.state.insert(&self.last_id, k, v);
+                }
+                Action::SetDirty(k, expected) => {
+                    self.state.set_dirty(&self.last_id, k, expected);
+                }
+                Action::Inc(k) => {
+                    self.state.inc(&self.last_id, k);
+                }
+                Action::Reset(k) => {
+                    self.state.remove(&self.last_id, k);
+                }
+                Action::Next(mut page) => {
+                    page.id = "".into(); // Only rendered pages go into history + this is not the full name
+                    self.pages.push(page)?;
+                }
+                Action::Back(n) => {
+                    self.pages.pop_n(n)?;
+                }
+                Action::Tunnel(mut page) => {
+                    self.pages.adv_stack();
+                    page.id = "".into(); // Only rendered pages go into history + this is not the full name
+                    self.pages.push(page)?;
+                }
+                Action::Exit => {
+                    self.pages.pop_stack().ok_or(GameError::End)?;
+                }
             }
         }
         Ok(())

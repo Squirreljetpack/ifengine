@@ -62,8 +62,8 @@ mod tests {
         for obj in &sub_view.inner {
             if let Object::Paragraph(line, _) = &obj.object {
                 for span in &line.spans {
-                    if let Some(action) = &span.action {
-                        link_action = Some(action.clone());
+                    if span.active() {
+                        link_action = Some(span.action.clone());
                     }
                 }
             }
@@ -85,8 +85,8 @@ mod tests {
         for obj in &logs_view.inner {
             if let Object::Paragraph(line, _) = &obj.object {
                 for span in &line.spans {
-                    if let Some(action) = &span.action {
-                        back_action = Some(action.clone());
+                    if span.active() {
+                        back_action = Some(span.action.clone());
                     }
                 }
             }
@@ -177,7 +177,7 @@ mod tests {
                 if line.content().contains("wanted criminal") {
                     for span in &line.spans {
                         if span.content.contains("wanted criminal") {
-                            replace_link_action = span.action.clone();
+                            replace_link_action = span.action.clone().take();
                         }
                     }
                 }
@@ -342,7 +342,7 @@ mod tests {
             if let Object::Paragraph(line, _) = &obj.object {
                 for span in &line.spans {
                     if span.content.contains("Dismiss") {
-                        dismiss_action = span.action.clone();
+                        dismiss_action = span.action.clone().take();
                     }
                 }
             }
@@ -431,7 +431,7 @@ mod tests {
             if let Object::Paragraph(line, _) = &obj.object {
                 for span in &line.spans {
                     if span.content.contains("Dismiss") {
-                        second_dismiss_action = span.action.clone();
+                        second_dismiss_action = span.action.clone().take();
                     }
                 }
             }
@@ -493,7 +493,7 @@ mod tests {
             if let Object::Paragraph(line, _) = &obj.object {
                 for span in &line.spans {
                     if span.content == "tomorrow" {
-                        tomorrow_action = span.action.clone();
+                        tomorrow_action = span.action.clone().take();
                     }
                 }
             }

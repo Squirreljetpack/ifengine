@@ -10,6 +10,7 @@ pub mod view;
 // Core types needed to use the library
 pub use {
     core::Action,
+    core::Actions,
     core::Game,
     core::PageKey,
     errors::*,

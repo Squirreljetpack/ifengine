@@ -1,6 +1,9 @@
 use std::borrow::Cow;
 
-use crate::{core::Action, view::RenderData};
+use crate::{
+    core::{Action, Actions},
+    view::RenderData,
+};
 
 /// Image type.
 /// See [`Object`](crate::view::Object).
@@ -8,7 +11,7 @@ use crate::{core::Action, view::RenderData};
 pub struct Image {
     pub size: [usize; 2],
     pub variant: ImageVariant,
-    pub action: Option<Action>,
+    pub action: Actions,
     pub alt: String, // caption and alt_text
     pub render_data: RenderData,
 }
@@ -26,7 +29,7 @@ impl Image {
         Image {
             size: [0, 0],
             variant: ImageVariant::Url(url.into()),
-            action: None,
+            action: Actions::new(),
             alt: String::new(),
             render_data: "",
         }
@@ -36,7 +39,7 @@ impl Image {
         Image {
             size: [0, 0],
             variant: ImageVariant::Local(path.into(), bytes),
-            action: None,
+            action: Actions::new(),
             alt: String::new(),
             render_data: "",
         }
@@ -58,5 +61,19 @@ impl Image {
     pub fn with_alt(mut self, alt: String) -> Self {
         self.alt = alt;
         self
+    }
+
+    pub fn with_action(mut self, action: impl Into<Action>) -> Self {
+        self.action.push(action.into());
+        self
+    }
+
+    pub fn reset_actions(mut self) -> Self {
+        self.action.clear();
+        self
+    }
+
+    pub fn take_actions(&mut self) -> Option<Actions> {
+        self.action.take()
     }
 }

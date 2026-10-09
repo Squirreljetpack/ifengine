@@ -62,24 +62,26 @@ impl<C: GameContext> Game<C> {
                 Ok(())
             }
             Interactable::Span(_, s) => {
-                let action = s.action.as_ref().unwrap();
-                match action {
-                    Action::Tunnel(next) => {
-                        let tun_target = next.canonical_id();
+                for action in s.action.as_slice() {
+                    match action {
+                        Action::Tunnel(next) => {
+                            let tun_target = next.canonical_id();
 
-                        let mut next = next.clone();
-                        next.id.clear();
+                            let mut next = next.clone();
+                            next.id.clear();
 
-                        self.pages.adv_stack();
-                        let _ = self.pages.push(next);
-                        return Err(SimEnd::Tunnel(tun_target));
+                            self.pages.adv_stack();
+                            let _ = self.pages.push(next);
+                            return Err(SimEnd::Tunnel(tun_target));
+                        }
+                        Action::Exit => return Err(SimEnd::TunnelExit),
+                        _ => {
+                            self.handle_action(action.clone())
+                                .map_err(SimEnd::from)?;
+                        }
                     }
-                    Action::Exit => Err(SimEnd::TunnelExit),
-                    _ => self
-                        .handle_action(action.clone())
-                        .map(|_| {})
-                        .map_err(|e| e.into()),
                 }
+                Ok(())
             }
         }
     }
