@@ -15,27 +15,31 @@ pub fn s(input: TokenStream) -> TokenStream {
         }
     }
 
-    let exprs_parsed =
-        parse_macro_input!(input with Punctuated<Expr, syn::Token![,]>::parse_terminated);
-    let exprs: Vec<Expr> = exprs_parsed.into_iter().collect();
+    let (maybe_key, exprs) = syn::parse::Parser::parse2(|input: ParseStream| {
+        let maybe_key: MaybeKey = input.parse()?;
+        let exprs = Punctuated::<Expr, syn::Token![,]>::parse_terminated(input)?;
+        Ok((maybe_key, exprs.into_iter().collect::<Vec<_>>()))
+    }, proc_macro2::TokenStream::from(input)).expect("failed to parse s! arguments");
+
+    let id_tokens = maybe_key.into_tokens();
 
     let expanded = match exprs.len() {
         0 => quote! {
             ifengine::view::Span::new(String::new())
-                .with_id(__ifengine_page_state.auto_key())
+                .with_id(#id_tokens)
         },
         1 => {
             let expr = expand_string_expr(&exprs[0]);
             quote! {
                 ifengine::view::Span::from(#expr)
-                    .with_id(__ifengine_page_state.auto_key())
+                    .with_id(#id_tokens)
             }
         }
         _ => {
             let expanded_exprs: Vec<_> = exprs.iter().map(expand_string_expr).collect();
             quote! {
                 ifengine::view::Span::from([#( (#expanded_exprs).to_string() ),*].join(""))
-                    .with_id(__ifengine_page_state.auto_key())
+                    .with_id(#id_tokens)
             }
         }
     };
@@ -51,13 +55,18 @@ pub fn l(input: TokenStream) -> TokenStream {
         }
     }
 
-    let exprs_parsed =
-        parse_macro_input!(input with Punctuated<Expr, syn::Token![,]>::parse_terminated);
-    let lines = expand_lines(exprs_parsed);
+    let (maybe_key, exprs) = syn::parse::Parser::parse2(|input: ParseStream| {
+        let maybe_key: MaybeKey = input.parse()?;
+        let exprs = Punctuated::<Expr, syn::Token![,]>::parse_terminated(input)?;
+        Ok((maybe_key, exprs))
+    }, proc_macro2::TokenStream::from(input)).expect("failed to parse l! arguments");
+
+    let id_tokens = maybe_key.into_tokens();
+    let lines = expand_lines(exprs);
 
     let expanded = quote! {
         ifengine::view::Line::from_iter(vec![#(#lines),*])
-            .delimit_group(__ifengine_page_state.auto_key())
+            .delimit_group(#id_tokens)
     };
 
     expanded.into()
@@ -390,14 +399,15 @@ pub fn count(input: TokenStream) -> TokenStream {
 
 pub struct ClickInput {
     pub maybe_key: MaybeKey,
+    pub max_clicks: Option<Expr>,
     pub expr: Expr,
     pub block: Option<Expr>,
-    pub max_clicks: Option<Expr>,
 }
 
 impl Parse for ClickInput {
     fn parse(input: ParseStream) -> Result<Self> {
         let maybe_key = input.parse()?;
+        let max_clicks = crate::nodes::parse_prefix_max_clicks(input)?;
 
         let expr: Expr = input.parse()?;
 
@@ -412,26 +422,11 @@ impl Parse for ClickInput {
             None
         };
 
-        let max_clicks = if input.peek(Token![,]) {
-            input.parse::<Token![,]>()?;
-            if input.is_empty() {
-                None
-            } else {
-                let m = input.parse::<Expr>()?;
-                if input.peek(Token![,]) {
-                    input.parse::<Token![,]>()?;
-                }
-                Some(m)
-            }
-        } else {
-            None
-        };
-
         Ok(ClickInput {
             maybe_key,
+            max_clicks,
             expr,
             block,
-            max_clicks,
         })
     }
 }

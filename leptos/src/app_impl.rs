@@ -59,6 +59,11 @@ where
                 let _ = style.set_property("--element-transition-in-duration", &format!("{ELEMENT_TRANSITION_IN}ms"));
                 let _ = style.set_property("--page-transition-out-duration", &format!("{PAGE_TRANSITION_OUT}ms"));
                 let _ = style.set_property("--page-transition-in-duration", &format!("{PAGE_TRANSITION_IN}ms"));
+                if !FADE_TRANSITION_SLIDE {
+                    let _ = html_el.class_list().add_1("no-fade-slide");
+                } else {
+                    let _ = html_el.class_list().remove_1("no-fade-slide");
+                }
             }
         }
     }

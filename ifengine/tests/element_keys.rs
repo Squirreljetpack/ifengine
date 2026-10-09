@@ -449,11 +449,10 @@ fn test_click_page(state: &mut ClickState) {
     });
 
     let clk_bounded = click!(
-        "Bounded",
+        2: "Bounded",
         {
             state.bounded_count += 1;
-        },
-        2
+        }
     );
 
     p!(clk_unbounded, clk_bounded);
@@ -1152,6 +1151,65 @@ fn test_yield_macro_behavior() {
     assert_eq!(game.context.step, 12);
 }
 
+#[derive(Debug, Default, Clone)]
+struct YieldMultiTestState {
+    step: usize,
+    unlock_a: bool,
+    unlock_b: bool,
+}
+
+#[ifengine::ifview]
+fn test_yield_multi_page(state: &mut YieldMultiTestState) {
+    use ifengine::elements::{p, set, YIELD};
+
+    if state.unlock_a {
+        set!("unlock_a", 1);
+    }
+    if state.unlock_b {
+        set!("unlock_b", 1);
+    }
+
+    p!("Before yield");
+    state.step += 1;
+
+    // Yields only if none of the keys are is_some
+    YIELD!("unlock_a", "unlock_b");
+
+    state.step += 10;
+    p!("After yield");
+}
+
+#[test]
+fn test_yield_multi_keys() {
+    // 1. Neither key set -> both None -> yields immediately
+    let mut game = ifengine::Game::new_with_page("test_yield_multi_page", test_yield_multi_page);
+    let view = game.view().unwrap();
+    assert_eq!(view.inner.len(), 1);
+    assert_eq!(game.context.step, 1);
+
+    // 2. Only unlock_a set -> unlock_a is Some -> does not yield
+    let mut game_a = ifengine::Game::new_with_page("test_yield_multi_page", test_yield_multi_page);
+    game_a.context.unlock_a = true;
+    let view_a = game_a.view().unwrap();
+    assert_eq!(view_a.inner.len(), 2);
+    assert_eq!(game_a.context.step, 11);
+
+    // 3. Only unlock_b set -> unlock_b is Some -> does not yield
+    let mut game_b = ifengine::Game::new_with_page("test_yield_multi_page", test_yield_multi_page);
+    game_b.context.unlock_b = true;
+    let view_b = game_b.view().unwrap();
+    assert_eq!(view_b.inner.len(), 2);
+    assert_eq!(game_b.context.step, 11);
+
+    // 4. Both keys set -> both are Some -> does not yield
+    let mut game_both = ifengine::Game::new_with_page("test_yield_multi_page", test_yield_multi_page);
+    game_both.context.unlock_a = true;
+    game_both.context.unlock_b = true;
+    let view_both = game_both.view().unwrap();
+    assert_eq!(view_both.inner.len(), 2);
+    assert_eq!(game_both.context.step, 11);
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum CustomKey {
     Score,
@@ -1240,7 +1298,7 @@ fn test_trait_based_keys_page(_: &mut ()) {
     assert_eq!(get!("custom_flags"), Some(1));
 
     // 8. MaybeKey with str literal, str variable, and int
-    use ifengine::elements::{alts, count, mchoice};
+    use ifengine::elements::{alts, count, l, mchoice, s};
     let cnt_str_key = "cnt_key";
     let _c1 = count!(("literal_cnt"), |n| format!("Clicked {n} times"));
     let _c2 = count!((cnt_str_key), |n| format!("Clicked {n} times"));
@@ -1257,6 +1315,13 @@ fn test_trait_based_keys_page(_: &mut ()) {
         "Option 1" => {},
         "Option 2" => {},
     );
+
+    let span_with_key = s!(("stream"), "stream");
+    assert_eq!(span_with_key.content, "stream");
+    assert_eq!(span_with_key.id, Some(ifengine::core::key::IntoPageKey::into_page_key("stream")));
+
+    let line_with_key = l!(("line_key"), "line");
+    assert_eq!(line_with_key.content(), "line");
 
     p!("Trait-based keys tested successfully");
 }
@@ -1323,7 +1388,7 @@ struct DparagraphLimitState {
 #[ifengine::ifview]
 fn test_dparagraph_limit_1_page(state: &mut DparagraphLimitState) {
     use ifengine::elements::dp;
-    state.last_clicked = dp!("Choose [[apple]] or [[banana]]" ; 1).to_string();
+    state.last_clicked = dp!(1: "Choose [[apple]] or [[banana]]").to_string();
 }
 
 #[test]
@@ -1371,7 +1436,7 @@ fn test_dparagraph_max_clicks_1() {
 #[ifengine::ifview]
 fn test_dparagraph_limit_2_page(state: &mut DparagraphLimitState) {
     use ifengine::elements::dp;
-    state.last_clicked = dp!("Take [[sword]], [[shield]], or [[potion]]" ; 2 :: "loot-trailer").to_string();
+    state.last_clicked = dp!(2: "Take [[sword]], [[shield]], or [[potion]]" :: "loot-trailer", "highlight", ["extra-class"]).to_string();
 }
 
 #[test]
@@ -1386,6 +1451,7 @@ fn test_dparagraph_max_clicks_2_with_trailer() {
         panic!("expected Paragraph");
     };
     assert_eq!(*trailer, "loot-trailer");
+    assert_eq!(line.classes, vec!["highlight".to_string(), "extra-class".to_string()]);
 
     let sword_action = line.spans.iter().find(|s| s.content == "sword").unwrap().action.clone().unwrap();
     let shield_span = line.spans.iter().find(|s| s.content == "shield").unwrap();
@@ -1424,7 +1490,7 @@ fn test_dparagraph_max_clicks_2_with_trailer() {
 #[ifengine::ifview]
 fn test_dparagraph_limit_0_page(state: &mut DparagraphLimitState) {
     use ifengine::elements::dp;
-    state.last_clicked = dp!((777), "Click [[nothing]]" ; 0).to_string();
+    state.last_clicked = dp!((777), 0: "Click [[nothing]]").to_string();
 }
 
 #[test]

@@ -440,6 +440,11 @@ impl<T: Into<Line>> FromIterator<T> for Line {
         let mut out = Line::new();
         for item in iter {
             let mut line = item.into();
+            if !line.classes.is_empty() {
+                for span in &mut line.spans {
+                    span.classes.extend(line.classes.clone());
+                }
+            }
             out.spans.append(&mut line.spans);
             out.classes.append(&mut line.classes);
         }
@@ -451,6 +456,11 @@ impl<T: Into<Line>> Add<T> for Line {
     type Output = Self;
     fn add(mut self, rhs: T) -> Self {
         let mut line = rhs.into();
+        if !line.classes.is_empty() {
+            for span in &mut line.spans {
+                span.classes.extend(line.classes.clone());
+            }
+        }
         self.spans.append(&mut line.spans);
         self.classes.append(&mut line.classes);
         self

@@ -32,6 +32,8 @@ fn ChoiceItemView(
         "view-transition-name: item-{key}-{choice_idx}; view-transition-class: reflow;"
     );
 
+    let item_parent_id = (key.rotate_left(16) ^ ((choice_idx as u64) + 1)) | (1u64 << 63);
+
     if has_internal_actions {
         view! {
             <div
@@ -44,7 +46,7 @@ fn ChoiceItemView(
                     ctx.dispatch_choice.run((key, choice_idx));
                 }
             >
-                <LineView line=line choice=choice_ctx is_changed=is_changed parent_id=Some(key) />
+                <LineView line=line choice=choice_ctx is_changed=is_changed parent_id=Some(item_parent_id) />
             </div>
         }
         .into_any()
@@ -59,7 +61,7 @@ fn ChoiceItemView(
                     ctx.dispatch_choice.run((key, choice_idx));
                 }
             >
-                <LineView line=line choice=choice_ctx is_changed=is_changed parent_id=Some(key) />
+                <LineView line=line choice=choice_ctx is_changed=is_changed parent_id=Some(item_parent_id) />
             </button>
         }
         .into_any()
@@ -78,9 +80,8 @@ pub fn ChoiceView(key: PageKey, choices: Vec<(u8, Line)>) -> impl IntoView {
         .is_content_changed(Some(key), 0);
     let vt_style = generate_view_transition_style(Some(key), is_changed);
 
-    let is_fresh = ctx.transitions.read_untracked().is_fresh;
     let all_delayed = !choices.is_empty() && choices.iter().all(|(_, l)| is_line_delayed(l));
-    let should_delay = all_delayed && !is_fresh && is_changed;
+    let should_delay = all_delayed && is_changed;
     let (is_pending, set_pending) = signal(should_delay);
     if should_delay {
         let min_delay = choices

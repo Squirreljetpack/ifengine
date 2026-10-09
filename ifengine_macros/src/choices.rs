@@ -349,6 +349,7 @@ pub fn dparagraph(input: TokenStream) -> TokenStream {
         maybe_key,
         exprs,
         max_clicks,
+        classes,
         trailer,
     } = syn::parse_macro_input!(input as DparagraphArgs);
 
@@ -386,6 +387,7 @@ pub fn dparagraph(input: TokenStream) -> TokenStream {
 
         #[allow(unused_mut)]
         let mut __out_line = ifengine::view::Line::from_iter(vec![#(#lines),*])
+            #(.cls(#classes))*
             .interleave_actions::<false>(|_i, link_span| {
                 let hk = ifengine::core::key::hash_key(&link_span.content);
                 let should_attach = match __ifengine_page_state.get(hk) {

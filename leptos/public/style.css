@@ -788,6 +788,13 @@ html, :root {
     animation: fade-in var(--element-transition-in-duration, 0.2s) var(--element-transition-in-timing, linear) var(--element-transition-out-duration, 0.3s) both;
 }
 
+/* Delay repositioning until fade-out is fully complete, then snap invisibly before fade-in */
+html.no-fade-slide::view-transition-group(.fade) {
+    animation-delay: var(--element-transition-out-duration, 0.3s) !important;
+    animation-duration: 0.001s !important;
+    animation-fill-mode: both !important;
+}
+
 /* --------------------------------------------------------------------------
    Responsive Breakpoints
    -------------------------------------------------------------------------- */

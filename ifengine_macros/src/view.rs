@@ -4,7 +4,7 @@ use syn::parse::Parser;
 use syn::punctuated::Punctuated;
 use syn::{Error, Expr, ItemFn, Lit, LitStr, Token, parse_macro_input};
 
-use crate::helpers::{expand_line_expr, expand_lines, expand_string_expr};
+use crate::helpers::{expand_line_expr, expand_lines, expand_string_expr, unwrap_paren};
 use crate::nodes::{LineArgs, is_trailer_next, parse_until_delimiter};
 
 pub fn ifview(_attr: TokenStream, item: TokenStream) -> TokenStream {
@@ -335,23 +335,37 @@ pub fn r#YIELD(input: TokenStream) -> TokenStream {
 
     if parts.is_empty() {
         let expanded = quote! {
-            return __ifengine_page_state.into_response_with_context(__ifengine_ctx)
+            return __ifengine_page_state.into_response_with_context(__ifengine_ctx);
         };
         return expanded.into();
     }
 
-    if parts.len() > 1 {
-        return Error::new_spanned(
-            parts,
-            "YIELD! expects 0 or 1 argument: YIELD!() or YIELD!(key)",
-        )
-        .to_compile_error()
-        .into();
+    let keys: Vec<&Expr> = if parts.len() == 1 {
+        let unwrapped = unwrap_paren(&parts[0]);
+        match unwrapped {
+            Expr::Array(arr) => arr.elems.iter().collect(),
+            Expr::Tuple(tuple) => tuple.elems.iter().collect(),
+            other => vec![other],
+        }
+    } else {
+        parts.iter().collect()
+    };
+
+    if keys.is_empty() {
+        let expanded = quote! {
+            return __ifengine_page_state.into_response_with_context(__ifengine_ctx);
+        };
+        return expanded.into();
     }
 
-    let key_expr = &parts[0];
+    let checks = keys.iter().map(|key_expr| {
+        quote! {
+            __ifengine_page_state.get(#key_expr).is_none()
+        }
+    });
+
     let expanded = quote! {
-        if __ifengine_page_state.get(#key_expr).is_none() {
+        if #( #checks )&&* {
             return __ifengine_page_state.into_response_with_context(__ifengine_ctx);
         }
     };

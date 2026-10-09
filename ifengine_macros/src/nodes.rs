@@ -111,6 +111,28 @@ fn unwrap_bracket_expr(expr: Expr) -> Expr {
     expr
 }
 
+pub(crate) fn parse_trailer_and_classes(input: ParseStream) -> Result<(Option<syn::LitStr>, Vec<Expr>)> {
+    let mut trailer = None;
+    let mut classes = Vec::new();
+
+    if is_trailer_next(input) {
+        let _coloncolon: Token![::] = input.parse()?;
+        let lit: syn::LitStr = input.parse()?;
+        trailer = Some(lit);
+
+        while input.peek(Token![,]) {
+            let _comma: Token![,] = input.parse()?;
+            if input.is_empty() {
+                break;
+            }
+            let class_expr: Expr = input.parse()?;
+            classes.push(unwrap_bracket_expr(class_expr));
+        }
+    }
+
+    Ok((trailer, classes))
+}
+
 pub struct LineArgs {
     pub maybe_key: MaybeKey,
     pub exprs: Vec<Expr>,
@@ -122,8 +144,6 @@ impl Parse for LineArgs {
     fn parse(input: ParseStream) -> Result<Self> {
         let maybe_key = input.parse()?;
         let mut exprs = Vec::new();
-        let mut classes = Vec::new();
-        let mut trailer = None;
 
         while !input.is_empty() {
             if is_trailer_next(input) {
@@ -144,20 +164,7 @@ impl Parse for LineArgs {
             }
         }
 
-        if is_trailer_next(input) {
-            let _coloncolon: Token![::] = input.parse()?;
-            let lit: syn::LitStr = input.parse()?;
-            trailer = Some(lit);
-
-            while input.peek(Token![,]) {
-                let _comma: Token![,] = input.parse()?;
-                if input.is_empty() {
-                    break;
-                }
-                let class_expr: Expr = input.parse()?;
-                classes.push(unwrap_bracket_expr(class_expr));
-            }
-        }
+        let (trailer, classes) = parse_trailer_and_classes(input)?;
 
         Ok(LineArgs {
             maybe_key,
@@ -168,71 +175,71 @@ impl Parse for LineArgs {
     }
 }
 
-pub(crate) fn parse_until_semi_or_delimiter(input: ParseStream) -> Result<proc_macro2::TokenStream> {
-    let mut tokens = proc_macro2::TokenStream::new();
-    while !input.is_empty()
-        && !input.peek(Token![,])
-        && !input.peek(Token![;])
-        && !is_trailer_next(input)
-    {
-        let tt: proc_macro2::TokenTree = input.parse()?;
-        tokens.extend(std::iter::once(tt));
+pub(crate) fn parse_prefix_max_clicks(input: ParseStream) -> Result<Option<Expr>> {
+    if is_trailer_next(input) {
+        return Ok(None);
     }
-    Ok(tokens)
+    let ahead = input.fork();
+    let mut prefix_tokens = proc_macro2::TokenStream::new();
+    let mut found_colon = false;
+    while !ahead.is_empty() && !ahead.peek(Token![,]) && !ahead.peek(Token![;]) && !is_trailer_next(&ahead) {
+        if ahead.peek(Token![:]) && !ahead.peek(Token![::]) {
+            found_colon = true;
+            break;
+        }
+        let tt: proc_macro2::TokenTree = ahead.parse()?;
+        prefix_tokens.extend(std::iter::once(tt));
+    }
+
+    if found_colon && !prefix_tokens.is_empty() {
+        if let Ok(parsed_max) = syn::parse2::<Expr>(prefix_tokens) {
+            // Consume from input
+            while !input.peek(Token![:]) {
+                let _tt: proc_macro2::TokenTree = input.parse()?;
+            }
+            let _colon: Token![:] = input.parse()?;
+            return Ok(Some(parsed_max));
+        }
+    }
+    Ok(None)
 }
 
 pub struct DparagraphArgs {
     pub maybe_key: MaybeKey,
-    pub exprs: Vec<Expr>,
     pub max_clicks: Option<Expr>,
+    pub exprs: Vec<Expr>,
+    pub classes: Vec<Expr>,
     pub trailer: Option<syn::LitStr>,
 }
 
 impl Parse for DparagraphArgs {
     fn parse(input: ParseStream) -> Result<Self> {
         let maybe_key = input.parse()?;
+        let max_clicks = parse_prefix_max_clicks(input)?;
         let mut exprs = Vec::new();
-        let mut max_clicks = None;
-        let mut trailer = None;
 
-        while !input.is_empty() && !input.peek(Token![;]) && !is_trailer_next(input) {
-            let expr_tokens = parse_until_semi_or_delimiter(input)?;
+        while !input.is_empty() && !is_trailer_next(input) {
+            let expr_tokens = parse_until_delimiter(input)?;
             if !expr_tokens.is_empty() {
                 exprs.push(syn::parse2(expr_tokens)?);
             }
 
             if input.peek(Token![,]) {
                 let _ = input.parse::<Token![,]>()?;
-            } else if is_trailer_next(input) || input.peek(Token![;]) {
+            } else if is_trailer_next(input) {
                 break;
             } else {
                 break;
             }
         }
 
-        if input.peek(Token![;]) {
-            let _semi: Token![;] = input.parse()?;
-            let tokens = parse_until_delimiter(input)?;
-            if tokens.is_empty() {
-                return Err(input.error("expected expression after ';'"));
-            }
-            max_clicks = Some(syn::parse2(tokens)?);
-
-            if input.peek(Token![,]) {
-                let _ = input.parse::<Token![,]>()?;
-            }
-        }
-
-        if is_trailer_next(input) {
-            let _coloncolon: Token![::] = input.parse()?;
-            let lit: syn::LitStr = input.parse()?;
-            trailer = Some(lit);
-        }
+        let (trailer, classes) = parse_trailer_and_classes(input)?;
 
         Ok(DparagraphArgs {
             maybe_key,
-            exprs,
             max_clicks,
+            exprs,
+            classes,
             trailer,
         })
     }

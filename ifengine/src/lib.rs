@@ -62,7 +62,7 @@ pub mod elements {
     //! | [`BACK!`](BACK) | `BACK!()` or `BACK!(2)` | Flow control: navigate back 1 (or `n`) steps in history. |
     //! | [`TUN!`](TUN) | `TUN!(tunnel_page)` | Flow control: enter a tunnel subroutine page. |
     //! | [`END!`](END) | `END!()` | Flow control: terminate story execution. |
-    //! | [`YIELD!`](YIELD) | `YIELD!()` or `YIELD!(key)` | Flow control: yield current view immediately, optionally conditionally if key is None. |
+    //! | [`YIELD!`](YIELD) | `YIELD!()` or `YIELD!(keys...)` | Flow control: yield current view immediately, optionally conditionally if none of the keys are Some. |
     //! | [`x!`](extend) | `extend!("more text")` or `extend!(Choice, "new choice")` | Extends the previous object in the view (Paragraph, Choice, Embed). |
     //! | [`get!`](get) | `get!("key")` or `get!("key", "when_some", "when_none")` | Reads state value or evaluates conditional Span expression based on key presence. |
     //! | [`set!`](set) | `set!("key")` or `set!("key", val)` | Sets state key to 0 or a specified value. |
@@ -77,7 +77,7 @@ pub mod elements {
 
     #[cfg(feature = "macros")]
     pub use ifengine_macros::{
-        EMBED as emb, dparagraph as dp, extend as x, mchoice as choices, mparagraph as mp,
-        paragraph as p, paragraphs as ps,
+        EMBED as emb, YIELD as Y, dparagraph as dp, extend as x, mchoice as choices,
+        mparagraph as mp, paragraph as p, paragraphs as ps,
     };
 }

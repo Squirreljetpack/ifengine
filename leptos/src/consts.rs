@@ -26,3 +26,7 @@ pub const MAX_PAGE_WIDTH_REM: f32 = 44.0;
 /// Whether to automatically generate IDs for spans without explicit IDs,
 /// enabling view transitions on all newly revealed inline spans.
 pub const AUTO_SPAN_TRANSITIONS: bool = true;
+
+/// Whether elements with fade view-transitions (`view-transition-class: fade`)
+/// animate their position/geometry (slide) in addition to fading in/out.
+pub const FADE_TRANSITION_SLIDE: bool = false;

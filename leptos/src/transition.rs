@@ -213,7 +213,7 @@ impl TransitionManager {
             prev_hash == 0
         } else {
             self.seen_page_items.insert(item_key, 1);
-            !self.is_fresh
+            true
         }
     }
 }

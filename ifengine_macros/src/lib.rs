@@ -165,8 +165,8 @@ pub fn img(input: TokenStream) -> TokenStream {
 
 /// Immediately yield a [`Response::View`](ifengine::core::Response::View) with the current [`View`](ifengine::View).
 ///
-/// Can optionally accept a state key: `YIELD!(key)`. If present, checks if the value stored under
-/// that key `.is_some()`, and yields if not (i.e. if `None`).
+/// Can optionally accept a sequence of state keys: `YIELD!(key, ...)`. If present, checks if the values stored under
+/// those keys are `.is_some()`, and yields only if none of them are `is_some` (i.e. if all are `None`).
 #[proc_macro]
 #[allow(non_snake_case)]
 pub fn r#YIELD(input: TokenStream) -> TokenStream {
@@ -310,13 +310,13 @@ pub fn count(input: TokenStream) -> TokenStream {
 
 /// Run code on click.
 ///
-/// An optional `max_clicks` parameter can be provided in final position.
+/// An optional `max_clicks:` parameter prefix can be provided (after `(maybe_key)`).
 ///
 /// # Syntax
 /// ```rust,ignore
 /// p!(click!(span, block))
-/// p!(click!(span, block, max_clicks))
-/// p!(click!((maybe_key), span, block, max_clicks))
+/// p!(click!(max_clicks: span, block))
+/// p!(click!((maybe_key), max_clicks: span, block))
 /// ```
 ///
 /// # Note
@@ -513,12 +513,12 @@ pub fn dchoice(input: TokenStream) -> TokenStream {
 /// Returns the clicked link's target `&str` (once per click), or `""` if no link
 /// has been clicked yet. Empty bracket pairs `[[]]` are skipped, joining surrounding text.
 ///
-/// An optional numeric parameter after `;` specifies the click limit: when `>=` that number
-/// of dynamic links within it have been clicked, all links in the paragraph are disabled.
+/// An optional prefix parameter `max_clicks:` (after `(maybe_key)`) specifies the click limit:
+/// when `>=` that number of dynamic links within it have been clicked, all links in the paragraph are disabled.
 ///
 /// # Syntax
 /// ```text
-/// dparagraph!((maybe_key), expr1, expr2, ..., exprN [; max_clicks] [:: "renderdata"])
+/// dparagraph!([(maybe_key),] [max_clicks:] expr1, expr2, ..., exprN [:: "renderdata" [, class1, class2, ...]])
 /// ```
 ///
 /// # Example

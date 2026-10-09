@@ -27,8 +27,7 @@ pub fn ObjectView(stamped: StampedObject) -> impl IntoView {
     match stamped.object {
         Object::Paragraph(line, render_data) => {
             let is_delayed = is_line_delayed(&line);
-            let is_fresh = ctx.transitions.read_untracked().is_fresh;
-            let should_delay = is_delayed && !is_fresh && is_changed;
+            let should_delay = is_delayed && is_changed;
             let (is_pending, set_pending) = signal(should_delay);
             if should_delay {
                 let delay = line_in_delay(&line);
