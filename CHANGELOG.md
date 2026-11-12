@@ -1,3 +1,43 @@
+## [0.2.0] - 2026-11-11
+
+### 🚀 Features
+
+- *(core)* `set!` and `get!` macros with `=>` link syntax, `once!`, `v!` visited
+  pages and an enhanced `click!`
+- *(core)* `alts!` variant prefixes, `tag!`/`untag!` with `Once:`/`Sticky:`
+  prefixes, click masks on links, and multiple actions per span
+- *(core)* paragraph macros build from lines and return `PData`; `paragraph!`
+  replaces `dparagraph`, `dp!`/`mp!` are gone, and the trailer is now
+  `:: [classes], "RenderData"`
+- *(core)* in-place replacements in `l!`/`s!`, optional click limits on
+  paragraphs, `Line::clear_actions`, and the `br!` spacer macro
+- *(leptos)* transitions are driven by a Rust-built plan, with a dedicated
+  scheduler and view-transition shim
+- *(leptos)* clone-snapshot CSS backend for Gecko with FLIP reflow and in-place
+  cross-fades, selected from engine capabilities or a `?vt` override
+- *(leptos)* header actions, and a motion setting in a new options modal
+- *(cli)* minimal CLI frontend and playtester
+
+### 🐛 Bug Fixes
+
+- *(leptos)* fix view-transition deadlocks, popping after fades, reflow tagging
+  and secondary transition timings
+- *(leptos)* classify transitions from the snapshot, keep header action
+  callbacks alive across passages, and only mark delayed elements as seen once
+  transitions run
+- *(macros)* treat `max_clicks 0` as disabled and record content hash keys on
+  replace links
+
+### 📚 Documentation
+
+- Align cheat sheet, macro docs, transition docs and architecture notes with the
+  new macro set and transition backends
+
+### ⚠️ Breaking Changes
+
+- Macro syntax and link value layout changed; `dp!`/`mp!` are removed and
+  `dparagraph` returns `PData` instead of an event string
+
 ## [0.1.2] - 2026-09-12
 
 ### 🚀 Features
