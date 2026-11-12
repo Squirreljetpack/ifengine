@@ -23,7 +23,7 @@ it's cool i like it (todo).
 - Story analysis: Travel your story through the [API](https://docs.rs/ifengine/latest/ifengine/run/index.html). Generate a [graph](https://ifengine.netlify.app/#graph)!
 - Nice syntax: Weave together your story elements and code with intuitive [macros](#docs).
 - Powerful state management: The full power of the rust language at your behest.
-- Navigable content: Stories link and compose together through elements like [link](#https://docs.rs/ifengine/latest/ifengine/elements/macro.link.html), [tunnel](#https://docs.rs/ifengine/latest/ifengine/elements/macro.tun.html), and [weave](#https://docs.rs/ifengine/latest/ifengine/elements/macro.weave.html). Jump between them using `Go to definition`.
+- Navigable content: Stories link and compose together through elements like [link](#https://docs.rs/ifengine/latest/ifengine/elements/macro.link.html), [tunnel](#https://docs.rs/ifengine/latest/ifengine/elements/macro.tun.html), and [embeds](#https://docs.rs/ifengine/latest/ifengine/elements/macro.emb.html). Jump between them using `Go to definition`.
 - Immediate mode page execution coupled with persisted state enables writing generator-style functions to produce views.
 
 

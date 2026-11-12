@@ -3,19 +3,14 @@ use std::sync::{Arc, RwLock};
 use ifengine::{Actions, PageKey};
 use leptos::prelude::*;
 
-use crate::components::{Footer, Header, HeaderItem, ModalMode, ObjectView, SaveLoadModal};
-use crate::consts::*;
+use crate::components::{
+    Footer, Header, HeaderItem, ModalMode, ObjectView, OptionsModal, SaveLoadModal,
+};
 use crate::context::StoryContext;
-use crate::transition::TransitionManager;
-
-/// Current phase of a full-page transition.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub enum PageTransitionPhase {
-    #[default]
-    None,
-    Leaving,
-    Entering,
-}
+use crate::transition::{
+    PageTransitionPhase, TransitionHandle, TransitionRuntime, ensure_duration_styles,
+    read_css_time_ms,
+};
 
 /// A raw header item as returned by the extractor: either plain text or an action with a game handler.
 #[allow(dead_code)]
@@ -50,25 +45,20 @@ where
         + Sync
         + 'static,
 {
-    if let Some(doc) = web_sys::window().and_then(|w| w.document()) {
-        if let Some(root) = doc.document_element() {
-            use wasm_bindgen::JsCast;
-            if let Ok(html_el) = root.dyn_into::<web_sys::HtmlElement>() {
-                let style = html_el.style();
-                let _ = style.set_property("--element-transition-out-duration", &format!("{ELEMENT_TRANSITION_OUT}ms"));
-                let _ = style.set_property("--element-transition-in-duration", &format!("{ELEMENT_TRANSITION_IN}ms"));
-                let _ = style.set_property("--page-transition-out-duration", &format!("{PAGE_TRANSITION_OUT}ms"));
-                let _ = style.set_property("--page-transition-in-duration", &format!("{PAGE_TRANSITION_IN}ms"));
-                if !FADE_TRANSITION_SLIDE {
-                    let _ = html_el.class_list().add_1("no-fade-slide");
-                } else {
-                    let _ = html_el.class_list().remove_1("no-fade-slide");
-                }
-            }
-        }
-    }
+    // Timings are owned by styles.css; read them back so the DOM swap is scheduled
+    // in sync with the CSS animations.
+    let page_transition_out_ms = read_css_time_ms("--page-transition-out-duration", 600);
+    let page_transition_in_ms = read_css_time_ms("--page-transition-in-duration", 400);
 
     let game_lock = Arc::new(RwLock::new(game));
+
+    // Check if initial URL hash targets a registered page:
+    if let Some(hash) = crate::dev::get_url_hash()
+        && let Some(handle) = crate::dev::find_registered_page(&hash)
+    {
+        let mut g = game_lock.write().unwrap();
+        let _ = g.handle_action(ifengine::Action::Next(handle));
+    }
 
     let initial_view = game_lock
         .write()
@@ -76,36 +66,45 @@ where
         .view()
         .expect("failed to evaluate initial story page");
 
-    let (dispatch_header_action_cell, set_dispatch_header_action_cell) =
-        signal(Option::<Callback<fn(&mut ifengine::Game<C>)>>::None);
+    let transitions = TransitionHandle::new(TransitionRuntime::detect(initial_view.pageid.clone()));
+    ensure_duration_styles(&transitions.build_plan(&initial_view));
 
-    let dispatch_action_cb = Callback::new(move |handler: fn(&mut ifengine::Game<C>)| {
-        if let Some(cb) = dispatch_header_action_cell.get_untracked() {
-            cb.run(handler);
-        }
-    });
+    let dispatch_cell: Arc<RwLock<Option<Arc<dyn Fn(fn(&mut ifengine::Game<C>)) + Send + Sync>>>> =
+        Arc::new(RwLock::new(None));
+
+    let dispatch_action_fn = {
+        let dispatch_cell = Arc::clone(&dispatch_cell);
+        Arc::new(move |handler: fn(&mut ifengine::Game<C>)| {
+            if let Some(dispatch) = dispatch_cell.read().unwrap().as_ref() {
+                dispatch(handler);
+            }
+        }) as Arc<dyn Fn(fn(&mut ifengine::Game<C>)) + Send + Sync>
+    };
 
     let initial_slots = header_extractor.map_or_else(
         || [vec![], vec![], vec![]],
-        |f| resolve_slots(f(&game_lock.read().unwrap()), dispatch_action_cb),
+        |f| {
+            resolve_slots(
+                f(&game_lock.read().unwrap()),
+                Arc::clone(&dispatch_action_fn),
+            )
+        },
     );
 
-    let transitions = RwSignal::new(TransitionManager::new(initial_view.pageid.clone()));
     let (current_view, set_current_view) = signal(initial_view);
     let (header_slots, set_header_slots) = signal(initial_slots);
     let (transition_phase, set_transition_phase) = signal(PageTransitionPhase::None);
     let (active_modal, set_active_modal) = signal(Option::<ModalMode>::None);
+    let (options_modal_open, set_options_modal_open) = signal(false);
+    transitions.finish_page_transition();
 
     // execute the fade-out -> swap -> fade-in transition
     let trigger_page_transition = move |new_view: ifengine::View, slots: [Vec<HeaderItem>; 3]| {
+        transitions.reset();
         set_transition_phase.set(PageTransitionPhase::Leaving);
 
         set_timeout(
             move || {
-                transitions
-                    .write_untracked()
-                    .on_view_change(&new_view.pageid, true);
-
                 set_header_slots.set(slots);
                 set_current_view.set(new_view);
 
@@ -116,15 +115,18 @@ where
                 set_transition_phase.set(PageTransitionPhase::Entering);
 
                 set_timeout(
-                    move || set_transition_phase.set(PageTransitionPhase::None),
-                    std::time::Duration::from_millis(PAGE_TRANSITION_IN),
+                    move || {
+                        set_transition_phase.set(PageTransitionPhase::None);
+                        transitions.finish_page_transition();
+                    },
+                    std::time::Duration::from_millis(page_transition_in_ms),
                 );
             },
-            std::time::Duration::from_millis(PAGE_TRANSITION_OUT),
+            std::time::Duration::from_millis(page_transition_out_ms),
         );
     };
 
-    let refresh_view = {
+    let refresh_view: Arc<dyn Fn(&mut ifengine::Game<C>) + Send + Sync> = Arc::new({
         move |game: &mut ifengine::Game<C>| {
             let new_view = match game.view() {
                 Ok(view) => view,
@@ -138,16 +140,16 @@ where
 
             let slots = header_extractor.map_or_else(
                 || [vec![], vec![], vec![]],
-                |f| resolve_slots(f(game), dispatch_action_cb),
+                |f| resolve_slots(f(game), Arc::clone(&dispatch_action_fn)),
             );
+
+            transitions.on_view_change(&new_view.pageid);
+            let plan = transitions.build_plan(&new_view);
+            ensure_duration_styles(&plan);
 
             if game.fresh() {
                 trigger_page_transition(new_view, slots);
             } else {
-                transitions
-                    .write_untracked()
-                    .on_view_change(&new_view.pageid, false);
-
                 let cur_has_modal = has_modal(&current_view.get_untracked());
                 let new_has_modal = has_modal(&new_view);
 
@@ -155,14 +157,16 @@ where
                     set_header_slots.set(slots);
                     set_current_view.set(new_view);
                 } else {
-                    run_with_view_transition(move || {
+                    transitions.commit(plan, move || {
                         set_header_slots.set(slots);
                         set_current_view.set(new_view);
                     });
                 }
             }
         }
-    };
+    });
+
+    crate::dev::mount_dev_bridge(Arc::clone(&game_lock), Arc::clone(&refresh_view));
 
     // --- Interaction Dispatcher (Choice and/or Action) ---
     let game_for_interaction = Arc::clone(&game_lock);
@@ -174,13 +178,13 @@ where
             if let Some((choice_key, index)) = choice {
                 game.handle_choice(choice_key, index);
             }
-            if let Some(action) = action {
-                if let Err(err) = game.handle_action(action) {
-                    web_sys::console::error_1(
-                        &format!("[ifengine_leptos] Error executing action: {err:?}").into(),
-                    );
-                    return;
-                }
+            if let Some(action) = action
+                && let Err(err) = game.handle_action(action)
+            {
+                web_sys::console::error_1(
+                    &format!("[ifengine_leptos] Error executing action: {err:?}").into(),
+                );
+                return;
             }
             on_interaction(&mut game);
         },
@@ -213,17 +217,25 @@ where
         set_active_modal.set(None);
     });
 
+    let open_options_modal = Callback::new(move |_| {
+        set_options_modal_open.set(true);
+    });
+
+    let close_options_modal = Callback::new(move |_| {
+        set_options_modal_open.set(false);
+    });
+
     let game_for_header = Arc::clone(&game_lock);
     let on_refresh_header = refresh_view.clone();
-    let dispatch_header_action: Callback<fn(&mut ifengine::Game<C>)> =
-        Callback::new(move |handler: fn(&mut ifengine::Game<C>)| {
+    let dispatch_header_action: Arc<dyn Fn(fn(&mut ifengine::Game<C>)) + Send + Sync> =
+        Arc::new(move |handler: fn(&mut ifengine::Game<C>)| {
             let mut game = game_for_header.write().unwrap();
-            // these actions don't really need saving
+            // these actions don't need autosaving
             // crate::storage::save_autosave(&game);
             handler(&mut game);
             on_refresh_header(&mut game);
         });
-    set_dispatch_header_action_cell.set(Some(dispatch_header_action));
+    *dispatch_cell.write().unwrap() = Some(dispatch_header_action);
 
     let game_for_load = Arc::clone(&game_lock);
     let on_refresh_load = refresh_view.clone();
@@ -243,6 +255,7 @@ where
         transitions,
         open_save_modal,
         open_load_modal,
+        open_options_modal,
     });
 
     let article_class = move || match transition_phase.get() {
@@ -260,6 +273,9 @@ where
 
                 <article class=article_class>
                     {move || {
+                        // Items must re-render when the reader switches motion backend:
+                        // their inline transition attributes depend on it.
+                        let _ = transitions.selected_backend();
                         let view = current_view.get();
                         view.inner.into_iter().map(|stamped| {
                             view! { <ObjectView stamped=stamped /> }
@@ -282,35 +298,14 @@ where
                     }
                 })
             }}
+
+            {move || {
+                options_modal_open.get().then(|| {
+                    view! { <OptionsModal on_close=close_options_modal /> }
+                })
+            }}
         </div>
     }
-}
-
-/// Executes a DOM state update within `document.startViewTransition` if supported by the browser.
-///
-/// Used exclusively for same-page interactions to smoothly transition elements sharing the same ID (e.g. `alts!`),
-/// while page transitions use DOM swapping + css animations.
-pub fn run_with_view_transition<F: FnOnce() + 'static>(update: F) {
-    if let Some(window) = web_sys::window()
-        && let Some(document) = window.document()
-    {
-        let doc_val = wasm_bindgen::JsValue::from(&document);
-        if let Ok(method) = js_sys::Reflect::get(
-            &doc_val,
-            &wasm_bindgen::JsValue::from_str("startViewTransition"),
-        ) && method.is_function()
-        {
-            let function = js_sys::Function::from(method);
-            let closure = wasm_bindgen::closure::Closure::once_into_js(move || {
-                update();
-            });
-            let _ = function.call1(&doc_val, &closure);
-            return;
-        }
-    }
-
-    // Direct update when View Transitions API is unavailable
-    update();
 }
 
 /// Recursively checks whether a page view contains an active popup or modal element.
@@ -329,19 +324,22 @@ fn stamped_has_modal(stamped: &ifengine::view::StampedObject) -> bool {
 }
 
 /// Converts raw extractor output into resolved [`HeaderItem`] slots by wrapping each action
-/// handler in a `Callback` that dispatches through the shared game action dispatcher.
+/// handler in an `Arc` closure that dispatches through the shared game action dispatcher.
 fn resolve_slots<C: 'static>(
     raw: [Vec<RawHeaderItem<C>>; 3],
-    dispatch: Callback<fn(&mut ifengine::Game<C>)>,
+    dispatch: Arc<dyn Fn(fn(&mut ifengine::Game<C>)) + Send + Sync>,
 ) -> [Vec<HeaderItem>; 3] {
     raw.map(|slot| {
         slot.into_iter()
             .map(|item| match item {
                 RawHeaderItem::Text(t) => HeaderItem::Text(t),
-                RawHeaderItem::Action { label, handler } => HeaderItem::Action {
-                    label,
-                    callback: Callback::new(move |()| dispatch.run(handler)),
-                },
+                RawHeaderItem::Action { label, handler } => {
+                    let dispatch = Arc::clone(&dispatch);
+                    HeaderItem::Action {
+                        label,
+                        callback: Arc::new(move || dispatch(handler)),
+                    }
+                }
             })
             .collect()
     })

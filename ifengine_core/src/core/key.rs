@@ -6,6 +6,36 @@ pub type PageKey = u64;
 /// The mask for user keys and location payloads (lower 48 bits, top 16 bits must be 0).
 pub const USER_KEY_MASK: u64 = 0x0000_FFFF_FFFF_FFFF;
 
+/// Bit position of the dirty marker within a state value.
+pub const DIRTY_BIT_POS: u8 = 63;
+
+/// Dirty marker (bit 63) set in a state value to signal a pending interaction.
+pub const DIRTY_BIT: u64 = 1u64 << DIRTY_BIT_POS;
+
+/// Number of low bits in a link value that hold the click count.
+pub const LINK_COUNT_BITS: u32 = 16;
+
+/// Mask covering the click-count field (bits 0..=15) of a link value.
+pub const LINK_COUNT_MASK: u64 = (1 << LINK_COUNT_BITS) - 1;
+
+/// Bit position where the location payload starts inside a link value.
+pub const LINK_LOC_SHIFT: u32 = LINK_COUNT_BITS;
+
+/// Mask covering the location field (bits 16..=62) of a link value.
+///
+/// The 48-bit location payload window loses its top bit to the dirty marker.
+pub const LINK_LOC_MASK: u64 = (USER_KEY_MASK >> 1) << LINK_LOC_SHIFT;
+
+/// Location bits stored in a link value owned by the paragraph `key`.
+pub const fn link_loc_bits(key: PageKey) -> u64 {
+    (key << LINK_LOC_SHIFT) & LINK_LOC_MASK
+}
+
+/// Owner bits (dirty marker plus location payload) stored in a link value owned by `key`.
+pub const fn link_owner(key: PageKey) -> u64 {
+    DIRTY_BIT | link_loc_bits(key)
+}
+
 /// Top bit reserved for string-hashed lookup keys.
 pub const HASH_KEY_BIT: u64 = 1u64 << 63;
 
@@ -172,7 +202,7 @@ impl IntoPageKey for &str {
 impl IntoPageKey for &&str {
     #[inline]
     fn into_page_key(self) -> PageKey {
-        hash_key(*self)
+        hash_key(self)
     }
 }
 

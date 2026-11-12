@@ -8,8 +8,8 @@ use syn::{
 /// The internal data describing an element is stored under this key in the page state and can be retrieved for full fine-grained control.
 /// # Syntax
 /// ```rust,ignore
-/// let span_count = read_key!(6); // Can be called before
-/// let span = count!((6), |val| "span");
+/// let span_count = get!(6); // Can be called before
+/// let span = alts!((6), ["a", "b"]);
 /// ```
 pub enum MaybeKey {
     Auto,
@@ -86,9 +86,7 @@ impl syn::parse::Parse for ExprAndOptional {
 pub(crate) fn is_trailer_next(input: ParseStream) -> bool {
     let ahead = input.fork();
     if ahead.parse::<Token![::]>().is_ok() {
-        if ahead.parse::<syn::LitStr>().is_ok() {
-            return true;
-        }
+        return ahead.peek(syn::token::Bracket) || ahead.parse::<syn::LitStr>().is_ok();
     }
     false
 }
@@ -102,31 +100,30 @@ pub(crate) fn parse_until_delimiter(input: ParseStream) -> Result<proc_macro2::T
     Ok(tokens)
 }
 
-fn unwrap_bracket_expr(expr: Expr) -> Expr {
-    if let Expr::Array(ref arr) = expr {
-        if arr.elems.len() == 1 {
-            return arr.elems.first().unwrap().clone();
-        }
-    }
-    expr
-}
-
-pub(crate) fn parse_trailer_and_classes(input: ParseStream) -> Result<(Option<syn::LitStr>, Vec<Expr>)> {
+pub(crate) fn parse_trailer_and_classes(
+    input: ParseStream,
+) -> Result<(Option<syn::LitStr>, Vec<Expr>)> {
     let mut trailer = None;
     let mut classes = Vec::new();
 
-    if is_trailer_next(input) {
+    if input.peek(Token![::]) {
         let _coloncolon: Token![::] = input.parse()?;
-        let lit: syn::LitStr = input.parse()?;
-        trailer = Some(lit);
 
-        while input.peek(Token![,]) {
-            let _comma: Token![,] = input.parse()?;
-            if input.is_empty() {
-                break;
+        if input.peek(syn::token::Bracket) {
+            let content;
+            syn::bracketed!(content in input);
+            let parsed_classes =
+                syn::punctuated::Punctuated::<Expr, Token![,]>::parse_terminated(&content)?;
+            classes.extend(parsed_classes);
+
+            if input.peek(Token![,]) {
+                let _comma: Token![,] = input.parse()?;
+                let lit: syn::LitStr = input.parse()?;
+                trailer = Some(lit);
             }
-            let class_expr: Expr = input.parse()?;
-            classes.push(unwrap_bracket_expr(class_expr));
+        } else {
+            let lit: syn::LitStr = input.parse()?;
+            trailer = Some(lit);
         }
     }
 
@@ -134,7 +131,6 @@ pub(crate) fn parse_trailer_and_classes(input: ParseStream) -> Result<(Option<sy
 }
 
 pub struct LineArgs {
-    pub maybe_key: MaybeKey,
     pub exprs: Vec<Expr>,
     pub classes: Vec<Expr>,
     pub trailer: Option<syn::LitStr>,
@@ -142,7 +138,6 @@ pub struct LineArgs {
 
 impl Parse for LineArgs {
     fn parse(input: ParseStream) -> Result<Self> {
-        let maybe_key = input.parse()?;
         let mut exprs = Vec::new();
 
         while !input.is_empty() {
@@ -167,7 +162,6 @@ impl Parse for LineArgs {
         let (trailer, classes) = parse_trailer_and_classes(input)?;
 
         Ok(LineArgs {
-            maybe_key,
             exprs,
             classes,
             trailer,
@@ -182,7 +176,11 @@ pub(crate) fn parse_prefix_max_clicks(input: ParseStream) -> Result<Option<Expr>
     let ahead = input.fork();
     let mut prefix_tokens = proc_macro2::TokenStream::new();
     let mut found_colon = false;
-    while !ahead.is_empty() && !ahead.peek(Token![,]) && !ahead.peek(Token![;]) && !is_trailer_next(&ahead) {
+    while !ahead.is_empty()
+        && !ahead.peek(Token![,])
+        && !ahead.peek(Token![;])
+        && !is_trailer_next(&ahead)
+    {
         if ahead.peek(Token![:]) && !ahead.peek(Token![::]) {
             found_colon = true;
             break;
@@ -191,20 +189,21 @@ pub(crate) fn parse_prefix_max_clicks(input: ParseStream) -> Result<Option<Expr>
         prefix_tokens.extend(std::iter::once(tt));
     }
 
-    if found_colon && !prefix_tokens.is_empty() {
-        if let Ok(parsed_max) = syn::parse2::<Expr>(prefix_tokens) {
-            // Consume from input
-            while !input.peek(Token![:]) {
-                let _tt: proc_macro2::TokenTree = input.parse()?;
-            }
-            let _colon: Token![:] = input.parse()?;
-            return Ok(Some(parsed_max));
+    if found_colon
+        && !prefix_tokens.is_empty()
+        && let Ok(parsed_max) = syn::parse2::<Expr>(prefix_tokens)
+    {
+        // Consume from input
+        while !input.peek(Token![:]) {
+            let _tt: proc_macro2::TokenTree = input.parse()?;
         }
+        let _colon: Token![:] = input.parse()?;
+        return Ok(Some(parsed_max));
     }
     Ok(None)
 }
 
-pub struct DparagraphArgs {
+pub struct ParagraphArgs {
     pub maybe_key: MaybeKey,
     pub max_clicks: Option<Expr>,
     pub exprs: Vec<Expr>,
@@ -212,7 +211,7 @@ pub struct DparagraphArgs {
     pub trailer: Option<syn::LitStr>,
 }
 
-impl Parse for DparagraphArgs {
+impl Parse for ParagraphArgs {
     fn parse(input: ParseStream) -> Result<Self> {
         let maybe_key = input.parse()?;
         let max_clicks = parse_prefix_max_clicks(input)?;
@@ -235,7 +234,7 @@ impl Parse for DparagraphArgs {
 
         let (trailer, classes) = parse_trailer_and_classes(input)?;
 
-        Ok(DparagraphArgs {
+        Ok(ParagraphArgs {
             maybe_key,
             max_clicks,
             exprs,
@@ -244,4 +243,3 @@ impl Parse for DparagraphArgs {
         })
     }
 }
-

@@ -19,6 +19,31 @@ pub struct Node {
     display_width: usize,
 }
 
+/// Drops the graph-wide common prefix and a following `::` separator from a page id.
+/// Ids shorter than the prefix or split mid-char are returned untouched.
+fn short<'a>(id: &'a str, prefix_len: usize) -> &'a str {
+    let Some(rest) = id.get(prefix_len..) else {
+        return id;
+    };
+    rest.strip_prefix("::").unwrap_or(rest)
+}
+
+// widest body line, so titles can pad the node out to a rectangle
+fn body_width(record: &PageRecord, prefix_len: usize) -> usize {
+    record
+        .ends
+        .iter()
+        .map(|end| format!("{end:?}").len())
+        .chain(record.tags.iter().map(|tag| tag.len()))
+        .chain(
+            record
+                .outgoing_tunnels
+                .iter()
+                .map(|tunnel| short(tunnel, prefix_len).len()),
+        )
+        .fold(6, usize::max)
+}
+
 // todo: layout, connecting to same pin, disable body showing for empty body
 pub fn new_snarl(width: f32, height: f32) -> (Snarl<Node>, usize) {
     let app = new();
@@ -58,7 +83,7 @@ pub fn new_snarl(width: f32, height: f32) -> (Snarl<Node>, usize) {
                 run: run_id.clone(),
                 record: record.clone(),
                 output_count: 0,
-                display_width: record.compute_display_width(),
+                display_width: 0,
             };
 
             let p_x = record.min_depth as f32 / run_depth;
@@ -89,32 +114,35 @@ pub fn new_snarl(width: f32, height: f32) -> (Snarl<Node>, usize) {
             if let Some((incoming_node, output)) = seen.get_mut(&(run_id.clone(), pageid.clone())) {
                 snarl.connect(
                     OutPinId {
-                        node: incoming_node.clone(),
+                        node: *incoming_node,
                         output: *output,
                     },
                     InPinId { node, input },
                 );
                 *output += 1;
             } else {
-                eprintln!("Missing page id {:?} in run {:?}", &pageid, &run_id);
+                eprintln!("Missing page id {:?} in run {:?}", pageid, run_id);
             };
         }
     }
+
+    let prefix_len = lcp.map(|prefix| prefix.len()).unwrap_or_default();
 
     for Node {
         run,
         record,
         output_count,
-        ..
+        display_width,
     } in snarl.nodes_mut()
     {
         *output_count = seen
             .get(&(run.clone(), record.id.clone()))
             .map(|x| x.1)
-            .unwrap_or_default()
+            .unwrap_or_default();
+        *display_width = body_width(record, prefix_len);
     }
 
-    (snarl, lcp.map(|s| s.len()).unwrap_or(0))
+    (snarl, prefix_len)
 }
 
 pub const SCALING: f32 = 1.5; // snarl elements scale
@@ -136,6 +164,7 @@ fn random_pos(p_x: f32, _p_y: f32, width: f32, height: f32, margin: egui::Margin
 #[derive(Default, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct GraphViewer {
+    /// Length of the graph-wide common page id prefix, stripped from titles and labels.
     pub prefix_len: usize,
     pub init_transform: Option<egui::emath::TSTransform>,
 }
@@ -143,9 +172,7 @@ pub struct GraphViewer {
 #[allow(unused)]
 impl SnarlViewer<Node> for GraphViewer {
     fn title(&mut self, node: &Node) -> String {
-        let raw = &node.record.id[self.prefix_len..];
-        let trimmed = raw.strip_prefix("::").unwrap_or(raw);
-        let mut s = trimmed.to_string();
+        let mut s = short(&node.record.id, self.prefix_len).to_string();
         while s.len() < node.display_width {
             s.push(' ');
         }
@@ -206,7 +233,13 @@ impl SnarlViewer<Node> for GraphViewer {
                 ui.label(format_list("Ends: ", record.ends.iter()));
             };
             if !record.outgoing_tunnels.is_empty() {
-                ui.label(format_list("Tunnels: ", record.outgoing_tunnels.iter()));
+                ui.label(format_list(
+                    "Tunnels: ",
+                    record
+                        .outgoing_tunnels
+                        .iter()
+                        .map(|tunnel| short(tunnel, self.prefix_len)),
+                ));
             };
         });
     }

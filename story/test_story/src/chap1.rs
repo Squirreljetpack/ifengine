@@ -1,8 +1,8 @@
 use super::State;
 use ifengine::{
     elements::{
-        EMBED, alts, back, choice, click, count, dchoice, dynamic_choice, fresh, img, link,
-        mchoice, p, replace, s, l
+        EMBED, alts, back, choice, click, dchoice, dynamic_choice, img, l, link, mchoice, once, p,
+        replace, s,
     },
     ifview,
 };
@@ -18,17 +18,15 @@ enum DChoices {
 pub fn rainy_day(s: &mut State) {
     p!("word ", "1");
 
-    if replace!((1), "The ancient lock is [[sealed]].") {
-        if replace!((1), "The doorway lies [[open]].") {
-            replace!((1), "Stick your hand [[inside]].");
-        }
+    if replace!((1), "The ancient lock is [sealed].") && replace!((1), "The doorway lies [open].") {
+        replace!((1), "Stick your hand [inside].");
     }
 
     replace!(
-        "The ancient lock is [[sealed]].",
+        "The ancient lock is [sealed].",
         l!(
-            "The doorway lies [[open]]." =>
-            l!("Stick your hand [[inside]]." => "AAAAH!")
+            "The doorway lies [open]." =>
+            l!("Stick your hand [inside]." => "AAAAH!")
         )
     );
 
@@ -66,13 +64,13 @@ pub fn rainy_day(s: &mut State) {
     p!(
         link!("tomorrow", sunny_day),
         s!(" will be: "),
-        alts!(weathers, Shuffle, |idx| {
+        alts!(Shuffle: weathers, |idx| {
             s.weather = weathers[idx].to_string();
         })
         :: "m-0"
     );
 
-    p!(alts!(["Click once", "Done"], Stop) :: "m-0");
+    p!(alts!(Stop: ["Click once", "Done"]) :: "m-0");
 
     choice! {
         (64),
@@ -84,7 +82,7 @@ pub fn rainy_day(s: &mut State) {
 
     EMBED!(weather_station);
 
-    fresh!(|| {
+    once!(0: {
         dbg!("hello");
     });
 
@@ -145,7 +143,7 @@ pub fn sunny_day(state: &mut State) {
         "go back to ",
         link!("yesterday", rainy_day),
         "... or ",
-        count!(|n: u64| s!("click me: {n}"))
+        click!(|n: u64| s!("click me: {n}"))
         :: "m-0"
     );
 }

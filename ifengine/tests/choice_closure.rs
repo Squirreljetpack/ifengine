@@ -186,11 +186,11 @@ fn test_choice_closure_cleans_input_line() {
 
 #[ifengine::ifview]
 fn page_replace_closure(state: &mut TestState) {
-    replace!((100), "The iron chest is [[locked tight]]." => |l| {
+    replace!((100), "The iron chest is [locked tight]." => |l| {
         state.flag = true;
         l + " You broke the latch open!"
     });
-    replace!((200), "The wooden door is [[ajar]]." => "The wooden door is wide open.");
+    replace!((200), "The wooden door is [ajar]." => "The wooden door is wide open.");
 }
 
 #[test]

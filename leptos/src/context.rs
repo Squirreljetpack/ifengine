@@ -1,7 +1,7 @@
 use ifengine::{Actions, PageKey};
 use leptos::prelude::*;
 
-use crate::transition::TransitionManager;
+use crate::transition::TransitionHandle;
 
 /// Unified reactive context provided at the application root.
 ///
@@ -15,10 +15,12 @@ pub struct StoryContext {
     pub dispatch_choice: Callback<(PageKey, u8)>,
     /// Dispatches a choice selection and action atomically.
     pub dispatch_choice_action: Callback<((PageKey, u8), Actions)>,
-    /// Reactive transition manager tracking animated items across iterations.
-    pub transitions: RwSignal<TransitionManager>,
+    /// Reactive transition runtime: change tracking, current plan and backend.
+    pub transitions: TransitionHandle,
     /// Opens the Save Game modal.
     pub open_save_modal: Callback<()>,
     /// Opens the Load Game modal.
     pub open_load_modal: Callback<()>,
+    /// Opens the options modal.
+    pub open_options_modal: Callback<()>,
 }

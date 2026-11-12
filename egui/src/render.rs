@@ -32,11 +32,10 @@ pub fn render(view: View, ui: &mut Ui, mut game: Option<&mut GameInner>) {
                     ui.spacing_mut().item_spacing = egui::vec2(0.0, 10.0);
 
                     for (i, line) in choices.into_iter() {
-                        if line.ui_clicked(ui, game.as_deref_mut()) {
-                            if let Some(game) = game.as_mut() {
+                        if line.ui_clicked(ui, game.as_deref_mut())
+                            && let Some(game) = game.as_mut() {
                                 game.handle_choice(key, i);
                             }
-                        }
                     }
                     ui.draw_empty(1);
                 });
@@ -91,9 +90,7 @@ fn render_image(img: Image, ui: &mut Ui, mut game: Option<&mut GameInner>) {
 
     if !action.is_empty()
         && let Some(game) = game.as_mut()
-    {
-        if resp.clicked() {
+        && resp.clicked() {
             let _ = game.handle_action(action);
         }
-    }
 }

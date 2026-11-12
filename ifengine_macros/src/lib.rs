@@ -97,20 +97,47 @@ pub fn extend(input: TokenStream) -> TokenStream {
     view::extend(input)
 }
 
-/// Push a single paragraph block ([`Object::Paragraph`](ifengine::view::Object::Paragraph)) to the view with standard vertical margins.
+/// Push a single paragraph block ([`Object::Paragraph`](ifengine::view::Object::Paragraph)) to the view.
 ///
-/// Constructed from one or more lines, spans, or string literals.
-/// Supports optional trailing `:: "metadata"` to attach [`RenderData`](ifengine::view::RenderData).
+/// Constructed from one or more lines, spans, or string literals with `{var}` interpolation.
+/// Words enclosed in `[target]` become clickable interactive links (use `[[` for a literal `[`).
+/// Returns a [`PData`](ifengine::elements::PData).
+///
+/// An optional prefix `max_clicks:` limits the total number of clicks across all links before
+/// all links are disabled. `max_clicks: 0` disables every link from the start; omitting the
+/// prefix leaves the links unbounded.
+///
+/// # Trailer
+/// An optional trailer attaches CSS classes and [`RenderData`](ifengine::view::RenderData):
+/// ```text
+/// :: "renderdata"
+/// :: [class1, class2, ...]
+/// :: [class1, class2, ...], "renderdata"
+/// ```
+/// Classes are the bracketed, comma-separated expressions after `::`; the trailing string
+/// literal is the render data. Both parts are optional.
+///
+/// # Syntax
+/// ```text
+/// paragraph!([(maybe_key),] [max_clicks:] expr1, expr2, ..., exprN [trailer])
+/// ```
 ///
 /// # Example
 /// ```rust,ignore
+/// match paragraph!("Go to the [forest] or the [inn].").as_str() {
+///     "forest" => NEXT!(p_forest),
+///     "inn" => NEXT!(p_inn),
+///     _ => {}
+/// }
+///
+/// // Non-interactive (no brackets) — just displays text
 /// paragraph!("A dark hallway stretches before you.");
 ///
-/// // paragraph variant (i.e. dialogue)
-/// paragraph!("Very well" :: ":Adam");
+/// // With classes and render data
+/// paragraph!("A dark hallway stretches before you." :: ["in-500"], "popup");
 ///
-/// // pure signal
-/// paragraph!(:: "music-1");
+/// // Dialogue variant
+/// paragraph!("Very well" :: ":Adam");
 /// ```
 #[proc_macro]
 pub fn paragraph(input: TokenStream) -> TokenStream {
@@ -120,7 +147,16 @@ pub fn paragraph(input: TokenStream) -> TokenStream {
 /// Push multiple separate paragraph blocks ([`Object::Paragraph`](ifengine::view::Object::Paragraph)) to the view.
 ///
 /// Each argument is its own block with standard vertical spacing.
-/// Supports optional trailing `:: "metadata"` to attach [`RenderData`](ifengine::view::RenderData).
+///
+/// > [!NOTE]
+/// > Unlike [`paragraph!`], `paragraphs!` does not parse `[target]` link actions.
+///
+/// Supports the trailing annotations as [`paragraph!`]:
+/// ```text
+/// :: "renderdata"
+/// :: [class1, class2, ...]
+/// :: [class1, class2, ...], "renderdata"
+/// ```
 ///
 /// # Example
 /// ```rust,ignore
@@ -149,6 +185,20 @@ pub fn h(input: TokenStream) -> TokenStream {
 #[proc_macro]
 pub fn hr(input: TokenStream) -> TokenStream {
     view::hr(input)
+}
+
+/// Push vertical empty whitespace (`Object::Empty(n)`).
+///
+/// Accepts an optional count `n` (defaults to `1` if omitted).
+///
+/// # Example
+/// ```rust,ignore
+/// br!();  // 1 empty line
+/// br!(2); // 2 empty lines
+/// ```
+#[proc_macro]
+pub fn br(input: TokenStream) -> TokenStream {
+    view::br(input)
 }
 
 /// Push an image from a string literal.
@@ -208,15 +258,15 @@ pub fn s(input: TokenStream) -> TokenStream {
 }
 
 /// Create a [`Line`](ifengine::view::Line) from `{var}` interpolation, spans, lines, or string literals,
-/// or an interactive replacement line with clickable `[[bracketed]]` targets when `=>` is present.
+/// or an interactive replacement line with clickable `[bracketed]` targets when `=>` is present.
 ///
 /// # Examples
 /// ```rust,ignore
 /// l!("Player {name} (Level {level})")
 ///
 /// // Replaced in-place when a bracketed link is clicked:
-/// l!("The doorway is [[open]]." => "You step inside.")
-/// l!((my_key), "The doorway is [[open]]." => "You step inside.")
+/// l!("The doorway is [open]." => "You step inside.")
+/// l!((my_key), "The doorway is [open]." => "You step inside.")
 /// ```
 #[proc_macro]
 pub fn l(input: TokenStream) -> TokenStream {
@@ -269,10 +319,10 @@ pub fn back(input: TokenStream) -> TokenStream {
 
 /// Cycle between multiple alternative spans on click.
 ///
-/// Supports three cycling behaviors (defaults to `Stop`):
-/// - `Stop`: Advances on click until reaching the last alternative, then stops advancing.
-/// - `Cycle`: Advances on click and wraps around to the beginning indefinitely.
-/// - `Shuffle`: Picks a random alternative on click (excluding the current one).
+/// Supports three cycling behaviors (defaults to `Stop`), given as a prefix:
+/// - `Stop:`: Advances on click until reaching the last alternative, then stops advancing.
+/// - `Cycle:`: Advances on click and wraps around to the beginning indefinitely.
+/// - `Shuffle:`: Picks a random alternative on click (excluding the current one).
 ///
 /// Takes an optional final closure `|idx| { ... }` that receives the current index
 /// into the alternatives list, allowing reactive game state updates on click or render.
@@ -283,40 +333,36 @@ pub fn back(input: TokenStream) -> TokenStream {
 /// alts!(["Look around", "Open the door", "Wait"])
 ///
 /// // Cycle variant with closure capturing current index:
-/// alts!(["Red", "Green", "Blue"], Cycle, |idx| {
+/// alts!(Cycle: ["Red", "Green", "Blue"], |idx| {
 ///     state.color_idx = idx;
 /// })
 ///
 /// // Passing a variable or collection expression:
 /// let weathers = ["sunny", "cloudy", "rainy"];
-/// alts!(weathers, Shuffle, |idx| state.weather = weathers[idx].to_string())
+/// alts!(Shuffle: weathers, |idx| state.weather = weathers[idx].to_string())
 /// ```
 #[proc_macro]
 pub fn alts(input: TokenStream) -> TokenStream {
     elements::alts(input)
 }
 
-/// Use a closure to compute a span based on how many times the span has been clicked.
-///
-/// # Syntax
-/// ```rust,ignore
-/// let span_count = read_key!(6);
-/// let span = count!((6), |n| format!("Clicked {n} times"));
-/// ```
-#[proc_macro]
-pub fn count(input: TokenStream) -> TokenStream {
-    elements::count(input)
-}
-
 /// Run code on click.
 ///
-/// An optional `max_clicks:` parameter prefix can be provided (after `(maybe_key)`).
+/// An optional `(maybe_key)` and `max_clicks:` prefix can be provided. `max_clicks` is the
+/// number of clicks the span accepts; `0` disables it immediately. When `max_clicks` is omitted,
+/// a span with a block or closure stays unbounded, while a body-less span becomes non-interactive
+/// after its first click.
+///
+/// The displayed expression may be a closure `|clicks| ...` that receives the number of
+/// times the span has been clicked.
 ///
 /// # Syntax
 /// ```rust,ignore
+/// p!(click!(span))
 /// p!(click!(span, block))
 /// p!(click!(max_clicks: span, block))
 /// p!(click!((maybe_key), max_clicks: span, block))
+/// p!(click!(|clicks| format!("Clicked {clicks} times"), block))
 /// ```
 ///
 /// # Note
@@ -324,7 +370,6 @@ pub fn count(input: TokenStream) -> TokenStream {
 /// that if the block is used to toggle the visibility of the click element,
 /// its definition must execute unconditionally
 /// (i.e. be lifted out from where it is pushed).
-/// Also see: [`replace!`].
 ///
 /// ```rust,ignore
 /// let dismiss = click!("Dismiss", {
@@ -348,7 +393,7 @@ pub fn click(input: TokenStream) -> TokenStream {
 
 /// Conditionally display one of several choices based on user selection.
 ///
-/// Display a choice menu and morph into the selected choice's paragraph.
+/// Display a choice menu which transforms into the selected choice's paragraph.
 ///
 /// Returns `true` if it has resolved, otherwise `false`.
 ///
@@ -360,7 +405,7 @@ pub fn click(input: TokenStream) -> TokenStream {
 /// - If no arm is selected, the LHS values are displayed as a list of clickable choices.
 /// - Once a choice is selected, subsequent renders execute the corresponding RHS expression (or closure) and
 ///   display its result as a [`Paragraph`](ifengine::view::Object::Paragraph).
-/// - If `=> RHS` is omitted for an arm, selecting that choice keeps the cleaned LHS line as the paragraph.
+/// - If `=> RHS` is omitted for an arm, selecting that choice keeps the LHS line as the paragraph.
 ///
 /// # Optional Key Override
 /// An optional key (surrounded in parentheses) can be specified as the first argument.
@@ -508,61 +553,10 @@ pub fn dchoice(input: TokenStream) -> TokenStream {
     choices::dchoice(input)
 }
 
-/// Interactive paragraph with clickable links delimited by `[[target]]`.
-///
-/// Returns the clicked link's target `&str` (once per click), or `""` if no link
-/// has been clicked yet. Empty bracket pairs `[[]]` are skipped, joining surrounding text.
-///
-/// An optional prefix parameter `max_clicks:` (after `(maybe_key)`) specifies the click limit:
-/// when `>=` that number of dynamic links within it have been clicked, all links in the paragraph are disabled.
-///
-/// # Syntax
-/// ```text
-/// dparagraph!([(maybe_key),] [max_clicks:] expr1, expr2, ..., exprN [:: "renderdata" [, class1, class2, ...]])
-/// ```
-///
-/// # Example
-/// ```rust,ignore
-/// match dparagraph!("Go to the [[forest]] or the [[inn]].") {
-///     "forest" => NEXT!(p_forest),
-///     "inn" => NEXT!(p_inn),
-///     _ => {}
-/// }
-/// ```
-#[proc_macro]
-pub fn dparagraph(input: TokenStream) -> TokenStream {
-    choices::dparagraph(input)
-}
-
-/// Create an interactive paragraph parsing wiki-style links with multi-selection tracking.
-///
-/// Interactive text sections are automatically added from text delimited by `[[target]]` (Also see: [`dparagraph!`]).
-/// Multiple links can be clicked across interactions; their clicked states are tracked concurrently via a bitmask in page state.
-///
-/// On render, this macro returns a `Vec<bool>` where each boolean reflects whether the corresponding
-/// bracketed link has been clicked since page load.
-///
-/// # Syntax
-/// ```text
-/// mparagraph!((maybe_key), expr1, expr2, ..., exprN)
-/// ```
-///
-/// # Example
-/// ```rust,ignore
-/// let clicked = mparagraph!("You see a [[lantern]], a [[rope]], and a [[dagger]].");
-/// if clicked[0] {
-///     // lantern was clicked
-/// }
-/// ```
-#[proc_macro]
-pub fn mparagraph(input: TokenStream) -> TokenStream {
-    choices::mparagraph(input)
-}
-
 /// Interactive paragraph that disappears or is replaced with new content when clicked.
 ///
-/// Words enclosed in `[[brackets]]` become clickable targets. If no brackets are present,
-/// the entire paragraph is clickable.
+/// Words enclosed in `[brackets]` become clickable targets.
+/// If no brackets are present, the entire paragraph is clickable.
 ///
 /// Clicking a link displays the replacement text or expression in place of the original paragraph.
 /// The replacement can be a string, a [`Line`](ifengine::view::Line), or a closure `|l| ...` that receives
@@ -581,18 +575,18 @@ pub fn mparagraph(input: TokenStream) -> TokenStream {
 /// # Examples
 /// ```rust,ignore
 /// // Disappears on click (no replacement)
-/// replace!("The old chest is [[locked]].");
+/// replace!("The old chest is [locked].");
 ///
 /// // Replaces paragraph on click
-/// replace!("The gate is [[closed]]." => "The gate swings open.");
+/// replace!("The gate is [closed]." => "The gate swings open.");
 ///
 /// // Extends original text on click using a closure:
-/// replace!("The chest is [[shut tight]]." => |l| {
+/// replace!("The chest is [shut tight]." => |l| {
 ///     l + " You forced it open with a crowbar!"
 /// });
 ///
 /// // Conditionally show following content after replacement
-/// if replace!("Click [[here]] to reveal options" => "Options revealed:") {
+/// if replace!("Click [here] to reveal options" => "Options revealed:") {
 ///     choice! {
 ///         "Option A",
 ///         "Option B",
@@ -608,34 +602,64 @@ pub fn replace(input: TokenStream) -> TokenStream {
 // State
 // =========================================================================
 
-/// Run a function only once when the page is first loaded.
+/// Executes a block only once (or up to `n` times with an `n:` prefix).
+///
+/// The run count is stored under an automatic key and the block runs while the count is
+/// below the limit. If `0:` is prefixed, the block runs only on a fresh page render.
 ///
 /// # Syntax
 /// ```rust,ignore
-/// fresh!(|| { /* code */ });
+/// once! { /* code */ }        // limit 1
+/// once!(3: { /* code */ })    // limit 3
+/// once!(0: { /* code */ })    // only on a fresh page render
 /// ```
 #[proc_macro]
-pub fn fresh(input: TokenStream) -> TokenStream {
-    state::fresh(input)
+pub fn once(input: TokenStream) -> TokenStream {
+    state::once(input)
 }
 
 /// Read or evaluate an expression based on persistent page state.
 ///
-/// - `get!(key)`: Reads `Option<u64>` for the given key.
-/// - `get!(key, when_some)`: If `key` is present in state (`Some`), evaluates to `when_some` cast to [`Span`](ifengine::view::Span); otherwise default.
-/// - `get!(key, when_some, when_none)`: If `key` is present, evaluates to `when_some` cast to [`Span`](ifengine::view::Span); otherwise `when_none` cast to [`Span`](ifengine::view::Span).
+/// - `get!(key)`: Reads the `Option<u64>` stored for the key.
+/// - `get!(key, when_some)`: Evaluates to `when_some` when the key is present, and to an
+///   empty [`Line`](ifengine::view::Line) otherwise.
+/// - `get!(key, when_none => when_some)`: `when_none` when absent, `when_some` when present.
+/// - `get!(key, when_some <= when_none)`: reversed arrow, the leading side is the present case.
 ///
-/// Accepts strings or ints.
+/// Each side is a single expression implementing `Into<`[`Line`](ifengine::view::Line)`>`.
+/// In the conditional forms the key may combine several
+/// number/string keys with `|` (or) and `&` (and), with `()` for grouping.
 ///
 /// # Examples
 /// ```rust,ignore
 /// let val = get!("my_key");
-/// p!(get!("opened_chest", "The chest stands open.", "A locked chest sits here."));
+/// p!(get!("opened_chest" , "A locked chest sits here." => "The chest stands open."));
 /// p!(get!("has_gold", "You have gold!"));
 /// ```
 #[proc_macro]
 pub fn get(input: TokenStream) -> TokenStream {
     state::get(input)
+}
+
+/// Reports whether a page-state key is set or a page has been visited.
+///
+/// A string or integer operand is a page-state key, equivalent to
+/// `get!(key).is_some()`. A path operand names a page and reports whether that page
+/// has been rendered. Operands may be combined with `|` (or) and `&` (and).
+///
+/// # Examples
+/// ```rust,ignore
+/// if v!("door_open") {
+///     p!("The door already stands open.");
+/// }
+///
+/// if v!(chap1::p1 | "intro_seen") {
+///     p!("You have been here before.");
+/// }
+/// ```
+#[proc_macro]
+pub fn v(input: TokenStream) -> TokenStream {
+    state::v(input)
 }
 
 /// Set a persistent page state key.
@@ -715,20 +739,37 @@ pub fn reset_key(input: TokenStream) -> TokenStream {
 
 /// Tags the current page (see [`GameTags`](ifengine::core::GameTags)).
 ///
-/// Pass `Sticky` to persist the tag between pages.
+/// A tag is attached to the current [`View`](ifengine::view::View) and, when
+/// sticky, persisted in the global game tags across pages. Tags are sticky by
+/// default. Prefix with `Once:` to keep the tag on the current render only, or
+/// `Game:` to record it in the persisted tags without adding it to the current view.
 ///
 /// # Examples
 /// ```rust,ignore
-/// tag!(my_value);          // non-sticky tag
-/// tag!(my_value, Sticky);  // sticky tag
-/// tag!(my_value, Once);    // apply only once
+/// tag!(my_value);          // sticky tag (view and persisted)
+/// tag!(Sticky: my_value);  // sticky tag, explicit
+/// tag!(Once: my_value);    // current render only
+/// tag!(Game: my_value);    // persisted tags only
 /// ```
 #[proc_macro]
 pub fn tag(input: TokenStream) -> TokenStream {
     state::tag(input)
 }
 
-/// Removes a tag from [`GameTags`](ifengine::core::GameTags).
+/// Removes a tag from the current [`View`](ifengine::view::View) and/or the
+/// persisted [`GameTags`](ifengine::core::GameTags).
+///
+/// Tags are sticky by default: with no prefix (or `Sticky:`) the tag is removed
+/// from both the current view and the persisted tags. `Once:` removes it from the
+/// current render only; `Game:` removes it from the persisted tags only.
+///
+/// # Examples
+/// ```rust,ignore
+/// untag!(my_value);          // current view and persisted tags
+/// untag!(Sticky: my_value);  // current view and persisted tags
+/// untag!(Once: my_value);    // current view only
+/// untag!(Game: my_value);    // persisted tags only
+/// ```
 #[proc_macro]
 pub fn untag(input: TokenStream) -> TokenStream {
     state::untag(input)

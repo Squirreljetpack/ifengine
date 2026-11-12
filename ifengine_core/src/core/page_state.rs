@@ -5,7 +5,9 @@ use crate::{
     core::{
         GameContext, GameTags, Page, PageHandle, PageId, PageKey, Response,
         game_state::PageMap,
-        key::{IntoPageKey, USER_KEY_MASK},
+        key::{
+            DIRTY_BIT, IntoPageKey, LINK_COUNT_MASK, LINK_LOC_MASK, USER_KEY_MASK, link_loc_bits,
+        },
     },
     view::{Object, RenderData, StampedObject, View},
 };
@@ -45,15 +47,7 @@ impl<'a> PageState<'a> {
         page_state: &'a mut PageMap,
         game_tags: &'a mut GameTags,
     ) -> Self {
-        Self::new_with_embeds(
-            name,
-            fresh,
-            simulating,
-            page_state,
-            game_tags,
-            None,
-            None,
-        )
+        Self::new_with_embeds(name, fresh, simulating, page_state, game_tags, None, None)
     }
 
     /// Creates a [`PageState`] with optional views to render around the page.
@@ -214,10 +208,9 @@ impl<'a> PageState<'a> {
             match self.eval_page_handle(&pre_embed, ctx) {
                 Response::View(embed_view) => {
                     if !embed_view.inner.is_empty() {
-                        self.view.inner.insert(
-                            0,
-                            StampedObject::new(Object::Embed(embed_view, "")),
-                        );
+                        self.view
+                            .inner
+                            .insert(0, StampedObject::new(Object::Embed(embed_view, "")));
                     }
                 }
                 response => return response,
@@ -242,11 +235,7 @@ impl<'a> PageState<'a> {
 
     /// Evaluates a page hook using a transient game that shares this page's
     /// context, tags, and state map.
-    fn eval_page_handle<C: GameContext>(
-        &mut self,
-        page: &PageHandle,
-        ctx: &mut C,
-    ) -> Response {
+    fn eval_page_handle<C: GameContext>(&mut self, page: &PageHandle, ctx: &mut C) -> Response {
         let context = std::mem::take(ctx);
         let tags = std::mem::take(self.game_tags);
         let parent_map = std::mem::take(&mut **self.page_state.borrow_mut());
@@ -325,10 +314,7 @@ impl<'a> PageState<'a> {
     /// Returns `None` if the key does not exist or if the stored value is `0`.
     pub fn get_mask_last(&self, key: impl IntoPageKey) -> Option<u8> {
         let key = key.into_page_key();
-        let val = match self.page_state.borrow().get(&key).copied() {
-            Some(v) => v,
-            None => return None,
-        };
+        let val = self.page_state.borrow().get(&key).copied()?;
 
         if val == 0 {
             None
@@ -344,10 +330,7 @@ impl<'a> PageState<'a> {
     /// Used by choice macros (e.g. `dchoice!`) to consume a single click selection.
     pub fn remove_mask_last(&mut self, key: impl IntoPageKey) -> Option<u8> {
         let key = key.into_page_key();
-        let val = match self.page_state.borrow_mut().remove(&key) {
-            Some(v) => v,
-            None => return None,
-        };
+        let val = self.page_state.borrow_mut().remove(&key)?;
 
         if val == 0 {
             None
@@ -413,65 +396,101 @@ impl<'a> PageState<'a> {
 
     /// Checks if the dirty bit (bit 63) is set for `key`.
     ///
-    /// When set, clears the dirty bit and increments the lower 63-bit value.
-    /// Returns `true` if the dirty bit was set and the value before incrementing was `< max_clicks`
-    /// (or if `max_clicks == 0`, meaning unbounded).
-    pub fn poll_click(&self, key: impl IntoPageKey, max_clicks: u64) -> bool {
+    /// Claims a pending interaction for `key`.
+    ///
+    /// The dirty bit (bit 63) gates the claim. With `owner` as `None` the value below the dirty bit
+    /// is a plain click counter, incremented by one. With `owner` as `Some(paragraph)` the value is a
+    /// link value (`DIRTY_BIT | loc | count`, see [`crate::core::key`]): the claim additionally
+    /// requires the location field to name `paragraph`, and the count field is incremented
+    /// (saturating at [`LINK_COUNT_MASK`], so it never spills into the location bits).
+    /// Returns `true` if the dirty bit was set and the count was `< max_clicks` before incrementing.
+    /// `max_clicks` is the number of permitted clicks: `0` denies the claim, and larger values
+    /// permit more clicks.
+    /// A plain click is not incremented if it would carry into the topmost bit (bit 63).
+    pub fn poll_click(
+        &self,
+        key: impl IntoPageKey,
+        max_clicks: u64,
+        owner: Option<PageKey>,
+    ) -> bool {
         let key = key.into_page_key();
-        const DIRTY_BIT: u64 = 1 << 63;
-        if let Some(x) = self.page_state.borrow_mut().get_mut(&key) {
-            if (*x & DIRTY_BIT) != 0 {
-                let value = *x & !DIRTY_BIT;
-                *x = (value.saturating_add(1)) & !DIRTY_BIT;
-                return max_clicks == 0 || value < max_clicks;
-            }
+        if let Some(x) = self.page_state.borrow_mut().get_mut(&key)
+            && (*x & DIRTY_BIT) != 0
+        {
+            let (clicks, next_val) = match owner {
+                Some(paragraph) => {
+                    // Links are keyed by their text, so only the paragraph whose location payload
+                    // is stored with the pending click may claim it.
+                    if (*x & LINK_LOC_MASK) != link_loc_bits(paragraph) {
+                        return false;
+                    }
+                    let clicks = *x & LINK_COUNT_MASK;
+                    let count = (clicks + 1).min(LINK_COUNT_MASK);
+                    (clicks, (*x & !(DIRTY_BIT | LINK_COUNT_MASK)) | count)
+                }
+                None => {
+                    let clicks = *x & !DIRTY_BIT;
+                    let next_val = clicks.saturating_add(1);
+                    let next_val = if (next_val & DIRTY_BIT) == 0 {
+                        next_val
+                    } else {
+                        clicks
+                    };
+                    (clicks, next_val)
+                }
+            };
+            *x = next_val;
+            return clicks < max_clicks;
         }
         false
     }
 
-    /// Polls targets for the most recently pushed paragraph.
+    /// Attaches a tag within the given [`TagScope`].
     ///
-    /// Iterates over the spans of the last paragraph object, checking if any span with
-    /// [`crate::core::Action::SetInc(hk, _)`] has a matching location payload (`val & USER_KEY_MASK == loc`)
-    /// and a non-zero counter (`val >> 48 != 0`). If matched, clears the top 16 bits (leaving
-    /// the location payload) and returns `Some(&span.content)`.
-    pub fn poll_dparagraph_last(&self, auto_key: PageKey) -> Option<&str> {
-        const DIRTY_BIT: u64 = 1 << 63;
-        let loc = auto_key & USER_KEY_MASK;
-        if let Some(stamped) = self.view.last() {
-            if let Object::Paragraph(line, _) = &stamped.object {
-                for span in &line.spans {
-                    for action in &span.action {
-                        if let crate::core::Action::SetDirty(hk, _) = *action {
-                            if let Some(val) = self.get(hk) {
-                                if (val & USER_KEY_MASK) == loc && (val & DIRTY_BIT) != 0 {
-                                    self.insert(hk, val & !DIRTY_BIT);
-                                    return Some(&span.content);
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        None
-    }
-
-    /// Adds a tag to both the current [`View`]'s tag list and the global [`GameTags`].
-    ///
-    /// Returns `true` if the tag was newly inserted into global game tags, or `false` if already present.
-    pub fn tag(&mut self, s: &str) -> bool {
+    /// Returns `true` if the tag was newly inserted into the persisted game tags.
+    pub fn tag(&mut self, s: &str, scope: TagScope) -> bool {
         let q: PageId = s.into();
-        self.view.tags.push(q.clone());
+        if scope != TagScope::Game {
+            self.view.tags.push(q.clone());
+        }
+        if scope == TagScope::Once {
+            return false;
+        }
         self.game_tags.insert(q)
     }
 
-    /// Removes a tag from the global [`GameTags`].
+    /// Removes a tag within the given [`TagScope`].
     ///
-    /// Returns `true` if the tag was present and removed, or `false` otherwise.
-    pub fn untag(&mut self, s: &str) -> bool {
-        self.game_tags.remove(&s.into())
+    /// Returns `true` if the tag was removed from the current view or the persisted game tags.
+    pub fn untag(&mut self, s: &str, scope: TagScope) -> bool {
+        let q: PageId = s.into();
+        let mut removed = false;
+        if scope != TagScope::Once {
+            removed |= self.game_tags.remove(&q);
+        }
+        if scope != TagScope::Game {
+            let before = self.view.tags.len();
+            self.view.tags.retain(|t| *t != q);
+            removed |= self.view.tags.len() != before;
+        }
+        removed
     }
+
+    /// Reports whether `s` is present in the global [`GameTags`].
+    pub fn is_tagged(&self, s: &str) -> bool {
+        self.game_tags.contains(&s.into())
+    }
+}
+
+/// Where a tag is recorded or removed.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum TagScope {
+    /// The current render only.
+    Once,
+    /// The current render and the persisted game tags.
+    Sticky,
+    /// The persisted game tags only.
+    Game,
 }
 
 // ------------- BOILERPLATE
@@ -545,5 +564,125 @@ mod tests {
             "hashed key must have top bit set"
         );
         assert_ne!(hk, hash_key("other_variable"));
+    }
+
+    #[test]
+    fn test_link_value_layout() {
+        use crate::core::game_state::GameState;
+        use crate::core::key::{link_loc_bits, link_owner};
+
+        let page: PageId = "test".into();
+        let link = hash_key("target");
+        let paragraph: PageKey = 6;
+        let mut game_state = GameState::default();
+
+        // A pending click stores the owner bits with the count still at zero
+        game_state.set_dirty(&page, link, paragraph);
+        {
+            let mut tags = HashSet::new();
+            let state = PageState::new(
+                "test",
+                false,
+                false,
+                game_state.get_page_mut(page.clone()),
+                &mut tags,
+            );
+            let pending = state.get(link).unwrap();
+            assert_eq!(pending & (DIRTY_BIT | LINK_LOC_MASK), link_owner(paragraph));
+            assert_eq!(pending & LINK_COUNT_MASK, 0);
+
+            // Another paragraph does not claim the pending click
+            assert!(!state.poll_click(link, u64::MAX, Some(paragraph + 1)));
+            assert_eq!(state.get(link), Some(link_owner(paragraph)));
+
+            // The owning paragraph claims it once, clearing the dirty marker
+            assert!(state.poll_click(link, u64::MAX, Some(paragraph)));
+            let claimed = state.get(link).unwrap();
+            assert_eq!(claimed & LINK_COUNT_MASK, 1);
+            assert_eq!(claimed & DIRTY_BIT, 0);
+            assert_eq!(claimed & LINK_LOC_MASK, link_loc_bits(paragraph));
+            assert!(!state.poll_click(link, u64::MAX, Some(paragraph)));
+        }
+
+        // set_dirty overwrites the owner but preserves the count
+        game_state.set_dirty(&page, link, paragraph + 2);
+        {
+            let mut tags = HashSet::new();
+            let state = PageState::new(
+                "test",
+                false,
+                false,
+                game_state.get_page_mut(page.clone()),
+                &mut tags,
+            );
+            let pending = state.get(link).unwrap();
+            assert_eq!(
+                pending & (DIRTY_BIT | LINK_LOC_MASK),
+                link_owner(paragraph + 2)
+            );
+            assert_eq!(pending & LINK_COUNT_MASK, 1, "count survives set_dirty");
+
+            // The new owner claims the click and increments the count
+            assert!(state.poll_click(link, u64::MAX, Some(paragraph + 2)));
+            assert_eq!(state.get(link).unwrap() & LINK_COUNT_MASK, 2);
+        }
+    }
+
+    #[test]
+    fn test_zero_max_clicks_denies_claim() {
+        use crate::core::game_state::GameState;
+
+        let page: PageId = "test".into();
+        let link = hash_key("target");
+        let paragraph: PageKey = 6;
+        let mut game_state = GameState::default();
+
+        game_state.set_dirty(&page, link, paragraph);
+
+        let mut tags = HashSet::new();
+        let state = PageState::new(
+            "test",
+            false,
+            false,
+            game_state.get_page_mut(page.clone()),
+            &mut tags,
+        );
+
+        // A zero limit never reports a successful claim, and the pending click is drained so
+        // it cannot fire if the limit later rises.
+        assert!(!state.poll_click(link, 0, Some(paragraph)));
+        assert_eq!(state.get(link).unwrap() & DIRTY_BIT, 0);
+        assert_eq!(state.get(link).unwrap() & LINK_COUNT_MASK, 1);
+    }
+
+    #[test]
+    fn test_link_count_saturates() {
+        use crate::core::game_state::GameState;
+
+        let page: PageId = "test".into();
+        let link = hash_key("target");
+        let paragraph: PageKey = 6;
+        let mut game_state = GameState::default();
+
+        game_state.insert(&page, link, LINK_COUNT_MASK);
+        game_state.set_dirty(&page, link, paragraph);
+
+        let mut tags = HashSet::new();
+        let state = PageState::new(
+            "test",
+            false,
+            false,
+            game_state.get_page_mut(page.clone()),
+            &mut tags,
+        );
+        assert!(state.poll_click(link, u64::MAX, Some(paragraph)));
+        let saturated = state.get(link).unwrap();
+        assert_eq!(saturated & LINK_COUNT_MASK, LINK_COUNT_MASK);
+        assert_eq!(
+            saturated & LINK_LOC_MASK,
+            link_loc_bits(paragraph),
+            "count must not spill into the location bits"
+        );
+        assert_eq!(saturated & DIRTY_BIT, 0);
     }
 }

@@ -9,6 +9,99 @@ pub fn unwrap_paren(expr: &Expr) -> &Expr {
     }
 }
 
+#[derive(Clone)]
+pub enum KeyExprTree {
+    Key(Expr),
+    And(Vec<KeyExprTree>),
+    Or(Vec<KeyExprTree>),
+}
+
+pub fn parse_keys(expr: &Expr) -> syn::Result<KeyExprTree> {
+    parse_key_tree(expr)
+}
+
+/// Converts a parsed key expression tree into a boolean condition. Path operands
+/// name a page and are checked as visited; all other operands are page-state keys
+/// checked for presence. `And`/`Or` nodes combine with `&&`/`||`.
+pub fn tree_to_condition(tree: &KeyExprTree) -> proc_macro2::TokenStream {
+    match tree {
+        KeyExprTree::Key(k) => match k {
+            Expr::Path(_) => quote! {
+                ifengine::core::resolve_page_id(#k)
+                    .is_some_and(|__id| __ifengine_page_state.is_tagged(__id))
+            },
+            _ => quote! {
+                __ifengine_page_state.get(#k).is_some()
+            },
+        },
+        KeyExprTree::And(items) => {
+            let sub = items.iter().map(tree_to_condition);
+            quote! { ( #(#sub)&&* ) }
+        }
+        KeyExprTree::Or(items) => {
+            let sub = items.iter().map(tree_to_condition);
+            quote! { ( #(#sub)||* ) }
+        }
+    }
+}
+
+/// Parses an expression of keys and/or pages combined with `|`/`&` and expands it
+/// into a boolean condition using the same evaluation as [`tree_to_condition`].
+pub fn condition_of(expr: &Expr) -> syn::Result<proc_macro2::TokenStream> {
+    Ok(tree_to_condition(&parse_keys(expr)?))
+}
+
+fn parse_key_tree(expr: &Expr) -> syn::Result<KeyExprTree> {
+    let unwrapped = unwrap_paren(expr);
+    match unwrapped {
+        Expr::Binary(syn::ExprBinary { left: _, op, .. }) => match op {
+            syn::BinOp::BitOr(_) => {
+                let mut items = Vec::new();
+                collect_or(unwrapped, &mut items)?;
+                Ok(KeyExprTree::Or(items))
+            }
+            syn::BinOp::BitAnd(_) => {
+                let mut items = Vec::new();
+                collect_and(unwrapped, &mut items)?;
+                Ok(KeyExprTree::And(items))
+            }
+            _ => Ok(KeyExprTree::Key(unwrapped.clone())),
+        },
+        _ => Ok(KeyExprTree::Key(unwrapped.clone())),
+    }
+}
+
+fn collect_or(expr: &Expr, items: &mut Vec<KeyExprTree>) -> syn::Result<()> {
+    if let Expr::Binary(syn::ExprBinary {
+        left,
+        op: syn::BinOp::BitOr(_),
+        right,
+        ..
+    }) = expr
+    {
+        collect_or(left, items)?;
+        collect_or(right, items)?;
+    } else {
+        items.push(parse_key_tree(expr)?);
+    }
+    Ok(())
+}
+
+fn collect_and(expr: &Expr, items: &mut Vec<KeyExprTree>) -> syn::Result<()> {
+    if let Expr::Binary(syn::ExprBinary {
+        left,
+        op: syn::BinOp::BitAnd(_),
+        right,
+        ..
+    }) = expr
+    {
+        collect_and(left, items)?;
+        collect_and(right, items)?;
+    } else {
+        items.push(parse_key_tree(expr)?);
+    }
+    Ok(())
+}
 
 /// Expands an iterator of expressions into tokens evaluating to `Line`.
 pub fn expand_lines(exprs: impl IntoIterator<Item = Expr>) -> Vec<proc_macro2::TokenStream> {

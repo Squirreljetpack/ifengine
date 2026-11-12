@@ -39,7 +39,7 @@ graph TD
 | Crate | Responsibility |
 | :--- | :--- |
 | [`ifengine_core`](file:///Users/absinthe/gh/OWN/ifengine/ifengine_core) | Foundation crate containing pure engine data models, history stacks, the [`Game`](file:///Users/absinthe/gh/OWN/ifengine/ifengine_core/src/core/game.rs) object, [`PageState`](file:///Users/absinthe/gh/OWN/ifengine/ifengine_core/src/core/page_state.rs), [`View`](file:///Users/absinthe/gh/OWN/ifengine/ifengine_core/src/view/mod.rs) tree, simulation runner, and declarative navigation macros. Has zero dependencies on proc-macros. |
-| [`ifengine_macros`](file:///Users/absinthe/gh/OWN/ifengine/ifengine_macros) | Procedural macro library implementing `#[ifview]`, element builders (`s!`, `l!`, `p!`), choice constructs (`choice!`, `mchoice!`, `dchoice!`), and state operations (`read_key!`, `click!`, `alts!`). Directly depends on `ifengine_core` to resolve documentation links and type bindings without cycles. |
+| [`ifengine_macros`](file:///Users/absinthe/gh/OWN/ifengine/ifengine_macros) | Procedural macro library implementing `#[ifview]`, element builders (`s!`, `l!`), choice constructs (`choice!`, `mchoice!`, `dchoice!`, `alts!`), and state operations (`get!`, `set!`, `click!`, `paragraph!`). Directly depends on `ifengine_core` to resolve documentation links and type bindings without cycles. |
 | [`ifengine`](file:///Users/absinthe/gh/OWN/ifengine/ifengine) | Facade crate. Re-exports core types (`Game`, `Action`, `View`, `GameError`, `SimEnd`), the page attribute `#[ifview]`, and groups all interactive macros and elements under [`ifengine::elements`](file:///Users/absinthe/gh/OWN/ifengine/ifengine/src/elements/mod.rs). |
 | [`ifengine_egui`](file:///Users/absinthe/gh/OWN/ifengine/egui) | Frontend application using [egui](https://github.com/emilk/egui) that renders `View` objects into immediate-mode GUI components and visualizes story simulation graphs. |
 
@@ -107,7 +107,7 @@ classDiagram
     }
     class Object {
         <<enumeration>>
-        Paragraph(Line)
+        Paragraph(Line, RenderData)
         Text(Line, RenderData)
         Heading(Span, u8)
         Choice(Vec~(u8, Line)~)
@@ -200,7 +200,7 @@ Every `Span` and `Line` can carry:
 
 ## 5. PageKey Architecture & Collision Avoidance
 
-Interactive elements (`click!`, `choice!`, `count!`, `alts!`) require persistent state without forcing authors to hand-craft unique IDs.
+Interactive elements (`click!`, `choice!`, `alts!`, `paragraph!`) require persistent state without forcing authors to hand-craft unique IDs.
 
 Keys are formatted as 64-bit integers split into four 16-bit segments:
 
@@ -213,7 +213,8 @@ Keys are formatted as 64-bit integers split into four 16-bit segments:
 ```
 
 - **User Manual Keys (`Counter == 0`)**:
-  - Top 16 bits are `0x0000`, reserving 48 bits (`0x0000_FFFF_FFFF_FFFF`) for user integers (e.g. `read_key!(6)`).
+  - Top 16 bits are `0x0000`, reserving 48 bits (`0x0000_FFFF_FFFF_FFFF`) for user integers (e.g. `get!(6)`).
+  - String keys are FNV-1a hashed with bit 63 set, so they cannot collide with integer keys.
 - **Auto Keys (`Counter >= 1`)**:
   - `File Hash`: Compile-time 16-bit FNV-1a hash of `file!()`.
   - `Line / Column`: Compile-time 16-bit coordinates via `#[track_caller]`.
@@ -227,11 +228,11 @@ All macros expand into standard Rust code interacting with `__ifengine_page_stat
 
 | Module | Contents |
 | :--- | :--- |
-| [`view.rs`](file:///Users/absinthe/gh/OWN/ifengine/ifengine_macros/src/view.rs) | `#[ifview]` attribute (wraps user `fn(&mut C)` into `fn(&mut Game<C>) -> Response`), `img!`, `h!`, `hr!`. |
-| [`elements.rs`](file:///Users/absinthe/gh/OWN/ifengine/ifengine_macros/src/elements.rs) | Basic element constructors: `s!`, `l!`, `link!`, `tun!`, `push!`, `text!`, `texts!`, `paragraph!`, `paragraphs!`. Automatically attach call-site keys via `__ifengine_page_state.auto_key()`. |
-| [`choices.rs`](file:///Users/absinthe/gh/OWN/ifengine/ifengine_macros/src/choices.rs) | Interactive branching DSL: `choice!`, `mchoice!`, `dynamic_choice!`, `dchoice!`, and inline-delimited `dparagraph!`, `mparagraph!`. |
-| [`state.rs`](file:///Users/absinthe/gh/OWN/ifengine/ifengine_macros/src/state.rs) | Direct key read/write/mask operations (`read_key!`, `set_key_mask!`), click handlers (`click!`), cycling spans (`alts!`), and tag management (`tag!`, `untag!`). |
-| [`nodes.rs`](file:///Users/absinthe/gh/OWN/ifengine/ifengine_macros/src/nodes.rs) | Common syn parsing AST nodes (`MaybeKey`, `KeyExpr`, `ExprAndOptional`). |
+| [`view.rs`](file:///Users/absinthe/gh/OWN/ifengine/ifengine_macros/src/view.rs) | `#[ifview]` attribute (wraps user `fn(&mut C)` into `fn(&mut Game<C>) -> Response`), `img!`, `h!`, `hr!`, `paragraphs!`, `EMBED!`, `YIELD!`, `extend!`. |
+| [`elements.rs`](file:///Users/absinthe/gh/OWN/ifengine/ifengine_macros/src/elements.rs) | Basic element constructors: `s!`, `l!`, `link!`, `tun!`, `back!`, `alts!`, `click!`. Automatically attach call-site keys via `__ifengine_page_state.auto_key()`. |
+| [`choices.rs`](file:///Users/absinthe/gh/OWN/ifengine/ifengine_macros/src/choices.rs) | Interactive branching DSL: `choice!`, `mchoice!`, `dynamic_choice!`, `dchoice!`, `paragraph!`, and in-place `replace!`. |
+| [`state.rs`](file:///Users/absinthe/gh/OWN/ifengine/ifengine_macros/src/state.rs) | Direct key read/write/mask operations (`get!`, `set!`, `read_key_mask!`), one-shot blocks (`once!`), and tag management (`tag!`, `untag!`). |
+| [`nodes.rs`](file:///Users/absinthe/gh/OWN/ifengine/ifengine_macros/src/nodes.rs) | Common syn parsing AST nodes (`MaybeKey`, `LineArgs`, `ParagraphArgs`, `KeyExpr`, `ExprAndOptional`) and the `::` class/render-data trailer parser. |
 
 ---
 

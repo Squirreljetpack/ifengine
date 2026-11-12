@@ -27,6 +27,10 @@ impl Actions {
         Self(Vec::new())
     }
 
+    pub fn single(action: impl Into<Action>) -> Self {
+        Self(vec![action.into()])
+    }
+
     pub fn take(&mut self) -> Option<Self> {
         if self.0.is_empty() {
             None

@@ -1,10 +1,15 @@
+use std::sync::Arc;
+
 use leptos::prelude::*;
 
 /// A single rendered item in a header slot: either plain text or a clickable link.
 #[derive(Clone)]
 pub enum HeaderItem {
     Text(String),
-    Action { label: String, callback: Callback<()> },
+    Action {
+        label: String,
+        callback: Arc<dyn Fn() + Send + Sync>,
+    },
 }
 
 /// Story header component rendering three slots (left / center / right), each accepting
@@ -42,7 +47,7 @@ fn render_slot(items: Vec<HeaderItem>) -> impl IntoView {
                     href="#"
                     on:click=move |e| {
                         e.prevent_default();
-                        callback.run(());
+                        callback();
                     }
                 >
                     {label}

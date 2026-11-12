@@ -31,20 +31,19 @@ fn main() {
     let mut code = String::new();
     code.push_str("pub fn add_fonts(fonts: &mut egui::FontDefinitions) {\n");
 
-    for entry in fs::read_dir(&to_absolute(FONTS_PATH)).unwrap() {
+    for entry in fs::read_dir(to_absolute(FONTS_PATH)).unwrap() {
         let entry = entry.unwrap();
         let path = entry.path();
         if path.is_dir()
             && !path
                 .file_name()
-                .and_then(|f| f.to_str())
-                .and_then(|f| Some(f.starts_with('_')))
+                .and_then(|f| f.to_str()).map(|f| f.starts_with('_'))
                 .unwrap_or(true)
         {
             let family_name = path.file_name().unwrap().to_str().unwrap();
             add_fonts_from_dir(
                 &mut code,
-                &to_absolute(&format!("{FONTS_PATH}/{}", family_name)),
+                &to_absolute(format!("{FONTS_PATH}/{}", family_name)),
                 family_name,
             );
         }
@@ -115,9 +114,9 @@ fn add_fonts_from_dir(
         let mut bold_italic_fonts = Vec::new();
 
         for path in entries {
-            if path.is_file() {
-                if let Some(ext) = path.extension() {
-                    if ext == "ttf" || ext == "otf" {
+            if path.is_file()
+                && let Some(ext) = path.extension()
+                    && (ext == "ttf" || ext == "otf") {
                         let clean_name = font_name(&path);
 
                         let absolute_path = path.to_str().unwrap();
@@ -142,8 +141,6 @@ fn add_fonts_from_dir(
                             font_names.push(clean_name.to_string());
                         }
                     }
-                }
-            }
         }
 
         let family_name = font_family_name.to_lowercase();
@@ -169,15 +166,15 @@ fn add_fonts_from_dir(
 
 fn font_name(path: &Path) -> &str {
     let name = path.file_stem().unwrap().to_str().unwrap();
-    let clean_name = if name.len() > 2
-        && name.chars().nth(0).unwrap().is_ascii_digit()
+    
+    (if name.len() > 2
+        && name.chars().next().unwrap().is_ascii_digit()
         && name.chars().nth(1).unwrap() == '-'
     {
         &name[2..]
     } else {
         name
-    };
-    clean_name
+    }) as _
 }
 
 fn font_family_insertion_line(family_name: &str, variant: &str, font_array: &[String]) -> String {
@@ -361,7 +358,7 @@ fn add_colors_from_theme(output: &mut String, theme_file: &Path, variant: &str) 
             .or_else(|| resolve_token_color(&theme, &scopes))
             .or_else(|| {
                 if name == "PRIMARY" {
-                    resolve_color(&theme.colors, &vec!["editor.foreground"])
+                    resolve_color(&theme.colors, &["editor.foreground"])
                 } else {
                     None
                 }

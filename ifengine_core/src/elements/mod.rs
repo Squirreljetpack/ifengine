@@ -13,12 +13,12 @@ use crate::view::Line;
 /// Note: Do not rely on these in closures!
 #[macro_export]
 macro_rules! NEXT {
-    ($f:path) => {
+    ($f:path) => {{
         return $crate::core::Response::Switch($crate::core::PageHandle::new(
             stringify!($f).into(),
             $f,
         ));
-    };
+    }};
 }
 
 /// Immediately return a transition-type [`Response`](crate::core::Response).
@@ -28,12 +28,12 @@ macro_rules! NEXT {
 /// - No arguments: go back 1 step.
 #[macro_export]
 macro_rules! BACK {
-    ($n:expr) => {
+    ($n:expr) => {{
         return $crate::core::Response::Back($n);
-    };
-    () => {
+    }};
+    () => {{
         return $crate::core::Response::Back(1);
-    };
+    }};
 }
 
 /// Immediately return a tunnel-type [`Response`](crate::core::Response).
@@ -44,15 +44,15 @@ macro_rules! BACK {
 /// - No arguments: exit current tunnel.
 #[macro_export]
 macro_rules! TUN {
-    ($f:path) => {
+    ($f:path) => {{
         return $crate::core::Response::Tunnel($crate::core::PageHandle::new(
             stringify!($f).into(),
             $f,
         ));
-    };
-    () => {
+    }};
+    () => {{
         return $crate::core::Response::Exit;
-    };
+    }};
 }
 
 /// Immediately return a [`Response::End`](crate::core::Response::End).
@@ -60,9 +60,9 @@ macro_rules! TUN {
 /// This returns `!`, exiting the current function.
 #[macro_export]
 macro_rules! END {
-    () => {
+    () => {{
         return $crate::core::Response::End;
-    };
+    }};
 }
 
 pub use crate::core::key::IntoPageKey;
@@ -112,5 +112,64 @@ impl ChoiceVariant {
             }
             ChoiceVariant::Always(l) => Some(l),
         }
+    }
+}
+
+/// Interaction data returned by paragraph-style element macros such as
+/// [`paragraph!`](crate::elements::paragraph).
+///
+/// `clicked` holds the target of the link clicked during the current render, `bits` is the
+/// raw value stored under the element's key (a bitmask indexed by the position of each
+/// interactive element), and `key` is the key the element was registered under.
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
+pub struct PData {
+    /// Target of the element clicked during this render, if any.
+    pub clicked: Option<String>,
+    /// Raw value stored under [`key`](Self::key), interpreted as a bitmask of tracked elements.
+    pub bits: u64,
+    /// Page-state key the element was registered under.
+    pub key: u64,
+}
+
+impl PData {
+    /// The clicked target, or `""` if nothing was clicked during this render.
+    pub fn as_str(&self) -> &str {
+        self.clicked.as_deref().unwrap_or("")
+    }
+
+    /// Page-state key the element was registered under.
+    pub const fn key(&self) -> u64 {
+        self.key
+    }
+
+    /// Consumes the data, returning the clicked target or `""` if nothing was clicked.
+    pub fn unwrap_or_default(self) -> String {
+        self.clicked.unwrap_or_default()
+    }
+
+    /// Expands [`bits`](Self::bits) into a boolean mask.
+    ///
+    /// The length is `max(highest set bit + 1, tracked)`, so it covers every tracked element
+    /// without dropping any set bit. `tracked` is the number of elements the element macro
+    /// tracked during this render.
+    pub fn mask(&self, tracked: usize) -> Vec<bool> {
+        let len = (64 - self.bits.leading_zeros() as usize).max(tracked);
+        (0..len)
+            .map(|i| i < 64 && (self.bits >> i) & 1 == 1)
+            .collect()
+    }
+}
+
+impl std::ops::Deref for PData {
+    type Target = Option<String>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.clicked
+    }
+}
+
+impl std::ops::DerefMut for PData {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.clicked
     }
 }

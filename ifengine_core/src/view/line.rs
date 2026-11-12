@@ -248,20 +248,20 @@ impl Line {
         }
     }
 
-    /// Scans spans without actions, splits bracketed `[[target]]` links, and attaches actions via `action_fn`.
+    /// Scans spans without actions, splits bracketed `[target]` links (with `[[` as a literal `[`), and attaches actions via `action_fn`.
     ///
     /// - If `FALLBACK` is `true` and no bracketed targets are found across the entire line,
     ///   all un-actioned spans are assigned actions via `action_fn`.
     /// - If `FALLBACK` is `false` and no bracketed targets are found, spans without actions are left as plain text.
     pub fn interleave_actions<const FALLBACK: bool>(
         mut self,
-        mut action_fn: impl FnMut(usize, &Span) -> Option<Action>,
+        mut action_fn: impl FnMut(usize, &Span) -> Actions,
     ) -> Self {
         let mut link_idx = 0usize;
         let mut new_spans = Vec::with_capacity(self.spans.len());
 
         for span in self.spans {
-            if span.active() {
+            if span.active() || span.content.is_empty() {
                 new_spans.push(span);
             } else {
                 let parts = crate::utils::split_braced(&span.content);
@@ -272,8 +272,9 @@ impl Line {
                     let is_link = i % 2 == 1;
                     let mut s = span.clone().with_text(part);
                     if is_link {
-                        if let Some(action) = action_fn(link_idx, &s) {
-                            s.action.push(action);
+                        let actions = action_fn(link_idx, &s);
+                        for act in actions {
+                            s.action.push(act);
                         }
                         link_idx += 1;
                     }
@@ -285,8 +286,9 @@ impl Line {
         if FALLBACK && link_idx == 0 {
             for span in &mut new_spans {
                 if !span.active() {
-                    if let Some(action) = action_fn(link_idx, span) {
-                        span.action.push(action);
+                    let actions = action_fn(link_idx, span);
+                    for act in actions {
+                        span.action.push(act);
                     }
                     link_idx += 1;
                 }
@@ -806,8 +808,8 @@ mod tests {
     #[test]
     fn test_line_interleave_actions() {
         // Without fallback: bracketed text becomes links, plain text is untouched
-        let line = Line::from("Go to [[forest]] or [[inn]]")
-            .interleave_actions::<false>(|i, _| Some(Action::SetBit(1, i as u8)));
+        let line = Line::from("Go to [forest] or [inn]")
+            .interleave_actions::<false>(|i, _| Actions::single(Action::SetBit(1, i as u8)));
         assert_eq!(line.spans.len(), 4);
         assert_eq!(line.spans[0].content, "Go to ");
         assert!(!line.spans[0].active());
@@ -820,13 +822,13 @@ mod tests {
 
         // Without fallback and no brackets: no links
         let line_nobrackets = Line::from("No links here")
-            .interleave_actions::<false>(|i, _| Some(Action::SetBit(1, i as u8)));
+            .interleave_actions::<false>(|i, _| Actions::single(Action::SetBit(1, i as u8)));
         assert_eq!(line_nobrackets.spans.len(), 1);
         assert!(!line_nobrackets.spans[0].active());
 
         // With fallback and no brackets: entire line becomes clickable link
         let line_fallback = Line::from("The old chest is locked.")
-            .interleave_actions::<true>(|i, _| Some(Action::SetBit(1, i as u8)));
+            .interleave_actions::<true>(|i, _| Actions::single(Action::SetBit(1, i as u8)));
         assert_eq!(line_fallback.spans.len(), 1);
         assert_eq!(line_fallback.spans[0].content, "The old chest is locked.");
         assert_eq!(
@@ -835,8 +837,8 @@ mod tests {
         );
 
         // Preserves prototype classes and styles
-        let proto_line = Line::from(Span::new("See [[item]] now").cls("highlight"))
-            .interleave_actions::<false>(|i, _| Some(Action::SetBit(1, i as u8)));
+        let proto_line = Line::from(Span::new("See [item] now").cls("highlight"))
+            .interleave_actions::<false>(|i, _| Actions::single(Action::SetBit(1, i as u8)));
         assert_eq!(proto_line.spans.len(), 3);
         assert_eq!(proto_line.spans[0].classes, vec!["highlight"]);
         assert_eq!(proto_line.spans[1].classes, vec!["highlight"]);

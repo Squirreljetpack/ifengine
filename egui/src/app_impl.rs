@@ -220,7 +220,7 @@ fn init_theme(ctx: &egui::Context) {
         } else {
             "light"
         };
-        global_theme_mut().switch(theme, &ctx);
+        global_theme_mut().switch(theme, ctx);
     }
 }
 

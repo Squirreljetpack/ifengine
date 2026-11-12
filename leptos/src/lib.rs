@@ -9,6 +9,7 @@ mod app_impl;
 mod components;
 pub mod consts;
 mod context;
+pub mod dev;
 mod render;
 pub mod storage;
 mod transition;

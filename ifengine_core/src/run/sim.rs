@@ -47,9 +47,9 @@ impl<C: GameContext> Game<C> {
         let mut tunnels_queue = vec![(tun_id, start)];
 
         while let Some((tun_id, start)) = tunnels_queue.pop() {
-            let records = ret.runs.entry(tun_id).or_insert(PageRecords::new());
+            let records = ret.runs.entry(tun_id).or_default();
             let mut queue = vec![SimulationState::new(start)];
-            let _ = Self::simulate_impl(&mut queue, records, &mut tunnels_queue, &mut visitor);
+            Self::simulate_impl(&mut queue, records, &mut tunnels_queue, &mut visitor);
         }
 
         ret
@@ -76,8 +76,7 @@ impl<C: GameContext> Game<C> {
                         }
                         Action::Exit => return Err(SimEnd::TunnelExit),
                         _ => {
-                            self.handle_action(action.clone())
-                                .map_err(SimEnd::from)?;
+                            self.handle_action(action.clone()).map_err(SimEnd::from)?;
                         }
                     }
                 }
@@ -255,29 +254,6 @@ impl PageRecord {
     pub fn is_empty(&self) -> bool {
         self.ends.is_empty() && self.tags.is_empty() && self.outgoing_tunnels.is_empty()
     }
-
-    pub fn compute_display_width(&self) -> usize {
-        let mut max = 6;
-        for end in &self.ends {
-            let len = format!("{:?}", end).len();
-            if len > max {
-                max = len;
-            }
-        }
-        for tag in &self.tags {
-            let len = tag.len();
-            if len > max {
-                max = len;
-            }
-        }
-        for tun in &self.outgoing_tunnels {
-            let len = tun.len();
-            if len > max {
-                max = len;
-            }
-        }
-        max
-    }
 }
 
 impl PageRecords {
@@ -366,9 +342,21 @@ impl<C> std::ops::DerefMut for SimulationState<C> {
     }
 }
 
+impl Default for PageRecords {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl PageRecords {
     pub fn new() -> Self {
         PageRecords(Default::default())
+    }
+}
+
+impl Default for Simulation {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

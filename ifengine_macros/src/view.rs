@@ -1,11 +1,10 @@
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::parse::Parser;
 use syn::punctuated::Punctuated;
 use syn::{Error, Expr, ItemFn, Lit, LitStr, Token, parse_macro_input};
 
-use crate::helpers::{expand_line_expr, expand_lines, expand_string_expr, unwrap_paren};
-use crate::nodes::{LineArgs, is_trailer_next, parse_until_delimiter};
+use crate::helpers::{expand_line_expr, expand_lines, expand_string_expr};
+use crate::nodes::{LineArgs, ParagraphArgs, is_trailer_next, parse_until_delimiter};
 
 pub fn ifview(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let input = parse_macro_input!(item as ItemFn);
@@ -113,12 +112,13 @@ pub fn clear(_input: TokenStream) -> TokenStream {
 }
 
 pub fn paragraph(input: TokenStream) -> TokenStream {
-    let LineArgs {
+    let ParagraphArgs {
         maybe_key,
         exprs,
+        max_clicks,
         classes,
         trailer,
-    } = syn::parse_macro_input!(input as LineArgs);
+    } = syn::parse_macro_input!(input as ParagraphArgs);
 
     let key = maybe_key.into_tokens();
     let string_expr = match trailer {
@@ -128,21 +128,75 @@ pub fn paragraph(input: TokenStream) -> TokenStream {
 
     let lines = expand_lines(exprs);
 
-    let expanded = quote! {
+    let max_check = match max_clicks {
+        Some(max_expr) => quote! {
+            let __max_clicks: u64 = (#max_expr) as u64;
+            if (__clicked_count as u64) >= __max_clicks {
+                __out_line.clear_actions(|span| {
+                    span.action.iter().any(|a| matches!(a, ifengine::core::Action::SetDirty(_, k) if *k == __ifengine_key))
+                });
+            }
+        },
+        None => quote! {},
+    };
+
+    let expanded = quote! {{
+        let __ifengine_key = #key;
+        let mut __clicked_target: Option<String> = None;
+        let mut __clicked_count: usize = 0usize;
+        let mut __counted_links: Vec<u64> = Vec::new();
+
+        let __line_items: Vec<ifengine::view::Line> = vec![#(#lines),*];
+        #[allow(unused_mut)]
+        let mut __out_line = ifengine::view::Line::from_iter(__line_items)
+            #(.cls(#classes))*
+            .interleave_actions::<false>(|__i, link_span| {
+                let hk = ifengine::core::key::hash_key(&link_span.content);
+
+                // Claim the pending click only when its location payload belongs to this
+                // paragraph, so paragraphs sharing link text do not steal each other's clicks.
+                if __ifengine_page_state.poll_click(hk, u64::MAX, Some(__ifengine_key)) {
+                    __clicked_target = Some(link_span.content.clone());
+                }
+
+                if let Some(val) = __ifengine_page_state.get(hk) {
+                    // Sum each distinct link's count once for the paragraph-wide click limit.
+                    if !__counted_links.contains(&hk) {
+                        __counted_links.push(hk);
+                        __clicked_count += (val & ifengine::core::key::LINK_COUNT_MASK) as usize;
+                    }
+                    // A link stops offering an action once it has been clicked.
+                    if (val & ifengine::core::key::LINK_COUNT_MASK) != 0 {
+                        return ifengine::core::Actions::new();
+                    }
+                }
+
+                ifengine::core::Actions::from(vec![
+                    ifengine::core::Action::SetDirty(hk, __ifengine_key),
+                    ifengine::core::Action::SetBit(__ifengine_key, __i.min(u8::MAX as usize) as u8),
+                ])
+            });
+
+        #max_check
+
         __ifengine_page_state.push(
             ifengine::view::StampedObject {
-                id: Some(#key),
+                id: Some(__ifengine_key),
                 object: ifengine::view::Object::Paragraph(
-                    ifengine::view::Line::from_iter(
-                        vec![#(#lines),*]
-                    )#(.cls(#classes))*,
-                    #string_expr
+                    __out_line,
+                    #string_expr,
                 ),
             }
         );
-    };
 
-    TokenStream::from(expanded)
+        ifengine::elements::PData {
+            clicked: __clicked_target,
+            bits: __ifengine_page_state.get(__ifengine_key).unwrap_or(0),
+            key: __ifengine_key,
+        }
+    }};
+
+    expanded.into()
 }
 
 pub fn paragraphs(input: TokenStream) -> TokenStream {
@@ -179,7 +233,6 @@ pub fn paragraphs(input: TokenStream) -> TokenStream {
 
     TokenStream::from(expanded)
 }
-
 
 pub fn h(input: TokenStream) -> TokenStream {
     let exprs_parsed = parse_macro_input!(input with Punctuated<Expr, Token![,]>::parse_terminated);
@@ -218,6 +271,26 @@ pub fn hr(_input: TokenStream) -> TokenStream {
             ifengine::view::StampedObject {
                 id: Some(__ifengine_page_state.auto_key()),
                 object: ifengine::view::Object::Break,
+            }
+        );
+    };
+
+    TokenStream::from(expanded)
+}
+
+pub fn br(input: TokenStream) -> TokenStream {
+    let n = if input.is_empty() {
+        quote!(1u8)
+    } else {
+        let expr = parse_macro_input!(input as Expr);
+        quote!((#expr) as u8)
+    };
+
+    let expanded = quote! {
+        __ifengine_page_state.push(
+            ifengine::view::StampedObject {
+                id: Some(__ifengine_page_state.auto_key()),
+                object: ifengine::view::Object::Empty(#n),
             }
         );
     };
@@ -328,44 +401,28 @@ impl syn::parse::Parse for EmbedInput {
 
 #[allow(non_snake_case)]
 pub fn r#YIELD(input: TokenStream) -> TokenStream {
-    let parts = match Punctuated::<Expr, Token![,]>::parse_terminated.parse(input) {
-        Ok(parts) => parts,
+    if input.is_empty() {
+        let expanded = quote! {
+            return __ifengine_page_state.into_response_with_context(__ifengine_ctx);
+        };
+        return expanded.into();
+    }
+
+    let expr: Expr = match syn::parse::Parser::parse2(
+        syn::parse::Parse::parse,
+        proc_macro2::TokenStream::from(input),
+    ) {
+        Ok(e) => e,
         Err(e) => return e.to_compile_error().into(),
     };
 
-    if parts.is_empty() {
-        let expanded = quote! {
-            return __ifengine_page_state.into_response_with_context(__ifengine_ctx);
-        };
-        return expanded.into();
-    }
-
-    let keys: Vec<&Expr> = if parts.len() == 1 {
-        let unwrapped = unwrap_paren(&parts[0]);
-        match unwrapped {
-            Expr::Array(arr) => arr.elems.iter().collect(),
-            Expr::Tuple(tuple) => tuple.elems.iter().collect(),
-            other => vec![other],
-        }
-    } else {
-        parts.iter().collect()
+    let condition = match crate::helpers::condition_of(&expr) {
+        Ok(condition) => condition,
+        Err(e) => return e.to_compile_error().into(),
     };
 
-    if keys.is_empty() {
-        let expanded = quote! {
-            return __ifengine_page_state.into_response_with_context(__ifengine_ctx);
-        };
-        return expanded.into();
-    }
-
-    let checks = keys.iter().map(|key_expr| {
-        quote! {
-            __ifengine_page_state.get(#key_expr).is_none()
-        }
-    });
-
     let expanded = quote! {
-        if #( #checks )&&* {
+        if !( #condition ) {
             return __ifengine_page_state.into_response_with_context(__ifengine_ctx);
         }
     };
@@ -444,26 +501,26 @@ impl syn::parse::Parse for ExtendInput {
 
         if input.peek(syn::Ident) {
             let ahead = input.fork();
-            if let Ok(ident) = ahead.parse::<syn::Ident>() {
-                if ahead.peek(Token![,]) {
-                    match ident.to_string().as_str() {
-                        "Choice" => {
-                            kind = ExtendVariant::Choice;
-                            let _: syn::Ident = input.parse()?;
-                            let _: Token![,] = input.parse()?;
-                        }
-                        "Object" => {
-                            kind = ExtendVariant::Object;
-                            let _: syn::Ident = input.parse()?;
-                            let _: Token![,] = input.parse()?;
-                        }
-                        "Span" => {
-                            kind = ExtendVariant::Span;
-                            let _: syn::Ident = input.parse()?;
-                            let _: Token![,] = input.parse()?;
-                        }
-                        _ => {}
+            if let Ok(ident) = ahead.parse::<syn::Ident>()
+                && ahead.peek(Token![,])
+            {
+                match ident.to_string().as_str() {
+                    "Choice" => {
+                        kind = ExtendVariant::Choice;
+                        let _: syn::Ident = input.parse()?;
+                        let _: Token![,] = input.parse()?;
                     }
+                    "Object" => {
+                        kind = ExtendVariant::Object;
+                        let _: syn::Ident = input.parse()?;
+                        let _: Token![,] = input.parse()?;
+                    }
+                    "Span" => {
+                        kind = ExtendVariant::Span;
+                        let _: syn::Ident = input.parse()?;
+                        let _: Token![,] = input.parse()?;
+                    }
+                    _ => {}
                 }
             }
         }

@@ -48,7 +48,7 @@ fn test_element_macros_and_keys() {
 fn test_alts_page(_: &mut ()) {
     use ifengine::elements::{alts, ps};
     let a1 = alts!(["option_a", "option_b"]);
-    let a2 = alts!(["c1", "c2"], Cycle);
+    let a2 = alts!(Cycle: ["c1", "c2"]);
     ps!(a1, a2);
 }
 
@@ -81,12 +81,12 @@ fn test_alts_macro_and_keys() {
 
 #[ifengine::ifview]
 fn test_choice_and_element_ids_page(_: &mut ()) {
-    use ifengine::elements::{choice, click, count, h, p, paragraph};
+    use ifengine::elements::{choice, click, h, p, paragraph};
 
     h!("My Heading", 1);
     paragraph!("Intro text.");
 
-    let c = count!(|val| format!("Clicked {val}"));
+    let c = click!(|val| format!("Clicked {val}"));
     let clk = click!("Action link", {});
     p!(c, clk);
 
@@ -128,22 +128,22 @@ fn test_choice_and_element_ids() {
         panic!("expected Object::Paragraph");
     }
 
-    // 3. Count and Click spans have IDs, and outer paragraph has an ID
+    // 3. Click spans have IDs, and outer paragraph has an ID
     assert!(
         view.inner[2].id.is_some(),
-        "paragraph with count/click must have an object id"
+        "paragraph with click spans must have an object id"
     );
     if let Object::Paragraph(line, _) = &view.inner[2].object {
         assert!(
             line.spans[0].id.is_some(),
-            "count span must have an element id"
+            "first click span must have an element id"
         );
         assert!(
             line.spans[1].id.is_some(),
-            "click span must have an element id"
+            "second click span must have an element id"
         );
     } else {
-        panic!("expected Object::Paragraph with count/click");
+        panic!("expected Object::Paragraph with click spans");
     }
 
     // 4. Image has an ID on StampedObject
@@ -181,16 +181,16 @@ fn test_choice_and_element_ids() {
 fn test_replace_page(_: &mut ()) {
     use ifengine::elements::replace;
     // Disappears on click
-    replace!((100), "The chest is [[locked]].");
+    replace!((100), "The chest is [locked].");
     // Replaces on click with simple expr
-    replace!((200), "The door is [[closed]].", "The door is open.");
+    replace!((200), "The door is [closed].", "The door is open.");
     // Replaces on click with arbitrary block expression
-    replace!((300), "Click [[here]] for magic.", {
+    replace!((300), "Click [here] for magic.", {
         let x = 2 + 2;
         format!("Magic number is {x}")
     });
     // Replaces when any link bit is clicked
-    replace!((400), "Choose [[left]] or [[right]].", "You moved forward.");
+    replace!((400), "Choose [left] or [right].", "You moved forward.");
 }
 
 #[test]
@@ -306,7 +306,7 @@ fn test_replace_macro() {
 
 #[ifengine::ifview]
 fn test_interpolation_page(_: &mut ()) {
-    use ifengine::elements::{dparagraph, h, l, link, mparagraph, p, ps, s};
+    use ifengine::elements::{h, l, link, p, paragraph, ps, s};
 
     let name = "Sen";
     let score = 42;
@@ -329,8 +329,8 @@ fn test_interpolation_page(_: &mut ()) {
     p!("First: {uncopied}");
     p!("Second: {uncopied}");
 
-    mparagraph!((500), "Take the [[{name}'s blade]].");
-    dparagraph!((600), "Travel to [[{name}'s camp]].");
+    paragraph!((500), "Take the [{name}'s blade].");
+    paragraph!((600), "Travel to [{name}'s camp].");
 }
 
 #[test]
@@ -419,14 +419,14 @@ fn test_variable_interpolation_macros() {
         panic!("expected Paragraph for index 10");
     }
 
-    // 11: mparagraph! with interpolation
+    // 11: paragraph! with interpolation (key 500)
     if let Object::Paragraph(line, _) = &view.inner[11].object {
         assert!(line.content().contains("Sen"));
     } else {
         panic!("expected Paragraph for index 11");
     }
 
-    // 12: dparagraph! with interpolation
+    // 12: paragraph! with interpolation (key 600)
     if let Object::Paragraph(line, _) = &view.inner[12].object {
         assert!(line.content().contains("Sen"));
     } else {
@@ -438,6 +438,7 @@ fn test_variable_interpolation_macros() {
 struct ClickState {
     unbounded_count: usize,
     bounded_count: usize,
+    disabled_count: usize,
 }
 
 #[ifengine::ifview]
@@ -455,7 +456,11 @@ fn test_click_page(state: &mut ClickState) {
         }
     );
 
-    p!(clk_unbounded, clk_bounded);
+    let clk_disabled = click!(0: "Disabled", {
+        state.disabled_count += 1;
+    });
+
+    p!(clk_unbounded, clk_bounded, clk_disabled);
 }
 
 #[test]
@@ -473,6 +478,10 @@ fn test_click_macro_repeatable_and_max_clicks() {
     };
     let unbounded_action = line.spans[0].action.clone();
     let bounded_action = line.spans[1].action.clone();
+    assert!(
+        !line.spans[2].active(),
+        "max_clicks 0 should attach no action"
+    );
 
     // Click unbounded 1st time
     game.handle_action(unbounded_action.clone()).unwrap();
@@ -526,9 +535,9 @@ struct DparagraphState {
 
 #[ifengine::ifview]
 fn test_dparagraph_page(state: &mut DparagraphState) {
-    use ifengine::elements::dparagraph;
+    use ifengine::elements::paragraph;
 
-    match dparagraph!("Go to the [[forest]] or [[]]the [[inn]].").as_str() {
+    match paragraph!("Go to the [forest] or []the [inn].").as_str() {
         "forest" => state.last_target = "forest".to_string(),
         "inn" => state.last_target = "inn".to_string(),
         "" => {}
@@ -573,6 +582,65 @@ fn test_dparagraph_interaction() {
 }
 
 #[derive(Debug, Default, Clone)]
+struct DparagraphMaskState {
+    clicked: String,
+    bits: u64,
+    key: u64,
+    mask: Vec<bool>,
+}
+
+#[ifengine::ifview]
+fn test_dparagraph_mask_page(state: &mut DparagraphMaskState) {
+    use ifengine::elements::paragraph;
+
+    let data = paragraph!("Go to the [forest] or the [inn].");
+    state.clicked = data.as_str().to_string();
+    state.bits = data.bits;
+    state.key = data.key();
+    state.mask = data.mask(2);
+}
+
+#[test]
+fn test_dparagraph_mask_tracks_each_link() {
+    let mut game =
+        ifengine::Game::new_with_page("test_dparagraph_mask_page", test_dparagraph_mask_page);
+    let view = game.view().expect("view should succeed");
+
+    assert_eq!(game.context.mask, vec![false, false]);
+    assert_ne!(game.context.key, 0);
+
+    let Object::Paragraph(line, _) = &view.inner[0].object else {
+        panic!("expected Paragraph");
+    };
+    let forest_span = line
+        .spans
+        .iter()
+        .find(|s| s.content.trim() == "forest")
+        .unwrap();
+    let inn_span = line
+        .spans
+        .iter()
+        .find(|s| s.content.trim() == "inn")
+        .unwrap();
+    let forest_action = forest_span.action.clone();
+    let inn_action = inn_span.action.clone();
+
+    // Clicking the second link sets only bit 1 on the paragraph key.
+    game.handle_action(inn_action).unwrap();
+    let _ = game.view().unwrap();
+    assert_eq!(game.context.clicked, "inn");
+    assert_eq!(game.context.bits, 0b10);
+    assert_eq!(game.context.mask, vec![false, true]);
+
+    // Clicking the first link sets its bit too, without clearing the other.
+    game.handle_action(forest_action).unwrap();
+    let _ = game.view().unwrap();
+    assert_eq!(game.context.clicked, "forest");
+    assert_eq!(game.context.bits, 0b11);
+    assert_eq!(game.context.mask, vec![true, true]);
+}
+
+#[derive(Debug, Default, Clone)]
 struct DparagraphSequenceState {
     last_target: String,
     clicked_custom_link: bool,
@@ -585,13 +653,13 @@ fn test_dparagraph_seq_dest_page(state: &mut DparagraphSequenceState) {
 
 #[ifengine::ifview]
 fn test_dparagraph_seq_page(state: &mut DparagraphSequenceState) {
-    use ifengine::elements::{dparagraph, link, s};
+    use ifengine::elements::{link, paragraph, s};
 
-    match dparagraph!(
+    match paragraph!(
         s!("You see "),
-        "a [[sword]]",
+        "a [sword]",
         link!(" (examine)", test_dparagraph_seq_dest_page),
-        " and a [[shield]]."
+        " and a [shield]."
     )
     .as_str()
     {
@@ -650,19 +718,20 @@ fn test_dparagraph_sequence_of_spans() {
 
 #[derive(Debug, Default, Clone)]
 struct MparagraphSequenceState {
-    mask: Vec<bool>,
+    last_clicked: String,
 }
 
 #[ifengine::ifview]
 fn test_mparagraph_seq_page(state: &mut MparagraphSequenceState) {
-    use ifengine::elements::{link, mparagraph, s};
+    use ifengine::elements::{link, paragraph, s};
 
-    state.mask = mparagraph!(
+    state.last_clicked = paragraph!(
         s!("Equipment: "),
-        "take [[torch]]",
+        "take [torch]",
         link!(" (help)", test_dparagraph_seq_dest_page),
-        " and [[map]]" :: "eq-trailer"
-    );
+        " and [map]" :: "eq-trailer"
+    )
+    .unwrap_or_default();
 }
 
 #[test]
@@ -671,8 +740,7 @@ fn test_mparagraph_sequence_of_spans() {
         ifengine::Game::new_with_page("test_mparagraph_seq_page", test_mparagraph_seq_page);
     let view = game.view().expect("view should succeed");
 
-    // 2 dynamic links: torch and map
-    assert_eq!(game.context.mask, vec![false, false]);
+    assert_eq!(game.context.last_clicked, "");
 
     let Object::Paragraph(line, trailer) = &view.inner[0].object else {
         panic!("expected Paragraph");
@@ -685,10 +753,10 @@ fn test_mparagraph_sequence_of_spans() {
     let torch_action = torch_span.action.clone();
     let map_action = map_span.action.clone();
 
-    // Click torch
+    // Click torch: torch becomes inactive; map stays active
     game.handle_action(torch_action).unwrap();
     let view2 = game.view().unwrap();
-    assert_eq!(game.context.mask, vec![true, false]);
+    assert_eq!(game.context.last_clicked, "torch");
 
     let Object::Paragraph(line2, _) = &view2.inner[0].object else {
         panic!("expected Paragraph");
@@ -704,10 +772,10 @@ fn test_mparagraph_sequence_of_spans() {
         "unclicked map should still have an action"
     );
 
-    // Click map
+    // Click map: map becomes inactive
     game.handle_action(map_action).unwrap();
     let view3 = game.view().unwrap();
-    assert_eq!(game.context.mask, vec![true, true]);
+    assert_eq!(game.context.last_clicked, "map");
 
     let Object::Paragraph(line3, _) = &view3.inner[0].object else {
         panic!("expected Paragraph");
@@ -726,7 +794,7 @@ fn test_mparagraph_sequence_of_spans() {
 
 #[ifengine::ifview]
 fn test_get_set_page(_: &mut ()) {
-    use ifengine::elements::{get, p, set};
+    use ifengine::elements::{get, l, p, set};
 
     // 1-arg get initially None
     assert_eq!(get!("door_open"), None);
@@ -741,29 +809,40 @@ fn test_get_set_page(_: &mut ()) {
 
     // 2-arg get returns Span when Some, Span::default() when None
     let span_present = get!("door_open", "Door is open!");
-    assert_eq!(span_present.content, "Door is open!");
+    assert_eq!(span_present.spans[0].content, "Door is open!");
 
     let span_absent = get!("missing_flag", "Should not show");
-    assert_eq!(span_absent.content, "");
+    assert!(span_absent.spans.is_empty());
 
-    // 3-arg get evaluates when_some or when_none
-    let span_some = get!("gold_count", "Has gold", "No gold");
-    assert_eq!(span_some.content, "Has gold");
+    // Arrow syntax: lhs is result when not present, rhs when present
+    let span_arrow = get!("door_open", "Door is closed" => "Door is open");
+    assert_eq!(span_arrow.spans[0].content, "Door is open");
 
-    let span_none = get!("missing_item", "Has item", "No item");
-    assert_eq!(span_none.content, "No item");
+    let span_arrow_none = get!("missing_door", "Door is closed" => "Door is open");
+    assert_eq!(span_arrow_none.spans[0].content, "Door is closed");
+
+    // Reversed arrow: the leading side is the present case
+    let span_rev = get!("door_open", "Door is open" <= "Door is closed");
+    assert_eq!(span_rev.spans[0].content, "Door is open");
+
+    let span_rev_none = get!("missing_door", "Door is open" <= "Door is closed");
+    assert_eq!(span_rev_none.spans[0].content, "Door is closed");
+
+    // Multiple spans come from a single `Into<Line>` expression:
+    let span_multi = get!("door_open", l!("Part A", ", ", "Part B"));
+    assert_eq!(span_multi.content(), "Part A, Part B");
 
     // String interpolation in get!
     let player_level = 5;
     let span_interp = get!("gold_count", "Level: {player_level}");
-    assert_eq!(span_interp.content, "Level: 5");
+    assert_eq!(span_interp.spans[0].content, "Level: 5");
 
     // Non-string key
     set!(1234u64, 99);
     assert_eq!(get!(1234u64), Some(99));
 
     // Embedded in paragraph
-    p!(get!("door_open", "Entryway: Open", "Entryway: Closed"));
+    p!(get!("door_open", "Entryway: Closed" => "Entryway: Open"));
 }
 
 #[test]
@@ -802,7 +881,7 @@ fn test_replace_span_page(_: &mut ()) {
     );
 
     // Test l! replacement
-    let _ = l!("The gate is [[shut]]" => "The gate is open");
+    let _ = l!("The gate is [shut]" => "The gate is open");
 }
 
 #[test]
@@ -864,9 +943,9 @@ struct DparagraphHashedState {
 
 #[ifengine::ifview]
 fn test_dparagraph_hashed_key_page(state: &mut DparagraphHashedState) {
-    use ifengine::elements::{dparagraph, get};
+    use ifengine::elements::{get, paragraph};
 
-    state.last_clicked = dparagraph!("You see a [[chest]] and a [[window]].").to_string();
+    state.last_clicked = paragraph!("You see a [chest] and a [window].").unwrap_or_default();
 
     if get!("chest").is_some() {
         state.chest_opened = true;
@@ -914,25 +993,27 @@ fn test_dparagraph_hashed_key_state() {
 #[derive(Debug, Default, Clone)]
 struct ActionRuleState {
     dp_clicked: String,
-    mp_mask: Vec<bool>,
+    p_clicked: String,
 }
 
 #[ifengine::ifview]
 fn test_action_rule_page(state: &mut ActionRuleState) {
-    use ifengine::elements::{dparagraph, mparagraph};
+    use ifengine::elements::paragraph;
     use ifengine::view::Span;
 
-    let dynamic_prefix = format!("Dynamic [[{}]] or ", "cave");
+    let dynamic_prefix = format!("Dynamic [{}] or ", "cave");
     let unbraced_action_span =
-        Span::from("[[preserved_target]]").with_action(ifengine::Action::SetBit(999, 0));
+        Span::from("[preserved_target]").with_action(ifengine::Action::SetBit(999, 0));
 
-    state.dp_clicked = dparagraph!(dynamic_prefix, unbraced_action_span, " [[ruins]]").to_string();
+    state.dp_clicked =
+        paragraph!(dynamic_prefix, unbraced_action_span, " [ruins]").unwrap_or_default();
 
-    state.mp_mask = mparagraph!(
-        "Choose [[alpha]], ",
-        Span::from("[[beta_link]]").with_action(ifengine::Action::SetBit(888, 0)),
-        " or [[gamma]]"
-    );
+    state.p_clicked = paragraph!(
+        "Choose [alpha], ",
+        Span::from("[beta_link]").with_action(ifengine::Action::SetBit(888, 0)),
+        " or [gamma]"
+    )
+    .unwrap_or_default();
 }
 
 #[test]
@@ -940,75 +1021,70 @@ fn test_action_rule_behavior() {
     let mut game = ifengine::Game::new_with_page("test_action_rule_page", test_action_rule_page);
     let view = game.view().unwrap();
 
-    // Verify dparagraph structure
+    // Verify first paragraph structure
     let Object::Paragraph(dp_line, _) = &view.inner[0].object else {
         panic!("expected Paragraph");
     };
 
-    // The dynamic "cave" was split
+    // The dynamic "cave" was split and gets SetDirty action
     assert!(dp_line.spans.iter().any(|s| s.content == "cave"
         && matches!(s.action.first(), Some(ifengine::Action::SetDirty(_, _)))));
     // The span with existing action was PRESERVED as-is (not split)
     let preserved = dp_line
         .spans
         .iter()
-        .find(|s| s.content == "[[preserved_target]]")
+        .find(|s| s.content == "[preserved_target]")
         .unwrap();
     assert!(matches!(
         preserved.action.first(),
         Some(ifengine::Action::SetBit(999, 0))
     ));
-    // The "ruins" link was split
+    // The "ruins" link was split and gets SetDirty action
     assert!(dp_line.spans.iter().any(|s| s.content == "ruins"
         && matches!(s.action.first(), Some(ifengine::Action::SetDirty(_, _)))));
 
-    // Verify mparagraph structure
-    let Object::Paragraph(mp_line, _) = &view.inner[1].object else {
+    // Verify second paragraph: [alpha] and [gamma] get SetDirty; [beta_link] preserves existing action
+    let Object::Paragraph(p_line, _) = &view.inner[1].object else {
         panic!("expected Paragraph");
     };
 
-    // alpha has action SetBit(key, 0)
-    let alpha = mp_line.spans.iter().find(|s| s.content == "alpha").unwrap();
+    // alpha gets SetDirty (new paragraph! behavior)
+    let alpha = p_line.spans.iter().find(|s| s.content == "alpha").unwrap();
     assert!(matches!(
         alpha.action.first(),
-        Some(ifengine::Action::SetBit(_, 0))
+        Some(ifengine::Action::SetDirty(_, _))
     ));
 
-    // beta_link preserved existing action
-    let beta = mp_line
+    // beta_link preserved existing action (not split because it already has an action)
+    let beta = p_line
         .spans
         .iter()
-        .find(|s| s.content == "[[beta_link]]")
+        .find(|s| s.content == "[beta_link]")
         .unwrap();
     assert!(matches!(
         beta.action.first(),
         Some(ifengine::Action::SetBit(888, 0))
     ));
 
-    // gamma has action SetBit(key, 1) because beta was not split
-    let gamma = mp_line.spans.iter().find(|s| s.content == "gamma").unwrap();
+    // gamma gets SetDirty
+    let gamma = p_line.spans.iter().find(|s| s.content == "gamma").unwrap();
     assert!(matches!(
         gamma.action.first(),
-        Some(ifengine::Action::SetBit(_, 1))
+        Some(ifengine::Action::SetDirty(_, _))
     ));
 
-    // Click alpha in mparagraph
+    // Click alpha: it should become inactive on next render
     let alpha_action = alpha.action.clone();
     game.handle_action(alpha_action).unwrap();
     let view2 = game.view().unwrap();
 
-    let Object::Paragraph(mp_line2, _) = &view2.inner[1].object else {
+    let Object::Paragraph(p_line2, _) = &view2.inner[1].object else {
         panic!("expected Paragraph");
     };
-    // Once clicked, alpha has action = empty!
-    let alpha2 = mp_line2
-        .spans
-        .iter()
-        .find(|s| s.content == "alpha")
-        .unwrap();
-    assert!(!alpha2.active());
+    let alpha2 = p_line2.spans.iter().find(|s| s.content == "alpha").unwrap();
+    assert!(!alpha2.active(), "clicked alpha should be inactive");
 
-    // Click dynamic "cave" in dparagraph
+    // Click dynamic "cave" in first paragraph
     let cave_action = dp_line
         .spans
         .iter()
@@ -1018,7 +1094,6 @@ fn test_action_rule_behavior() {
         .clone();
     game.handle_action(cave_action).unwrap();
     let _ = game.view().unwrap();
-    // dparagraph polled dynamic target "cave"!
     assert_eq!(game.context.dp_clicked, "cave");
 }
 
@@ -1032,7 +1107,7 @@ struct DparagraphConditionState {
 
 #[ifengine::ifview]
 fn test_dparagraph_condition_page(state: &mut DparagraphConditionState) {
-    use ifengine::elements::{dparagraph, reset_key, set};
+    use ifengine::elements::{paragraph, reset_key, set};
 
     if state.disable_chest {
         set!("chest", 12345);
@@ -1044,7 +1119,7 @@ fn test_dparagraph_condition_page(state: &mut DparagraphConditionState) {
         set!("chest", 0);
     }
 
-    state.clicked = dparagraph!("Examine [[chest]] or [[door]].").to_string();
+    state.clicked = paragraph!("Examine [chest] or [door].").unwrap_or_default();
 }
 
 #[test]
@@ -1174,7 +1249,7 @@ fn test_yield_multi_page(state: &mut YieldMultiTestState) {
     state.step += 1;
 
     // Yields only if none of the keys are is_some
-    YIELD!("unlock_a", "unlock_b");
+    YIELD!("unlock_a" | "unlock_b");
 
     state.step += 10;
     p!("After yield");
@@ -1210,6 +1285,47 @@ fn test_yield_multi_keys() {
     let view_both = game_both.view().unwrap();
     assert_eq!(view_both.inner.len(), 2);
     assert_eq!(game_both.context.step, 11);
+}
+
+#[derive(Debug, Default, Clone)]
+struct ClickHashState {
+    seen: bool,
+}
+
+#[ifengine::ifview]
+fn test_click_content_hash_page(state: &mut ClickHashState) {
+    use ifengine::elements::{click, get, p};
+
+    p!(
+        "on to a ",
+        click!("rocky"),
+        " path high on the side of a valley."
+    );
+
+    if get!("rocky").is_some() {
+        state.seen = true;
+    }
+}
+
+#[test]
+fn test_click_readable_by_content_hash() {
+    let mut game =
+        ifengine::Game::new_with_page("test_click_content_hash_page", test_click_content_hash_page);
+    let view = game.view().unwrap();
+    assert!(!game.context.seen);
+
+    let Object::Paragraph(line, _) = &view.inner[0].object else {
+        panic!("expected Paragraph");
+    };
+    let rocky = line.spans.iter().find(|s| s.content == "rocky").unwrap();
+    let action = rocky.action.clone();
+
+    game.handle_action(action).unwrap();
+    let _ = game.view().unwrap();
+    assert!(
+        game.context.seen,
+        "get!(\"rocky\") must observe a body-less click!"
+    );
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -1300,11 +1416,11 @@ fn test_trait_based_keys_page(_: &mut ()) {
     assert_eq!(get!("custom_flags"), Some(1));
 
     // 8. MaybeKey with str literal, str variable, and int
-    use ifengine::elements::{alts, count, l, mchoice, s};
+    use ifengine::elements::{alts, click, l, mchoice, s};
     let cnt_str_key = "cnt_key";
-    let _c1 = count!(("literal_cnt"), |n| format!("Clicked {n} times"));
-    let _c2 = count!((cnt_str_key), |n| format!("Clicked {n} times"));
-    let _c3 = count!((42), |n| format!("Clicked {n} times"));
+    let _c1 = click!(("literal_cnt"), |n| format!("Clicked {n} times"));
+    let _c2 = click!((cnt_str_key), |n| format!("Clicked {n} times"));
+    let _c3 = click!((42), |n| format!("Clicked {n} times"));
 
     let alt_key = "alts_key";
     let _a1 = alts!(("literal_alt"), ["a", "b"]);
@@ -1404,8 +1520,8 @@ struct DparagraphLimitState {
 
 #[ifengine::ifview]
 fn test_dparagraph_limit_1_page(state: &mut DparagraphLimitState) {
-    use ifengine::elements::dp;
-    state.last_clicked = dp!(1: "Choose [[apple]] or [[banana]]").to_string();
+    use ifengine::elements::paragraph;
+    state.last_clicked = paragraph!(1: "Choose [apple] or [banana]").unwrap_or_default();
 }
 
 #[test]
@@ -1452,9 +1568,31 @@ fn test_dparagraph_max_clicks_1() {
 }
 
 #[ifengine::ifview]
+fn test_dparagraph_limit_0_page(state: &mut DparagraphLimitState) {
+    use ifengine::elements::paragraph;
+    state.last_clicked = paragraph!(0: "Choose [apple] or [banana]").unwrap_or_default();
+}
+
+#[test]
+fn test_dparagraph_max_clicks_0_disables_all_links() {
+    let mut game =
+        ifengine::Game::new_with_page("test_dparagraph_limit_0_page", test_dparagraph_limit_0_page);
+
+    let view = game.view().unwrap();
+    let Object::Paragraph(line, _) = &view.inner[0].object else {
+        panic!("expected Paragraph");
+    };
+    let apple_span = line.spans.iter().find(|s| s.content == "apple").unwrap();
+    let banana_span = line.spans.iter().find(|s| s.content == "banana").unwrap();
+    assert!(!apple_span.active(), "apple should be disabled");
+    assert!(!banana_span.active(), "banana should be disabled");
+    assert_eq!(game.context.last_clicked, "");
+}
+
+#[ifengine::ifview]
 fn test_dparagraph_limit_2_page(state: &mut DparagraphLimitState) {
-    use ifengine::elements::dp;
-    state.last_clicked = dp!(2: "Take [[sword]], [[shield]], or [[potion]]" :: "loot-trailer", "highlight", ["extra-class"]).to_string();
+    use ifengine::elements::paragraph;
+    state.last_clicked = paragraph!(2: "Take [sword], [shield], or [potion]" :: ["highlight", "extra-class"], "loot-trailer").unwrap_or_default();
 }
 
 #[test]

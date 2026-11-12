@@ -14,7 +14,7 @@ fn page_alts_test(state: &mut TestState) {
         state.stop_idx = idx;
     });
 
-    let s2 = alts!(["red", "green", "blue"], Cycle, |idx| {
+    let s2 = alts!(Cycle: ["red", "green", "blue"], |idx| {
         state.cycle_idx = idx;
     });
 
@@ -126,7 +126,7 @@ struct VarState {
 #[ifengine::ifview]
 fn page_alts_var(state: &mut VarState) {
     let items = ["apple", "banana", "cherry"];
-    let s = alts!(items, Cycle, |idx| {
+    let s = alts!(Cycle: items, |idx| {
         state.chosen = items[idx].to_string();
     });
     ps!(s);
@@ -157,9 +157,9 @@ fn test_alts_with_variable_expression() {
 
 #[ifengine::ifview]
 fn page_stop_and_count_test(_: &mut ()) {
-    use ifengine::elements::{count, p};
-    let a = alts!(["Click once", "Done"], Stop);
-    let c = count!(|n: u64| format!("clicks: {n}"));
+    use ifengine::elements::{click, p};
+    let a = alts!(Stop: ["Click once", "Done"]);
+    let c = click!(|n: u64| format!("clicks: {n}"));
     p!(a, " and ", c);
 }
 
@@ -182,7 +182,9 @@ fn test_stop_drops_action_and_count_clicks() {
 
     // 1st click on count:
     let action_c = line.spans[2].action.clone();
-    game.inner.handle_action(action_c).expect("handle count action");
+    game.inner
+        .handle_action(action_c)
+        .expect("handle count action");
     let view2 = game.view().expect("view 2");
     let Object::Paragraph(line2, _) = &view2.inner[0].object else {
         panic!("expected Object::Paragraph");
@@ -191,7 +193,9 @@ fn test_stop_drops_action_and_count_clicks() {
 
     // 2nd click on count:
     let action_c2 = line2.spans[2].action.clone();
-    game.inner.handle_action(action_c2).expect("handle count action");
+    game.inner
+        .handle_action(action_c2)
+        .expect("handle count action");
     let view3 = game.view().expect("view 3");
     let Object::Paragraph(line3, _) = &view3.inner[0].object else {
         panic!("expected Object::Paragraph");
@@ -200,7 +204,9 @@ fn test_stop_drops_action_and_count_clicks() {
 
     // Click alts (Stop):
     let action_a = line3.spans[0].action.clone();
-    game.inner.handle_action(action_a).expect("handle alts action");
+    game.inner
+        .handle_action(action_a)
+        .expect("handle alts action");
     let view4 = game.view().expect("view 4");
     let Object::Paragraph(line4, _) = &view4.inner[0].object else {
         panic!("expected Object::Paragraph");
@@ -208,4 +214,3 @@ fn test_stop_drops_action_and_count_clicks() {
     assert_eq!(line4.spans[0].content, "Done");
     assert!(!line4.spans[0].active());
 }
-

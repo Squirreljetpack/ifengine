@@ -1,6 +1,6 @@
-use ifengine::elements::{paragraph, tun};
 use ifengine::Game;
 use ifengine::core::PageId;
+use ifengine::elements::{paragraph, tun};
 
 #[derive(Clone, Debug, Default)]
 struct SimState {}
@@ -37,7 +37,10 @@ fn test_tunnel_deduplication_from_same_page() {
     let source_record = start_run.get(&source_id).expect("source record exists");
     assert_eq!(source_record.outgoing_tunnels.len(), 1);
     assert!(source_record.outgoing_tunnels.contains(&dest_id));
-    assert!(source_record.ends.is_empty(), "ends and tunnels must be disjoint");
+    assert!(
+        source_record.ends.is_empty(),
+        "ends and tunnels must be disjoint"
+    );
 
     // The destination run should only have 1 page record (visited once, not duplicated)
     assert_eq!(dest_run.len(), 1);
@@ -46,9 +49,7 @@ fn test_tunnel_deduplication_from_same_page() {
 #[ifengine::ifview]
 fn tunnel_with_click(_state: &mut SimState) {
     use ifengine::elements::click;
-    paragraph!(
-        tun!(click!("The Place Between."), tunnel_dest),
-    );
+    paragraph!(tun!(click!("The Place Between."), tunnel_dest),);
 }
 
 #[test]
@@ -56,7 +57,7 @@ fn test_tunnel_with_click_actions() {
     let mut game = Game::new_with_page("tunnel_with_click", tunnel_with_click);
     let view = game.view().unwrap();
     if let ifengine::view::Object::Paragraph(line, _) = &view.inner[0].object {
-        assert_eq!(line.spans[0].action.len(), 2);
+        // click! contributes its location SetBit and the content-hash Inc; tun! adds the Tunnel.
+        assert_eq!(line.spans[0].action.len(), 3);
     }
 }
-

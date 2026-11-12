@@ -2,7 +2,7 @@ use leptos::prelude::*;
 
 use crate::context::StoryContext;
 
-/// Story footer component rendering Save/Load buttons (left-aligned) and engine attribution.
+/// Story footer component rendering Save/Load/Options buttons (left-aligned) and engine attribution.
 #[component]
 pub fn Footer() -> impl IntoView {
     let ctx = use_context::<StoryContext>();
@@ -19,6 +19,12 @@ pub fn Footer() -> impl IntoView {
         }
     };
 
+    let on_options = move |_| {
+        if let Some(ctx) = ctx {
+            ctx.open_options_modal.run(());
+        }
+    };
+
     view! {
         <footer class="passage-footer">
             <div class="footer-left">
@@ -27,6 +33,9 @@ pub fn Footer() -> impl IntoView {
                 </button>
                 <button type="button" class="footer-btn" on:click=on_load>
                     "Load"
+                </button>
+                <button type="button" class="footer-btn" on:click=on_options>
+                    "Options"
                 </button>
             </div>
             <a

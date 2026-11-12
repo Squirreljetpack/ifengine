@@ -171,6 +171,8 @@ impl<C: GameContext> Game<C> {
                         self.last_id = page.id.clone()
                     }
 
+                    self.tags.insert(page.id.clone()); // record the canonical id as visited
+
                     self.pages.push(page)?; // only rendered pages get added to history
 
                     break view;
@@ -265,6 +267,11 @@ impl GameInner {
                 }
                 Action::Next(mut page) => {
                     page.id = "".into(); // Only rendered pages go into history + this is not the full name
+                    if let Some(last) = self.pages.current()
+                        && last.id.is_empty()
+                    {
+                        self.pages.pop();
+                    }
                     self.pages.push(page)?;
                 }
                 Action::Back(n) => {

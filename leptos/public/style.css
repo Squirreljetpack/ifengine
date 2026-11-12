@@ -18,17 +18,40 @@
     --page-width: 44rem;
     --passage-gap: 1.35rem;
 
-    /* Page transitions */
-    --page-transition-out-duration: 0.3s;
+    /* Page transitions: full-page fade timings, read back by the Rust timer scheduler */
+    --page-transition-out-duration: 0.6s;
     --page-transition-out-timing: cubic-bezier(0.25, 0.46, 0.45, 0.94);
-    --page-transition-in-duration: 0.2s;
+    --page-transition-in-duration: 0.4s;
     --page-transition-in-timing: linear;
 
-    /* Element transitions for same-id elements (e.g. alts!) */
-    --element-transition-out-duration: 0.3s;
-    --element-transition-out-timing: cubic-bezier(0.25, 0.46, 0.45, 0.94);
-    --element-transition-in-duration: 0.2s;
-    --element-transition-in-timing: linear;
+    /* Primary View Transitions (same-page interactions)
+       Timing sequence for same-page interactions:
+       1. Fade-Out
+       2. Reflow / Cross-Fade: Morphed, state-changed, or repositioned elements).
+       3. Fade-In */
+    --primary-fade-out-duration: 0.3s;
+    --primary-fade-out-timing: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    --primary-reflow-offset: 0.2s; /* delay before reflow/crossfade begins */
+    --primary-reflow-duration: 0.5s; /* duration of reflow/crossfade */
+    --primary-reflow-timing: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    --primary-in-delay: 0.4s; /* delay after reflow starts before new content entrance begins */
+    --primary-block-in-delay: 0.9s;
+    --primary-fade-in-offset: var(--primary-in-delay, 0.4s);
+    --primary-fade-in-duration: 0.6s;
+    --primary-fade-in-timing: linear;
+
+    /* Secondary View Transitions (delayed entrance/exit batches after page transitions)
+       All animations in a secondary batch start simultaneously at 0s with no stagger:
+       - Reflow / Cross-Fades run at batch reflow duration (--secondary-duration)
+       - Entering fades run at batch reflow duration (--secondary-duration)
+       - Departing fades run at batch reflow duration (--secondary-duration)
+       Whole batch settles together as one harmonious movement. */
+    /* Secondary-reflow-duration is the baseline for the secondary transition duration, while secondary-duration is set as a dynamically override if STRETCH_SECONDARY_TO_AUTHORED_FADE is enabled and a story item declares an authored fade duration longer than the baseline */
+    --secondary-reflow-duration: 1.3s;
+    --secondary-reflow-timing: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    /* Default fade duration for "in"/"out" classes without an explicit duration suffix */
+    --default-fade-in: 1.3s;
+    --default-fade-out: 1.3s;
 }
 
 * {
@@ -45,6 +68,7 @@ html, body {
     line-height: 1.75;
     min-height: 100vh;
     min-height: 100dvh;
+    scrollbar-gutter: stable;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
 }
@@ -166,9 +190,7 @@ html, body {
 
 .passage-paragraph:has(> .passage-line:empty),
 .passage-paragraph:has(> .passage-line.delayed-hidden),
-.passage-paragraph:has(> .passage-line.fade-out-removed),
-.passage-text:has(> .passage-line.delayed-hidden),
-.passage-text:has(> .passage-line.fade-out-removed) {
+.passage-text:has(> .passage-line.delayed-hidden) {
     margin: 0 !important;
     padding: 0 !important;
     min-height: 0 !important;
@@ -300,8 +322,7 @@ h6.passage-heading { font-size: 0.95rem; text-transform: uppercase; color: var(-
     white-space: pre-wrap;
 }
 
-.choice-item:has(.delayed-hidden),
-.choice-item:has(.fade-out-removed) {
+.choice-item:has(.delayed-hidden) {
     display: none !important;
     margin: 0 !important;
     padding: 0 !important;
@@ -679,6 +700,77 @@ h6.passage-heading { font-size: 0.95rem; text-transform: uppercase; color: var(-
 }
 
 /* --------------------------------------------------------------------------
+   Options Modal
+   -------------------------------------------------------------------------- */
+
+.options-dialog {
+    width: 30rem;
+    max-width: 95vw;
+    padding: 1.5rem 1.75rem;
+    row-gap: 1rem;
+    font-family: inherit;
+}
+
+.options-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+}
+
+.options-section-title {
+    font-family: inherit;
+    font-size: 0.95rem;
+    font-weight: normal;
+    color: var(--color-text);
+    margin: 0;
+}
+
+.options-section-hint {
+    font-family: inherit;
+    font-size: 0.78rem;
+    font-weight: normal;
+    color: var(--color-text-muted);
+    margin: 0;
+}
+
+.options-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-top: 0.7rem;
+}
+
+.options-row {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    padding: 0.55rem 0.75rem;
+    border: 1px solid var(--color-border, #2C2E33);
+    border-radius: 3px;
+    cursor: pointer;
+    transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.options-row:hover,
+.options-row-selected {
+    border-color: var(--color-link-hover, #8AB4F8);
+    background-color: rgba(255, 255, 255, 0.03);
+}
+
+.options-radio {
+    margin: 0;
+    accent-color: var(--color-link-hover, #8AB4F8);
+    flex-shrink: 0;
+}
+
+.options-row-title {
+    font-family: inherit;
+    font-size: 0.9rem;
+    font-weight: normal;
+    color: var(--color-text);
+}
+
+/* --------------------------------------------------------------------------
    Transitions & Keyframe Animations
    -------------------------------------------------------------------------- */
 
@@ -700,20 +792,10 @@ h6.passage-heading { font-size: 0.95rem; text-transform: uppercase; color: var(-
     }
 }
 
-.skip-animation {
-    animation: none !important;
-    animation-duration: 0s !important;
-    animation-delay: 0s !important;
-}
-
-.delayed-hidden {
+.delayed-hidden,
+.delayed-hidden * {
     display: none !important;
-    margin: 0 !important;
-    padding: 0 !important;
-}
-
-.fade-out-removed {
-    display: none !important;
+    view-transition-name: none !important;
     margin: 0 !important;
     padding: 0 !important;
 }
@@ -722,17 +804,27 @@ h6.passage-heading { font-size: 0.95rem; text-transform: uppercase; color: var(-
     will-change: opacity;
 }
 
+/* Authored exit (`out-*`): fade in place, then the Removed phase hides the element. */
+.fade-out-removed {
+    animation: fade-out var(--vt-fade-out, var(--default-fade-out, 1.5s)) cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+    pointer-events: none;
+}
+
+.transition-removed {
+    display: none !important;
+}
+
 /* --------------------------------------------------------------------------
    Page Transitions (Traditional DOM Swap & CSS Keyframe Model)
    -------------------------------------------------------------------------- */
 
 .page-fade-out {
-    animation: fade-out var(--page-transition-out-duration, 0.3s) var(--page-transition-out-timing, cubic-bezier(0.25, 0.46, 0.45, 0.94)) both;
+    animation: fade-out var(--page-transition-out-duration, 0.6s) var(--page-transition-out-timing, cubic-bezier(0.25, 0.46, 0.45, 0.94)) both;
     pointer-events: none;
 }
 
 .page-fade-in {
-    animation: fade-in var(--page-transition-in-duration, 0.2s) var(--page-transition-in-timing, linear) both;
+    animation: fade-in var(--page-transition-in-duration, 0.4s) var(--page-transition-in-timing, linear) both;
 }
 
 /* --------------------------------------------------------------------------
@@ -751,48 +843,196 @@ html, :root {
 }
 
 /* Element transitions for same-id elements (e.g. alts!, choice morphing) */
-::view-transition-group(*) {
-    animation-duration: calc(var(--element-transition-out-duration, 0.3s) + var(--element-transition-in-duration, 0.2s));
-    animation-timing-function: var(--element-transition-out-timing, cubic-bezier(0.25, 0.46, 0.45, 0.94));
+::view-transition-image-pair(*) {
+    isolation: isolate !important;
 }
 
 ::view-transition-old(*),
 ::view-transition-new(*) {
-    mix-blend-mode: normal !important;
+    mix-blend-mode: plus-lighter !important;
     object-fit: none !important;
     object-position: top left !important;
     height: 100% !important;
 }
 
-/* Unchanged elements during same-page reflow: hide old snapshot only when paired with a new element */
-::view-transition-old(.reflow):not(:only-child) {
+/* --------------------------------------------------------------------------
+   PRIMARY VIEW TRANSITIONS
+   Order:
+   1. Fade-out starts immediately (duration: --primary-fade-out-duration)
+   2. Repositioning/reflow starts after --primary-reflow-offset (duration: --primary-reflow-duration)
+   3. Fade-in starts after --primary-fade-in-offset (duration: --primary-fade-in-duration)
+   Rules:
+   - Items with .fade: sliding animation is disabled (fades out in place, new item fades in from final destination)
+   - Items with .reflow: fade out/in is disabled (cross-fade keeping opacity at 1 + slide to final position)
+   -------------------------------------------------------------------------- */
+
+/* Items with .fade: stay at old position during fade-out, snap to new position before fade-in */
+::view-transition-group(.fade) {
+    animation-delay: var(--primary-fade-out-duration, 0.4s) !important;
+    animation-duration: 0.001s !important;
+    animation-fill-mode: both !important;
+}
+
+/* Items with .fade: fade out in place */
+::view-transition-old(.fade) {
+    animation: fade-out var(--primary-fade-out-duration, 0.4s) var(--primary-fade-out-timing, cubic-bezier(0.25, 0.46, 0.45, 0.94)) both !important;
+}
+
+/* Items with .fade: fade in at final destination */
+::view-transition-new(.fade) {
+    animation: fade-in var(--primary-fade-in-duration, 0.4s) var(--primary-fade-in-timing, linear) var(--primary-fade-in-offset, 0.4s) both !important;
+}
+
+::view-transition-new(.fade.block-in),
+::view-transition-new(.block-in) {
+    animation-delay: var(--primary-block-in-delay, 0.9s) !important;
+}
+
+/* Items with .reflow: repositioning starts after reflow-offset */
+::view-transition-group(*) {
+    animation-delay: var(--primary-reflow-offset, 0.2s) !important;
+    animation-duration: var(--primary-reflow-duration, 0.6s) !important;
+    animation-timing-function: var(--primary-reflow-timing, cubic-bezier(0.25, 0.46, 0.45, 0.94)) !important;
+    animation-fill-mode: both !important;
+}
+
+/* Items with .reflow: simultaneous linear cross-fade that keeps opacity at 1 + slide to final position */
+::view-transition-old(.reflow) {
+    animation: fade-out var(--primary-reflow-duration, 0.6s) linear var(--primary-reflow-offset, 0.2s) both !important;
+}
+
+::view-transition-new(.reflow) {
+    animation: fade-in var(--primary-reflow-duration, 0.6s) linear var(--primary-reflow-offset, 0.2s) both !important;
+}
+
+/* --------------------------------------------------------------------------
+   SECONDARY VIEW TRANSITIONS
+   - Reflow starts immediately (animation-delay: 0s)
+   - Fade-in/out for scheduled affected items starts immediately (animation-delay: 0s)
+   - Reflowed existing items keep opacity 1 (no cross-fading, old snapshot hidden)
+   - Fades run at the batch's reflow duration, so movement and fades end together;
+     --default-fade-* only reaches authored token durations via the plan
+   -------------------------------------------------------------------------- */
+
+html.secondary-transition::view-transition-group(*) {
+    animation-delay: 0s !important;
+    animation-duration: var(--secondary-duration, var(--secondary-reflow-duration, 1.5s)) !important;
+    animation-fill-mode: both !important;
+    animation-timing-function: var(--secondary-reflow-timing, cubic-bezier(0.25, 0.46, 0.45, 0.94)) !important;
+}
+
+html.secondary-transition::view-transition-group(.fade) {
+    animation: none !important;
+}
+
+/* Reflowed unchanged items in secondary transitions: old snapshot hidden, new snapshot opacity 1 */
+html.secondary-transition::view-transition-old(.reflow) {
     display: none !important;
     animation: none !important;
     opacity: 0 !important;
 }
 
-::view-transition-new(.reflow) {
+html.secondary-transition::view-transition-new(.reflow) {
     animation: none !important;
     opacity: 1 !important;
 }
 
-/* Changed elements (e.g. alts!, choices collapsing to replacement line):
-   Fade out with quadratic easing (0.3s), fade in with linear easing (0.2s) after 0.3s delay */
-::view-transition-old(.fade),
-::view-transition-old(*):only-child {
-    animation: fade-out var(--element-transition-out-duration, 0.3s) var(--element-transition-out-timing, cubic-bezier(0.25, 0.46, 0.45, 0.94)) both;
+/* Affected entering items */
+html.secondary-transition::view-transition-new(.fade) {
+    animation: fade-in var(--secondary-duration, var(--secondary-reflow-duration, 1.5s)) linear 0s both !important;
 }
 
-::view-transition-new(.fade),
-::view-transition-new(*):only-child {
-    animation: fade-in var(--element-transition-in-duration, 0.2s) var(--element-transition-in-timing, linear) var(--element-transition-out-duration, 0.3s) both;
+/* Affected exiting items */
+html.secondary-transition::view-transition-old(.fade) {
+    animation: fade-out var(--secondary-duration, var(--secondary-reflow-duration, 1.5s))
+        cubic-bezier(0.25, 0.46, 0.45, 0.94) 0s both !important;
 }
 
-/* Delay repositioning until fade-out is fully complete, then snap invisibly before fade-in */
-html.no-fade-slide::view-transition-group(.fade) {
-    animation-delay: var(--element-transition-out-duration, 0.3s) !important;
-    animation-duration: 0.001s !important;
-    animation-fill-mode: both !important;
+/* --------------------------------------------------------------------------
+   CSS CLONE BACKEND (Gecko; html[data-vt-backend="css"])
+   Compatibility mode for View Transitions (cross-fade instead of reflow):
+   1. Primary transitions (same-page interactions):
+      - Phase 1 (0s delay): Departing elements (.vt-leave) fade out.
+      - Phase 2 (--primary-reflow-offset delay): Morphed, state-changed, or moved
+        identified elements cross-fade simultaneously (.vt-crossfade-out / .vt-crossfade-in).
+      - Phase 3 (--primary-fade-in-offset delay): Brand new entering elements (.vt-enter) fade in.
+   2. Secondary transitions (delayed batches after page transitions):
+      - All batch animations start simultaneously at 0s with no stagger.
+   -------------------------------------------------------------------------- */
+
+html[data-vt-backend="css"] {
+    --css-fade-out-delay: 0s;
+    --css-fade-out: var(--primary-fade-out-duration, 0.3s);
+    --css-fade-out-timing: var(--primary-fade-out-timing, cubic-bezier(0.25, 0.46, 0.45, 0.94));
+    --css-crossfade-delay: var(--primary-reflow-offset, 0.2s);
+    --css-crossfade-duration: var(--primary-reflow-duration, 0.5s);
+    --css-fade-in-delay: var(--primary-fade-in-offset, var(--primary-in-delay, 0.4s));
+    --css-fade-in: var(--primary-fade-in-duration, 0.4s);
+    --css-fade-in-timing: var(--primary-fade-in-timing, linear);
+    --css-reflow-delay: var(--primary-reflow-offset, 0.2s);
+    --css-reflow: var(--primary-reflow-duration, 0.5s);
+    --css-reflow-timing: var(--primary-reflow-timing, cubic-bezier(0.25, 0.46, 0.45, 0.94));
+}
+
+html.secondary-transition[data-vt-backend="css"] {
+    --css-fade-out-delay: 0s;
+    --css-fade-out: var(--secondary-duration, var(--secondary-reflow-duration, 1.3s));
+    --css-fade-out-timing: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    --css-crossfade-delay: 0s;
+    --css-crossfade-duration: var(--secondary-duration, var(--secondary-reflow-duration, 1.3s));
+    --css-fade-in-delay: 0s;
+    --css-fade-in: var(--secondary-duration, var(--secondary-reflow-duration, 1.3s));
+    --css-fade-in-timing: linear;
+    --css-reflow-delay: 0s;
+    --css-reflow: var(--secondary-duration, var(--secondary-reflow-duration, 1.3s));
+    --css-reflow-timing: var(--secondary-reflow-timing, cubic-bezier(0.25, 0.46, 0.45, 0.94));
+}
+
+html[data-vt-backend="css"] #backdrop {
+    isolation: isolate;
+}
+
+html[data-vt-backend="css"] .vt-clone-overlay {
+    position: fixed;
+    overflow: hidden;
+    pointer-events: none;
+    z-index: 9999;
+    mix-blend-mode: plus-lighter;
+}
+
+/* Clone content is hidden; only elements that are fading out or cross-fading become visible. */
+html[data-vt-backend="css"] .vt-clone {
+    visibility: hidden;
+    background: transparent !important;
+}
+
+/* Departing elements fade out at 0s (Phase 1) */
+html[data-vt-backend="css"] .vt-clone .vt-leave {
+    visibility: visible;
+    animation: fade-out var(--vt-fade-out, var(--css-fade-out)) var(--css-fade-out-timing) var(--css-fade-out-delay) both;
+}
+
+/* Brand-new entering elements fade in at fade-in delay (Phase 3) */
+html[data-vt-backend="css"] .vt-enter {
+    animation: fade-in var(--vt-fade-in, var(--css-fade-in)) var(--css-fade-in-timing) var(--vt-in-delay, var(--css-fade-in-delay)) both;
+}
+
+html[data-vt-backend="css"] .vt-enter.block-in {
+    animation-delay: var(--vt-in-delay, var(--primary-block-in-delay, 0.9s));
+}
+
+/* Identified elements cross-fade: simultaneous linear cross-fade preserving total opacity = 1.0 (Phase 2) */
+html[data-vt-backend="css"] .vt-clone .vt-crossfade-out {
+    visibility: visible;
+    animation: fade-out var(--vt-reflow-duration, var(--css-crossfade-duration)) linear var(--vt-reflow-delay, var(--css-crossfade-delay)) both;
+}
+
+html[data-vt-backend="css"] .vt-crossfade-in {
+    animation: fade-in var(--vt-reflow-duration, var(--css-crossfade-duration)) linear var(--vt-reflow-delay, var(--css-crossfade-delay)) both;
+}
+
+html[data-vt-backend="css"] .vt-slide {
+    transition: transform var(--vt-reflow-duration, var(--css-reflow)) var(--css-reflow-timing, cubic-bezier(0.25, 0.46, 0.45, 0.94)) var(--vt-reflow-delay, var(--css-reflow-delay, 0s));
 }
 
 /* --------------------------------------------------------------------------

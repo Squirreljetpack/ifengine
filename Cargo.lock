@@ -2220,6 +2220,7 @@ dependencies = [
  "postcard",
  "saltwrack",
  "serde",
+ "serde_json",
  "test_story",
  "wasm-bindgen",
  "web-sys",

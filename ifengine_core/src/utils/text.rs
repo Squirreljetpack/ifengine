@@ -8,8 +8,7 @@ pub fn as_str(s: &str) -> &str {
     s
 }
 
-static PROSE_FN: AtomicPtr<()> =
-    AtomicPtr::new(default_prose as fn(&str) -> String as *mut ());
+static PROSE_FN: AtomicPtr<()> = AtomicPtr::new(default_prose as fn(&str) -> String as *mut ());
 
 /// Sets the global prose transformation function pointer.
 ///
@@ -97,27 +96,58 @@ pub fn trim_lines(s: &str) -> String {
     lines[start..=end].join("\n")
 }
 
+/// Splits `s` into alternating plain/link parts: even indices are plain text, odd indices
+/// are `[link]` targets. `[[` and `]]` are literal bracket escapes.
+///
+/// An unclosed `[` treats the trailing text as a target; an unclosed `]` before any `[`
+/// treats the leading text as a target.
 pub fn split_braced(s: &str) -> Vec<String> {
     let mut result = Vec::new();
     let mut buf = String::new();
     let mut chars = s.chars().peekable();
     let mut inside = false;
 
+    // Check if there is an unclosed `[` with no matching `]` after it,
+    // or an unclosed `]` at the start with no preceding `[`.
+    let starts_with_unclosed_close = if let Some(close_idx) = s.find(']') {
+        match s.find('[') {
+            Some(open_idx) => close_idx < open_idx,
+            None => true,
+        }
+    } else {
+        false
+    };
+
+    if starts_with_unclosed_close {
+        // Treat the opening portion up to `]` as braced. The empty leading part keeps the
+        // even/odd outside/inside parity contract expected by consumers.
+        result.push(String::new());
+        inside = true;
+    }
+
     while let Some(c) = chars.next() {
-        if !inside && c == '[' && chars.peek() == Some(&'[') {
-            chars.next();
-            result.push(buf.clone());
-            buf.clear();
-            inside = true;
-        } else if inside && c == ']' && chars.peek() == Some(&']') {
-            chars.next();
-            if buf.is_empty() {
-                buf = result.pop().unwrap_or_default();
-            } else {
+        if c == '[' {
+            if chars.peek() == Some(&'[') {
+                chars.next();
+                buf.push('[');
+            } else if !inside {
                 result.push(buf.clone());
                 buf.clear();
+                inside = true;
+            } else {
+                buf.push(c);
             }
-            inside = false;
+        } else if c == ']' {
+            if chars.peek() == Some(&']') {
+                chars.next();
+                buf.push(']');
+            } else if inside {
+                result.push(buf.clone());
+                buf.clear();
+                inside = false;
+            } else {
+                buf.push(c);
+            }
         } else {
             buf.push(c);
         }
@@ -125,30 +155,6 @@ pub fn split_braced(s: &str) -> Vec<String> {
 
     if !buf.is_empty() {
         result.push(buf);
-    }
-
-    result
-}
-
-pub fn extract_braced_targets(s: &str) -> Vec<&str> {
-    let mut result = Vec::new();
-    let mut chars = s.char_indices().peekable();
-    let mut inside_start = None;
-
-    while let Some((idx, c)) = chars.next() {
-        if inside_start.is_none() && c == '[' && chars.peek().map(|(_, ch)| *ch) == Some('[') {
-            chars.next();
-            inside_start = Some(idx + 2);
-        } else if let Some(start) = inside_start {
-            if c == ']' && chars.peek().map(|(_, ch)| *ch) == Some(']') {
-                let end = idx;
-                chars.next();
-                if start < end {
-                    result.push(&s[start..end]);
-                }
-                inside_start = None;
-            }
-        }
     }
 
     result
@@ -208,49 +214,26 @@ mod tests {
     #[test]
     fn test_split_braced_and_skip_empty() {
         assert_eq!(
-            split_braced("Go to [[forest]] or [[inn]]"),
+            split_braced("Go to [forest] or [inn]"),
             vec!["Go to ", "forest", " or ", "inn"]
         );
         assert_eq!(
-            split_braced("Go to [[forest]] or [[]]the [[inn]]"),
-            vec!["Go to ", "forest", " or the ", "inn"]
+            split_braced("Literal [[bracket]] test [link]"),
+            vec!["Literal [bracket] test ", "link"]
         );
         assert_eq!(
-            split_braced("[[]]hello [[world]]"),
-            vec!["hello ", "world"]
+            split_braced("unclosed [left end"),
+            vec!["unclosed ", "left end"]
         );
+        // A `]` before any `[` opens a braced section at the start of the string; the empty
+        // leading part preserves the even/odd outside/inside parity.
+        let parts = split_braced("a] b [c]");
+        assert_eq!(parts, vec!["", "a", " b ", "c"]);
+        assert_eq!(parts[1], "a");
+        assert_eq!(parts[3], "c");
         assert_eq!(
-            split_braced("hello[[]][[]]world"),
-            vec!["helloworld"]
-        );
-        assert_eq!(
-            split_braced("[[]]"),
-            Vec::<String>::new()
-        );
-        assert_eq!(
-            split_braced("hello [[]]"),
-            vec!["hello "]
-        );
-    }
-
-    #[test]
-    fn test_extract_braced_targets() {
-        assert_eq!(
-            extract_braced_targets("Go to [[forest]] or [[inn]]"),
-            vec!["forest", "inn"]
-        );
-        assert_eq!(
-            extract_braced_targets("Go to [[forest]] or [[]]the [[inn]]"),
-            vec!["forest", "inn"]
-        );
-        assert_eq!(
-            extract_braced_targets("[[]]hello [[world]]"),
-            vec!["world"]
-        );
-        assert_eq!(
-            extract_braced_targets("[[]]"),
-            Vec::<&str>::new()
+            split_braced("unclosed right end] after"),
+            vec!["", "unclosed right end", " after"]
         );
     }
 }
-

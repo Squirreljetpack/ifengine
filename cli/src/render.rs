@@ -19,9 +19,8 @@ pub fn render_view_to_text(story: &str, status: &[String], view: &View) -> Strin
     let interactables = view.interactables_flat::<false>();
     out.push_str("\n--------------------------------------------------------------------------------\n");
     if interactables.is_empty() {
-        out.push_str("NO AVAILABLE INTERACTION (Game terminal state or page transition)\n");
+        out.push_str("NO AVAILABLE INTERACTION: Dead end in game :(\n");
     } else {
-        out.push_str("AVAILABLE CHOICES & ACTIONS:\n");
         for (i, item) in interactables.iter().enumerate() {
             let kind = match item {
                 Interactable::Choice(_, _, _) => "Choice",

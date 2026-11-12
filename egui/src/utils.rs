@@ -44,7 +44,7 @@ impl Ui {
         &mut self,
         labels: Vec<I>,
         add_left: impl FnOnce(&mut Ui) -> R,
-    ) -> ()
+    )
     where
         I: Into<egui::RichText>,
     {
@@ -203,14 +203,12 @@ where
     );
 
     // detect clicks outside dialog, put this before drawing the activation listener
-    if ctx.input(|i| i.pointer.any_click()) {
-        if let Some(pos) = ctx.input(|i| i.pointer.interact_pos()) {
-            if !dialog_rect.contains(pos) {
+    if ctx.input(|i| i.pointer.any_click())
+        && let Some(pos) = ctx.input(|i| i.pointer.interact_pos())
+            && !dialog_rect.contains(pos) {
                 on_close();
                 return;
             }
-        }
-    }
 
     // draw overlay UI
     Area::new(Id::new("overlay_area"))

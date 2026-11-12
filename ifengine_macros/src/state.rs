@@ -2,64 +2,176 @@ use proc_macro::TokenStream;
 use quote::quote;
 use syn::parse::{Parse, ParseStream, Parser};
 use syn::punctuated::Punctuated;
-use syn::{Error, Expr, ExprClosure, Ident, Result, Token, parse_macro_input};
+use syn::{Error, Expr, Ident, Result, Token, parse_macro_input};
 
-use crate::helpers::{expand_string_expr, unwrap_paren};
+use crate::helpers::{condition_of, expand_string_expr, unwrap_paren};
 use crate::nodes::ExprAndOptional;
 
-pub fn fresh(input: TokenStream) -> TokenStream {
-    let closure = parse_macro_input!(input as ExprClosure);
+pub struct OnceInput {
+    pub limit: Option<Expr>,
+    pub body: proc_macro2::TokenStream,
+}
 
-    let expanded = quote! {{
-        if __ifengine_page_state.fresh() {
-            (#closure)();
+impl Parse for OnceInput {
+    fn parse(input: ParseStream) -> Result<Self> {
+        let limit = crate::nodes::parse_prefix_max_clicks(input)?;
+        let body: proc_macro2::TokenStream = input.parse()?;
+        Ok(OnceInput { limit, body })
+    }
+}
+
+pub fn once(input: TokenStream) -> TokenStream {
+    let OnceInput { limit, body } = parse_macro_input!(input as OnceInput);
+
+    let expanded = match limit {
+        Some(lim) => {
+            quote! {{
+                let __limit = (#lim) as u64;
+                if __limit == 0 {
+                    if __ifengine_page_state.fresh() {
+                        #body
+                    }
+                } else {
+                    let __key = __ifengine_page_state.auto_key();
+                    let __current = __ifengine_page_state.get(__key).unwrap_or(0);
+                    if __current < __limit {
+                        __ifengine_page_state.insert(__key, __current + 1);
+                        #body
+                    }
+                }
+            }}
         }
-    }};
+        None => {
+            quote! {{
+                let __key = __ifengine_page_state.auto_key();
+                let __current = __ifengine_page_state.get(__key).unwrap_or(0);
+                if __current < 1 {
+                    __ifengine_page_state.insert(__key, __current + 1);
+                    #body
+                }
+            }}
+        }
+    };
 
     expanded.into()
 }
 
-pub fn get(input: TokenStream) -> TokenStream {
-    let parts = match Punctuated::<Expr, Token![,]>::parse_terminated.parse(input) {
-        Ok(parts) => parts,
-        Err(e) => return e.to_compile_error().into(),
+enum GetInput {
+    KeyOnly(Expr),
+    Conditional {
+        key_expr: Expr,
+        when_none: Option<Expr>,
+        when_some: Expr,
+    },
+}
+
+/// Parses one side of a `get!` arrow: exactly one expression implementing `Into<Line>`.
+fn parse_line_expr(tokens: proc_macro2::TokenStream) -> Result<Expr> {
+    syn::parse2(tokens)
+}
+
+fn build_line(expr: &Expr) -> proc_macro2::TokenStream {
+    let expr = expand_string_expr(expr);
+    quote! {
+        ifengine::view::Line::from(#expr)
+    }
+}
+
+fn parse_get_input(input: ParseStream) -> Result<GetInput> {
+    let key_expr: Expr = input.parse()?;
+
+    if input.is_empty() {
+        return Ok(GetInput::KeyOnly(key_expr));
+    }
+
+    let _comma: Token![,] = input.parse()?;
+
+    let mut first_tokens = proc_macro2::TokenStream::new();
+    let mut has_arrow = false;
+    let mut is_reverse = false;
+
+    while !input.is_empty() {
+        if input.peek(Token![=>]) {
+            let _arrow: Token![=>] = input.parse()?;
+            has_arrow = true;
+            break;
+        }
+        if input.peek(Token![<=]) {
+            let _arrow: Token![<=] = input.parse()?;
+            has_arrow = true;
+            is_reverse = true;
+            break;
+        }
+        let tt: proc_macro2::TokenTree = input.parse()?;
+        first_tokens.extend(std::iter::once(tt));
+    }
+
+    let (when_none, when_some) = if has_arrow {
+        let second_tokens = input.parse::<proc_macro2::TokenStream>()?;
+        let first = parse_line_expr(first_tokens)?;
+        let second = parse_line_expr(second_tokens)?;
+
+        if is_reverse {
+            (Some(second), first)
+        } else {
+            (Some(first), second)
+        }
+    } else {
+        (None, parse_line_expr(first_tokens)?)
     };
 
-    if parts.is_empty() || parts.len() > 3 {
-        return Error::new_spanned(
-            parts,
-            "get! expects 1, 2, or 3 arguments: get!(key), get!(key, when_some), or get!(key, when_some, when_none)",
+    Ok(GetInput::Conditional {
+        key_expr,
+        when_none,
+        when_some,
+    })
+}
+
+pub fn get(input: TokenStream) -> TokenStream {
+    if input.is_empty() {
+        return Error::new(
+            proc_macro2::Span::call_site(),
+            "get! expects at least 1 argument: get!(key) or get!(key, [when_none =>] when_some)",
         )
         .to_compile_error()
         .into();
     }
 
-    let key_expr = &parts[0];
+    let parsed =
+        match syn::parse::Parser::parse2(parse_get_input, proc_macro2::TokenStream::from(input)) {
+            Ok(parsed) => parsed,
+            Err(e) => return e.to_compile_error().into(),
+        };
 
-    let expanded = match parts.len() {
-        1 => quote! {
-            __ifengine_page_state.get(#key_expr)
-        },
-        2 => {
-            let when_some = expand_string_expr(&parts[1]);
+    let expanded = match parsed {
+        GetInput::KeyOnly(key_expr) => {
             quote! {
-                match __ifengine_page_state.get(#key_expr) {
-                    Some(_) => ifengine::view::Span::from(#when_some),
-                    None => ifengine::view::Span::default(),
+                __ifengine_page_state.get(#key_expr)
+            }
+        }
+        GetInput::Conditional {
+            key_expr,
+            when_none,
+            when_some,
+        } => {
+            let condition = match condition_of(&key_expr) {
+                Ok(condition) => condition,
+                Err(e) => return e.to_compile_error().into(),
+            };
+            let when_none_line = match &when_none {
+                Some(expr) => build_line(expr),
+                None => quote! { ifengine::view::Line::default() },
+            };
+            let when_some_line = build_line(&when_some);
+
+            quote! {
+                if #condition {
+                    #when_some_line
+                } else {
+                    #when_none_line
                 }
             }
         }
-        3 => {
-            let when_some = expand_string_expr(&parts[1]);
-            let when_none = expand_string_expr(&parts[2]);
-            quote! {
-                match __ifengine_page_state.get(#key_expr) {
-                    Some(_) => ifengine::view::Span::from(#when_some),
-                    None => ifengine::view::Span::from(#when_none),
-                }
-            }
-        }
-        _ => unreachable!(),
     };
 
     expanded.into()
@@ -74,6 +186,15 @@ pub fn read_key_mask(input: TokenStream) -> TokenStream {
         __ifengine_page_state.get_mask::<#n>(#key)
     }
     .into()
+}
+
+pub fn v(input: TokenStream) -> TokenStream {
+    let expr = syn::parse_macro_input!(input as Expr);
+
+    match condition_of(&expr) {
+        Ok(condition) => condition.into(),
+        Err(e) => e.to_compile_error().into(),
+    }
 }
 
 pub fn set(input: TokenStream) -> TokenStream {
@@ -240,22 +361,54 @@ pub fn reset_key(input: TokenStream) -> TokenStream {
     expanded.into()
 }
 
+#[derive(Clone, Copy)]
+pub enum TagMode {
+    Once,
+    Sticky,
+    Game,
+}
+
 pub struct TagInput {
     pub expr: Expr,
-    pub mode: Option<Ident>,
+    pub mode: Option<TagMode>,
+}
+
+fn parse_tag_mode(input: ParseStream) -> Result<Option<TagMode>> {
+    if !input.peek(Ident) {
+        return Ok(None);
+    }
+    let fork = input.fork();
+    let Ok(ident) = fork.parse::<Ident>() else {
+        return Ok(None);
+    };
+    if !fork.peek(Token![:]) || fork.peek(Token![::]) {
+        return Ok(None);
+    }
+    let _ident: Ident = input.parse()?;
+    let _colon: Token![:] = input.parse()?;
+    match ident.to_string().as_str() {
+        "Once" => Ok(Some(TagMode::Once)),
+        "Sticky" => Ok(Some(TagMode::Sticky)),
+        "Game" => Ok(Some(TagMode::Game)),
+        _ => Err(Error::new(
+            ident.span(),
+            "expected `Once:`, `Sticky:` or `Game:` prefix",
+        )),
+    }
+}
+
+fn tag_scope(mode: Option<TagMode>) -> proc_macro2::TokenStream {
+    match mode {
+        Some(TagMode::Once) => quote! { ifengine::core::TagScope::Once },
+        Some(TagMode::Game) => quote! { ifengine::core::TagScope::Game },
+        _ => quote! { ifengine::core::TagScope::Sticky },
+    }
 }
 
 impl Parse for TagInput {
     fn parse(input: ParseStream) -> Result<Self> {
+        let mode = parse_tag_mode(input)?;
         let expr: Expr = input.parse()?;
-        let mode: Option<Ident> = if input.peek(Token![,]) {
-            input.parse::<Token![,]>()?;
-            Some(input.parse()?)
-        } else if !input.is_empty() {
-            Some(input.parse()?)
-        } else {
-            None
-        };
         Ok(TagInput { expr, mode })
     }
 }
@@ -263,31 +416,22 @@ impl Parse for TagInput {
 pub fn tag(input: TokenStream) -> TokenStream {
     let TagInput { expr, mode } = parse_macro_input!(input as TagInput);
 
-    let sticky = match mode {
-        Some(id) => match id.to_string().as_str() {
-            "Sticky" => true,
-            "Once" => false,
-            _ => {
-                return Error::new_spanned(&id, "Expected `Sticky` or `Once`")
-                    .to_compile_error()
-                    .into();
-            }
-        },
-        None => false,
-    };
+    let scope = tag_scope(mode);
 
     let expanded = quote! {
-        __ifengine_page_state.tag(#expr, #sticky)
+        __ifengine_page_state.tag(#expr, #scope)
     };
 
     expanded.into()
 }
 
 pub fn untag(input: TokenStream) -> TokenStream {
-    let expr = syn::parse_macro_input!(input as syn::Expr);
+    let TagInput { expr, mode } = parse_macro_input!(input as TagInput);
+
+    let scope = tag_scope(mode);
 
     let expanded = quote! {
-        __ifengine_page_state.untag(#expr)
+        __ifengine_page_state.untag(#expr, #scope)
     };
 
     expanded.into()

@@ -9,32 +9,25 @@ use crate::nodes::{ExprAndOptional, MaybeKey};
 
 pub fn s(input: TokenStream) -> TokenStream {
     let input2 = proc_macro2::TokenStream::from(input.clone());
-    if let Ok(replace_input) = syn::parse2::<crate::choices::ReplaceInput>(input2) {
-        if replace_input.has_arrow {
-            return crate::choices::replace_span(input);
-        }
+    if let Ok(replace_input) = syn::parse2::<crate::choices::ReplaceInput>(input2)
+        && replace_input.has_arrow
+    {
+        return crate::choices::replace_span(input);
     }
 
-    let (maybe_key, exprs) = syn::parse::Parser::parse2(|input: ParseStream| {
-        let maybe_key: MaybeKey = input.parse()?;
-        let exprs = Punctuated::<Expr, syn::Token![,]>::parse_terminated(input)?;
-        Ok((maybe_key, exprs.into_iter().collect::<Vec<_>>()))
-    }, proc_macro2::TokenStream::from(input)).expect("failed to parse s! arguments");
+    let (maybe_key, exprs) = syn::parse::Parser::parse2(
+        |input: ParseStream| {
+            let maybe_key: MaybeKey = input.parse()?;
+            let exprs = Punctuated::<Expr, syn::Token![,]>::parse_terminated(input)?;
+            Ok((maybe_key, exprs.into_iter().collect::<Vec<_>>()))
+        },
+        proc_macro2::TokenStream::from(input),
+    )
+    .expect("failed to parse s! arguments");
 
     let id_tokens = maybe_key.into_tokens();
 
     let expanded = match exprs.len() {
-        0 => quote! {
-            ifengine::view::Span::new(String::new())
-                .with_id(#id_tokens)
-        },
-        1 => {
-            let expr = expand_string_expr(&exprs[0]);
-            quote! {
-                ifengine::view::Span::from(#expr)
-                    .with_id(#id_tokens)
-            }
-        }
         _ => {
             let expanded_exprs: Vec<_> = exprs.iter().map(expand_string_expr).collect();
             quote! {
@@ -49,17 +42,21 @@ pub fn s(input: TokenStream) -> TokenStream {
 
 pub fn l(input: TokenStream) -> TokenStream {
     let input2 = proc_macro2::TokenStream::from(input.clone());
-    if let Ok(replace_input) = syn::parse2::<crate::choices::ReplaceInput>(input2) {
-        if replace_input.has_arrow {
-            return crate::choices::replace_line(input);
-        }
+    if let Ok(replace_input) = syn::parse2::<crate::choices::ReplaceInput>(input2)
+        && replace_input.has_arrow
+    {
+        return crate::choices::replace_line(input);
     }
 
-    let (maybe_key, exprs) = syn::parse::Parser::parse2(|input: ParseStream| {
-        let maybe_key: MaybeKey = input.parse()?;
-        let exprs = Punctuated::<Expr, syn::Token![,]>::parse_terminated(input)?;
-        Ok((maybe_key, exprs))
-    }, proc_macro2::TokenStream::from(input)).expect("failed to parse l! arguments");
+    let (maybe_key, exprs) = syn::parse::Parser::parse2(
+        |input: ParseStream| {
+            let maybe_key: MaybeKey = input.parse()?;
+            let exprs = Punctuated::<Expr, syn::Token![,]>::parse_terminated(input)?;
+            Ok((maybe_key, exprs))
+        },
+        proc_macro2::TokenStream::from(input),
+    )
+    .expect("failed to parse l! arguments");
 
     let id_tokens = maybe_key.into_tokens();
     let lines = expand_lines(exprs);
@@ -187,16 +184,28 @@ pub enum AltVariant {
     Cycle,
 }
 
-impl Parse for AltVariant {
-    fn parse(input: ParseStream<'_>) -> Result<Self> {
-        let ident: Ident = input.parse()?;
+impl AltVariant {
+    /// Parses an optional `Stop:` / `Shuffle:` / `Cycle:` prefix.
+    fn parse_prefixed(input: ParseStream<'_>) -> Result<Option<Self>> {
+        if !input.peek(Ident) {
+            return Ok(None);
+        }
+        let fork = input.fork();
+        let Ok(ident) = fork.parse::<Ident>() else {
+            return Ok(None);
+        };
+        if !fork.peek(Token![:]) || fork.peek(Token![::]) {
+            return Ok(None);
+        }
+        let _ident: Ident = input.parse()?;
+        let _colon: Token![:] = input.parse()?;
         match ident.to_string().as_str() {
-            "Stop" => Ok(AltVariant::Stop),
-            "Shuffle" => Ok(AltVariant::Shuffle),
-            "Cycle" => Ok(AltVariant::Cycle),
+            "Stop" => Ok(Some(AltVariant::Stop)),
+            "Shuffle" => Ok(Some(AltVariant::Shuffle)),
+            "Cycle" => Ok(Some(AltVariant::Cycle)),
             _ => Err(Error::new(
                 ident.span(),
-                "expected AltVariant: Stop | Shuffle | Cycle",
+                "expected AltVariant prefix: Stop: | Shuffle: | Cycle:",
             )),
         }
     }
@@ -212,36 +221,14 @@ pub struct AltsInput {
 impl Parse for AltsInput {
     fn parse(input: ParseStream<'_>) -> Result<Self> {
         let maybe_key = input.parse()?;
+        let variant = AltVariant::parse_prefixed(input)?;
         let expr: Expr = input.parse()?;
 
-        let mut variant = None;
         let mut closure = None;
-
         if input.peek(Token![,]) {
             input.parse::<Token![,]>()?;
             if !input.is_empty() {
-                let is_variant = if input.peek(syn::Ident) {
-                    let fork = input.fork();
-                    if let Ok(ident) = fork.parse::<syn::Ident>() {
-                        matches!(ident.to_string().as_str(), "Stop" | "Shuffle" | "Cycle")
-                    } else {
-                        false
-                    }
-                } else {
-                    false
-                };
-
-                if is_variant {
-                    variant = Some(input.parse::<AltVariant>()?);
-                    if input.peek(Token![,]) {
-                        input.parse::<Token![,]>()?;
-                        if !input.is_empty() {
-                            closure = Some(input.parse::<ExprClosure>()?);
-                        }
-                    }
-                } else {
-                    closure = Some(input.parse::<ExprClosure>()?);
-                }
+                closure = Some(input.parse::<ExprClosure>()?);
             }
         }
 
@@ -366,37 +353,6 @@ pub fn alts(input: TokenStream) -> TokenStream {
     expanded.into()
 }
 
-pub struct CountInput {
-    pub maybe_key: MaybeKey,
-    pub closure: ExprClosure,
-}
-
-impl Parse for CountInput {
-    fn parse(input: ParseStream) -> Result<Self> {
-        let maybe_key = input.parse()?;
-        let closure = input.parse()?;
-
-        Ok(CountInput { maybe_key, closure })
-    }
-}
-
-pub fn count(input: TokenStream) -> TokenStream {
-    let CountInput { maybe_key, closure } = syn::parse_macro_input!(input as CountInput);
-    let key = maybe_key.into_tokens();
-
-    let expanded = quote! {{
-        let __ifengine_key = #key;
-        ifengine::view::Span::from(
-            (#closure)(__ifengine_page_state.get(__ifengine_key).unwrap_or_default())
-        )
-        .with_id(__ifengine_key)
-        .with_action(ifengine::Action::Inc(__ifengine_key))
-        .no_sim()
-    }};
-
-    expanded.into()
-}
-
 pub struct ClickInput {
     pub maybe_key: MaybeKey,
     pub max_clicks: Option<Expr>,
@@ -439,55 +395,91 @@ pub fn click(input: TokenStream) -> TokenStream {
         max_clicks,
     } = syn::parse_macro_input!(input as ClickInput);
     let key = maybe_key.into_tokens();
-    let expr_tokens = crate::helpers::expand_string_expr(&expr);
+    let is_closure = matches!(crate::helpers::unwrap_paren(&expr), Expr::Closure(_));
+
+    let is_unbounded = max_clicks.is_none() && (block.is_some() || is_closure);
+
     let max_clicks_tokens = match max_clicks {
         Some(m) => quote! { ((#m) as u64) },
         None => {
-            if block.is_some() {
-                quote! { 0u64 }
+            if is_unbounded {
+                quote! { u64::MAX }
             } else {
                 quote! { 1u64 }
             }
         }
     };
 
+    // A body-less click has no handler of its own: the only observable effect of the
+    // click is its location key, which is not reachable from `get!`/`Y!` by content.
+    // Record it under the hash of the span text as well, so an anchor like `click!("rocky")`
+    // can be read back with `get!("rocky")`.
+    let content_inc = if block.is_none() {
+        quote! {
+            let __ifengine_content_key =
+                ifengine::core::key::hash_key(&span.content);
+            span = span.with_action(ifengine::Action::Inc(__ifengine_content_key));
+        }
+    } else {
+        quote! {}
+    };
+
     let poll_action = match block {
         Some(b) => quote! {
             let _ = #b;
         },
-        None => quote! {
-            __ifengine_page_state.insert(&span.content, 0u64);
-        },
+        None => quote! {},
+    };
+
+    let span_init = if is_closure {
+        quote! {
+            if __ifengine_page_state.poll_click(__ifengine_key, #max_clicks_tokens, None) {
+                #poll_action
+            };
+            let __clicks = __ifengine_page_state
+                .get(__ifengine_key)
+                .map(|v| v & !ifengine::core::key::DIRTY_BIT)
+                .unwrap_or(0);
+            let mut span = ifengine::view::Span::from(
+                (#expr)(__clicks)
+            )
+            .with_id(__ifengine_key);
+        }
+    } else {
+        let expr_tokens = crate::helpers::expand_string_expr(&expr);
+        quote! {
+            if __ifengine_page_state.poll_click(__ifengine_key, #max_clicks_tokens, None) {
+                #poll_action
+            };
+            let mut span = ifengine::view::Span::from(
+                #expr_tokens
+            )
+            .with_id(__ifengine_key);
+        }
     };
 
     let expanded = quote! {{
         let __ifengine_key = #key;
-        let mut span = ifengine::view::Span::from(
-            #expr_tokens
-        )
-        .with_id(__ifengine_key);
-
-        if __ifengine_page_state.poll_click(__ifengine_key, #max_clicks_tokens) {
-            #poll_action
-        };
+        #span_init
 
         let __ifengine_max = #max_clicks_tokens;
+        let __ifengine_unbounded = #is_unbounded;
         let __ifengine_count = __ifengine_page_state
             .get(__ifengine_key)
-            .map(|v| v & !(1u64 << 63))
+            .map(|v| v & !ifengine::core::key::DIRTY_BIT)
             .unwrap_or(0);
 
-        let __ifengine_exceeded = if __ifengine_max == 0 {
-            false
-        } else {
-            __ifengine_count >= __ifengine_max
-        };
+        let __ifengine_exceeded = __ifengine_count >= __ifengine_max;
 
         if !__ifengine_exceeded {
-            span = span.with_action(ifengine::Action::SetBit(__ifengine_key, 63));
+            span = span.with_action(ifengine::Action::SetBit(
+                __ifengine_key,
+                ifengine::core::key::DIRTY_BIT_POS,
+            ));
+            #content_inc
         }
 
-        if __ifengine_exceeded || (__ifengine_max == 0 && __ifengine_count >= 1) {
+        if __ifengine_exceeded || (__ifengine_unbounded && __ifengine_count >= 1) {
             span = span.no_sim();
         }
 

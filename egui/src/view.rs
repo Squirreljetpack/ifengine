@@ -76,30 +76,26 @@ impl Span {
         }
 
         // ---- variants ----
-        if matches!(self.variant, SpanVariant::Secondary) {
-            if let Some(col) = global_theme().get_color("secondary") {
+        if matches!(self.variant, SpanVariant::Secondary)
+            && let Some(col) = global_theme().get_color("secondary") {
                 txt = txt.color(col);
             }
-        }
 
         // ---- style map ------
-        if let Some(fg) = self.style.get("color") {
-            if let Some(col) = global_theme().get_color(fg) {
+        if let Some(fg) = self.style.get("color")
+            && let Some(col) = global_theme().get_color(fg) {
                 txt = txt.color(col);
             }
-        }
 
-        if let Some(bg) = self.style.get("background") {
-            if let Some(col) = global_theme().get_color(bg) {
+        if let Some(bg) = self.style.get("background")
+            && let Some(col) = global_theme().get_color(bg) {
                 txt = txt.background_color(col);
             }
-        }
         // Font size
-        if let Some(size) = self.style.get("font-size") {
-            if let Ok(px) = size.parse::<f32>() {
+        if let Some(size) = self.style.get("font-size")
+            && let Ok(px) = size.parse::<f32>() {
                 txt = txt.size(px);
             }
-        }
 
         if let Some(hover) = self.style.get("hover")
             && hover == "true"

@@ -1,6 +1,8 @@
 use base64::prelude::*;
 use serde::{Deserialize, Serialize};
 
+use crate::transition::TransitionBackend;
+
 pub const AUTOSAVE_KEY: &str = "ifengine_autosave";
 pub const SAVES_KEY: &str = "ifengine_saves";
 
@@ -145,6 +147,34 @@ where
     }
 }
 
+/// Key for reader UI preferences, which live beside the save slots.
+pub const PREFERENCES_KEY: &str = "ifengine_preferences";
+
+/// Reader-facing UI preferences.
+#[derive(Clone, Copy, Debug, Default, Serialize, Deserialize)]
+pub struct Preferences {
+    /// Motion backend chosen in the options modal; `None` keeps the engine default.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub motion: Option<TransitionBackend>,
+}
+
+/// Loads stored UI preferences, falling back to defaults when absent or unreadable.
+pub fn load_preferences() -> Preferences {
+    local_storage()
+        .and_then(|storage| storage.get_item(PREFERENCES_KEY).ok().flatten())
+        .and_then(|raw| serde_json::from_str(&raw).ok())
+        .unwrap_or_default()
+}
+
+/// Stores `preferences`.
+pub fn save_preferences(preferences: &Preferences) {
+    if let Some(storage) = local_storage()
+        && let Ok(raw) = serde_json::to_string(preferences)
+    {
+        let _ = storage.set_item(PREFERENCES_KEY, &raw);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -182,6 +212,7 @@ mod tests {
                 || view.pageid.0.contains("saltwrack")
                 || view.pageid.0.contains("forest")
                 || view.pageid.0.contains("p1")
+                || view.pageid.0.contains("nursery")
         );
     }
 }

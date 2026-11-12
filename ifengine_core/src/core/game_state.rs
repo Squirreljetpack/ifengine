@@ -3,7 +3,10 @@ use std::{
     ops::{Deref, DerefMut},
 };
 
-use crate::core::{PageId, PageKey, key::USER_KEY_MASK};
+use crate::core::{
+    PageId, PageKey,
+    key::{LINK_COUNT_MASK, link_owner},
+};
 
 /// Internal key-value state store for all pages in the game.
 ///
@@ -49,12 +52,11 @@ impl GameState {
         chapter.inner.insert(key, value);
     }
 
-    /// Sets dirty bit on `key` if current value matches `expected & !(1 << 63)` (or is None/0).
-    /// Stores `(1 << 63) | loc` where `loc = expected & USER_KEY_MASK`.
+    /// Marks `key` as dirty for the paragraph `expected`, preserving its click count.
+    ///
+    /// Writes `DIRTY_BIT | loc | count`, where `loc = (expected & USER_KEY_MASK) << LINK_LOC_SHIFT`.
     pub fn set_dirty(&mut self, page_id: &PageId, key: PageKey, expected: u64) {
-        const DIRTY_BIT: u64 = 1 << 63;
-        const MASK_63: u64 = !DIRTY_BIT;
-        let loc = expected & USER_KEY_MASK;
+        let owner = link_owner(expected);
         let chapter = self
             .inner
             .entry(page_id.clone())
@@ -62,14 +64,9 @@ impl GameState {
                 inner: HashMap::new(),
             });
         match chapter.inner.get_mut(&key) {
-            Some(v) => {
-                let current_val = *v;
-                if current_val == 0 || (current_val & MASK_63) == loc {
-                    *v = DIRTY_BIT | loc;
-                }
-            }
+            Some(v) => *v = owner | (*v & LINK_COUNT_MASK),
             None => {
-                chapter.inner.insert(key, DIRTY_BIT | loc);
+                chapter.inner.insert(key, owner);
             }
         }
     }
@@ -98,7 +95,7 @@ impl GameState {
             });
 
         let current = chapter.inner.get(&key).copied().unwrap_or(0);
-        let updated = current | (1 << pos);
+        let updated = current | 1u64.checked_shl(pos as u32).unwrap_or(0);
 
         chapter.inner.insert(key, updated);
     }

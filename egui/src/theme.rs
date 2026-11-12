@@ -205,11 +205,10 @@ impl Theme {
     }
 
     pub fn get_color_from_theme(&self, theme: &str, name_or_hex: &str) -> Option<egui::Color32> {
-        if let Some(theme_map) = self.colors.get(theme) {
-            if let Some(&color) = theme_map.get(name_or_hex) {
+        if let Some(theme_map) = self.colors.get(theme)
+            && let Some(&color) = theme_map.get(name_or_hex) {
                 return Some(color);
             }
-        }
 
         // Fallback to parsing as hex
         egui::Color32::from_hex(name_or_hex).ok()
